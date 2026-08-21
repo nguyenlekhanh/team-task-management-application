@@ -1,0 +1,14 @@
+{
+  "development": {
+    "dialect": "sqlite",
+    "storage": "./data/team-management.sqlite"
+  },
+  "test": {
+    "dialect": "sqlite",
+    "storage": "./data/team-management-test.sqlite"
+  },
+  "production": {
+    "dialect": "sqlite",
+    "storage": "./data/team-management.sqlite"
+  }
+}
