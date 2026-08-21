@@ -40,6 +40,12 @@ export const authApi = {
   getMe: () => api.get('/auth/me'),
 }
 
+export const userApi = {
+  getProfile: () => api.get('/users/me'),
+  updateProfile: (data) => api.put('/users/me', data),
+  changePassword: (data) => api.put('/users/me/password', data),
+}
+
 export const healthApi = {
   check: () => api.get('/health'),
 }

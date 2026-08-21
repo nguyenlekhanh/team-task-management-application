@@ -116,11 +116,36 @@ POST http://localhost:3000/api/auth/logout
 Authorization: Bearer <token>
 ```
 
+#### User Profile
+```bash
+# Get profile (requires valid JWT token)
+GET http://localhost:3000/api/users/me
+Authorization: Bearer <token>
+
+# Update profile (requires valid JWT token)
+PUT http://localhost:3000/api/users/me
+Authorization: Bearer <token>
+{
+  "displayName": "New Name",
+  "avatarUrl": "https://example.com/avatar.png",
+  "onlineStatus": true
+}
+
+# Change password (requires valid JWT token)
+PUT http://localhost:3000/api/users/me/password
+Authorization: Bearer <token>
+{
+  "currentPassword": "oldpass",
+  "newPassword": "newpass123"
+}
+```
+
 ### Frontend Pages
 
 - **Login** (`/login`) - Username/password authentication
 - **Register** (`/register`) - New user registration
 - **Dashboard** (`/dashboard`) - Protected route showing user info and backend health status
+- **Profile** (`/profile`) - Protected route with Profile Settings and Change Password tabs
 
 ## Git Initialization and Workflow
 

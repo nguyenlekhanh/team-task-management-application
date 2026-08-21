@@ -125,6 +125,9 @@ export function Dashboard() {
             <Link to="/dashboard" className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 text-sm">
               Refresh Dashboard
             </Link>
+            <Link to="/profile" className="px-4 py-2 bg-gray-600 text-white rounded-md hover:bg-gray-700 text-sm">
+              Profile Settings
+            </Link>
           </div>
         </div>
       </main>

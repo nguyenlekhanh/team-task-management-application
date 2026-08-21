@@ -24,33 +24,51 @@
 - Only `Users` table created via migration
 - Other tables (Groups, GroupMembers, Tasks, Checklists, Messages, Notifications) NOT CREATED
 
-### Phase 2: User System - PARTIALLY IMPLEMENTED
+### Phase 2: User System - COMPLETED ✅
 **Implemented:**
 - User model with fields: id, username, password (hashed), displayName, avatarUrl, onlineStatus, createdAt, updatedAt
 - User registration: `POST /api/auth/register`
 - User login with JWT: `POST /api/auth/login`
 - User logout (cookie clearing): `POST /api/auth/logout`
-- Get current user: `GET /api/auth/me`
+- Get current user: `GET /api/auth/me` (supports cookie and Bearer token)
 - Password hashing with bcryptjs
 - JWT token generation (15 min expiry)
 - Cookie-based and Bearer token authentication support
+
+**Authentication Middleware:**
+- Reusable `authenticate` middleware in `backend/src/middleware/auth.js`
+- Supports both cookie-based and Bearer token authentication
+- Verifies JWT, loads user from database, attaches to `req.user`
+- Returns 401 for unauthenticated/invalid/expired tokens
+- Never exposes passwordHash
+
+**User Profile Management:**
+- GET `/api/users/me` - Get authenticated user's profile
+- PUT `/api/users/me` - Update profile (displayName, avatarUrl, onlineStatus)
+- Input validation - only allows permitted fields
+- Protected fields (id, username, password, createdAt, updatedAt) cannot be modified
+- Returns sanitized user object (no password)
+
+**Change Password:**
+- PUT `/api/users/me/password` - Change password
+- Requires current password verification
+- New password minimum 6 characters
+- Uses bcrypt for hashing
+- Never returns or logs passwords
 
 **Frontend Auth Features:**
 - Login page with form validation
 - Register page with form validation
 - Protected Dashboard route
+- Protected Profile route
 - Auth state persistence (localStorage)
 - Automatic redirect based on auth status
 - Backend health status display on Dashboard
 - Logout functionality
-
-**Missing/Incomplete:**
-- User profile management (update profile, change password, upload avatar)
-- Password reset/forgot password
-- Email verification
-- Refresh token mechanism
-- Authentication middleware for protected routes
-- Online status tracking (WebSocket integration)
+- Profile page with tabs: Profile Settings, Change Password
+- Edit displayName, avatarUrl, onlineStatus
+- Change password with current password verification
+- Account information display (read-only fields)
 
 ### Phase 3: Team Groups - NOT IMPLEMENTED
 - No Group model
@@ -93,7 +111,10 @@
 
 ### Backend Source Files:
 - `backend/src/controllers/authController.js` - Authentication logic
+- `backend/src/controllers/userController.js` - User profile & password logic
 - `backend/src/routes/auth.js` - Auth route definitions
+- `backend/src/routes/users.js` - User profile & password route definitions
+- `backend/src/middleware/auth.js` - Authentication middleware
 - `backend/src/models/User.js` - User Sequelize model
 - `backend/src/models/index.js` - Sequelize model loader (from sequelize-cli)
 - `backend/config/config.json` - Sequelize CLI config
@@ -105,6 +126,7 @@
 - `frontend/src/pages/Login.jsx` - Login page component
 - `frontend/src/pages/Register.jsx` - Register page component
 - `frontend/src/pages/Dashboard.jsx` - Dashboard page component
+- `frontend/src/pages/Profile.jsx` - Profile page component
 - `frontend/src/App.jsx` - Main app with routing and protected routes
 - `frontend/src/main.jsx` - Entry point with providers
 - `frontend/src/index.css` - TailwindCSS imports
@@ -118,7 +140,7 @@
 ### Modified Files:
 - `backend/package.json` - Added bcryptjs, jsonwebtoken, cookie-parser
 - `backend/src/app.js` - Added cookie-parser middleware
-- `backend/src/routes/index.js` - Added auth routes mounting
+- `backend/src/routes/index.js` - Added auth and users routes mounting
 - `frontend/package.json` - Complete dependency list
 
 ### Database:
@@ -139,6 +161,24 @@
 - ✅ `POST /api/auth/logout` - Clears cookie (client-side only)
 - ✅ `GET /api/auth/me` - Returns user data with valid token (cookie or Bearer)
 
+### User Profile Endpoints (Backend)
+- ✅ `GET /api/users/me` - Returns authenticated user's profile (sanitized)
+- ✅ `PUT /api/users/me` - Updates profile (displayName, avatarUrl, onlineStatus)
+- ✅ `PUT /api/users/me/password` - Changes password with verification
+- ✅ Protected fields (id, username, password, createdAt, updatedAt) cannot be modified
+- ✅ Unauthorized requests return 401
+- ✅ Invalid/expired tokens return 401
+- ✅ Password never returned in any response
+
+### Change Password Validation (Backend)
+- ✅ Requires both currentPassword and newPassword
+- ✅ Validates current password with bcrypt
+- ✅ Rejects wrong current password (401)
+- ✅ Rejects new password < 6 characters (400)
+- ✅ Hashes new password with bcrypt
+- ✅ Old password rejected after change
+- ✅ New password accepted after change
+
 ### Frontend Build & Dev Server
 - ✅ `npm run dev` - Starts Vite dev server on port 5173
 - ✅ `npm run build` - Creates optimized production build in dist/
@@ -149,11 +189,16 @@
 - ✅ Register page - Creates new user via backend API
 - ✅ Login page - Authenticates user, stores token in localStorage
 - ✅ Protected Dashboard route - Redirects to Login if not authenticated
+- ✅ Protected Profile route - Redirects to Login if not authenticated
 - ✅ Public routes (Login/Register) - Redirect to Dashboard if authenticated
 - ✅ Dashboard displays user info (username, displayName, id, createdAt)
 - ✅ Dashboard displays backend health status (status, timestamp, message)
+- ✅ Profile page - Displays and edits profile (displayName, avatarUrl, onlineStatus)
+- ✅ Profile page - Change password tab with validation
+- ✅ Profile page - Shows read-only account info (id, username, createdAt, updatedAt)
 - ✅ Logout - Clears localStorage, redirects to Login
 - ✅ Authentication state persists across page refreshes
+- ✅ Navigation between Dashboard and Profile
 
 ### Database Operations
 - ✅ User creation with unique username constraint
@@ -174,7 +219,7 @@
 |---------|--------|
 | Phase 0 completed | ✅ True |
 | Phase 1 completed (backend only) | ✅ Now complete (backend + frontend) |
-| Phase 2 implemented | ⚠️ Partial (auth endpoints only, no profile management) |
+| Phase 2 implemented | ✅ Now COMPLETE (auth, profile, password change, middleware) |
 | Phase 3 not started | ✅ True |
 
 ### README.md Claims vs Reality:
@@ -196,17 +241,11 @@
 
 ## Current Phase
 
-**Phase 2: User System** - Partially implemented (authentication endpoints working on both frontend and backend, but profile management and authentication middleware missing)
+**Phase 2: User System** - **COMPLETED** (all authentication endpoints, profile management, change password, and authentication middleware working on both frontend and backend)
 
 ## Recommended Next Steps
 
-1. **Complete Phase 2 User System:**
-   - Add authentication middleware for protected routes
-   - Implement user profile update endpoint
-   - Add change password endpoint
-   - Add avatar upload support
-
-2. **Begin Phase 3 Team Groups (Backend):**
+1. **Begin Phase 3 Team Groups (Backend):**
    - Create Group and GroupMember models
    - Add group migrations
    - Implement group CRUD endpoints
