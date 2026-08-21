@@ -70,11 +70,40 @@
 - Change password with current password verification
 - Account information display (read-only fields)
 
-### Phase 3: Team Groups - NOT IMPLEMENTED
-- No Group model
-- No GroupMember model
-- No group CRUD endpoints
-- No member management endpoints
+### Phase 3: Team Groups - COMPLETED (Backend) ✅
+**Implemented:**
+- Group model with fields: id, name, description, avatarUrl, ownerId, createdAt, updatedAt
+- GroupMember model with fields: id, groupId, userId, role (owner/admin/member), joinedAt, createdAt, updatedAt
+- Database migrations for Groups and GroupMembers tables
+- Foreign keys with proper cascade behavior
+- Unique constraint on (groupId, userId) to prevent duplicate membership
+- Indexes on groupId and userId for query performance
+
+**Group CRUD API:**
+- POST `/api/groups` - Create group (creator becomes owner automatically)
+- GET `/api/groups` - List authenticated user's groups with role info
+- GET `/api/groups/:id` - Get group details (must be member)
+- PUT `/api/groups/:id` - Update group (owner/admin only)
+- DELETE `/api/groups/:id` - Delete group (owner only)
+
+**Member Management API:**
+- GET `/api/groups/:id/members` - List group members with user info
+- POST `/api/groups/:id/members` - Add member (owner/admin only)
+- DELETE `/api/groups/:id/members/:userId` - Remove member (owner/admin, cannot remove owner)
+- PUT `/api/groups/:id/members/:userId` - Change member role (owner only, cannot change owner role)
+
+**Authorization Rules:**
+- All group endpoints require authentication (401 if not authenticated)
+- Users can only access groups they belong to (404 if not member)
+- Owner can manage all members, update, and delete group
+- Admin can manage normal members and update group
+- Admin cannot remove/change owner or delete group
+- Normal members cannot manage members or update/delete group
+- Duplicate membership prevented (409)
+- Invalid group/user returns 404
+
+**Frontend:**
+- Phase 3A is backend-only; frontend group UI (Phase 3B) NOT STARTED
 
 ### Phase 4: Task Management - NOT IMPLEMENTED
 - No Task model
@@ -112,13 +141,19 @@
 ### Backend Source Files:
 - `backend/src/controllers/authController.js` - Authentication logic
 - `backend/src/controllers/userController.js` - User profile & password logic
+- `backend/src/controllers/groupController.js` - Group & member logic
 - `backend/src/routes/auth.js` - Auth route definitions
 - `backend/src/routes/users.js` - User profile & password route definitions
+- `backend/src/routes/groups.js` - Group & member route definitions
 - `backend/src/middleware/auth.js` - Authentication middleware
 - `backend/src/models/User.js` - User Sequelize model
+- `backend/src/models/Group.js` - Group Sequelize model
+- `backend/src/models/GroupMember.js` - GroupMember Sequelize model
 - `backend/src/models/index.js` - Sequelize model loader (from sequelize-cli)
 - `backend/config/config.json` - Sequelize CLI config
 - `backend/migrations/20240821190000-create-users.js` - Users table migration
+- `backend/migrations/20240821190001-create-groups.js` - Groups table migration
+- `backend/migrations/20240821190002-create-group-members.js` - GroupMembers table migration
 
 ### Frontend Source Files:
 - `frontend/src/contexts/AuthContext.jsx` - Authentication state management
@@ -140,11 +175,11 @@
 ### Modified Files:
 - `backend/package.json` - Added bcryptjs, jsonwebtoken, cookie-parser
 - `backend/src/app.js` - Added cookie-parser middleware
-- `backend/src/routes/index.js` - Added auth and users routes mounting
+- `backend/src/routes/index.js` - Added auth, users, and groups routes mounting
 - `frontend/package.json` - Complete dependency list
 
 ### Database:
-- `backend/data/team-management.sqlite` - SQLite database with Users table
+- `backend/data/team-management.sqlite` - SQLite database with Users, Groups, GroupMembers tables
 
 ## Test Results
 
@@ -179,6 +214,28 @@
 - ✅ Old password rejected after change
 - ✅ New password accepted after change
 
+### Group & Member Endpoints (Backend)
+- ✅ `POST /api/groups` - Creates group, creator becomes owner
+- ✅ `GET /api/groups` - Lists user's groups with role info
+- ✅ `GET /api/groups/:id` - Returns group details (member only)
+- ✅ `PUT /api/groups/:id` - Updates group (owner/admin only)
+- ✅ `DELETE /api/groups/:id` - Deletes group (owner only)
+- ✅ `GET /api/groups/:id/members` - Lists members with user info
+- ✅ `POST /api/groups/:id/members` - Adds member (owner/admin only)
+- ✅ `DELETE /api/groups/:id/members/:userId` - Removes member (owner/admin, not owner)
+- ✅ `PUT /api/groups/:id/members/:userId` - Changes role (owner only, not owner)
+
+### Authorization Tests (Backend)
+- ✅ Unauthenticated requests return 401
+- ✅ Non-members cannot access group (404)
+- ✅ Invalid group returns 404
+- ✅ Member cannot update/delete group (403)
+- ✅ Admin can update group but not delete (403)
+- ✅ Admin cannot remove/change owner (403)
+- ✅ Member cannot manage members (403)
+- ✅ Duplicate membership returns 409
+- ✅ Missing group/user returns 404
+
 ### Frontend Build & Dev Server
 - ✅ `npm run dev` - Starts Vite dev server on port 5173
 - ✅ `npm run build` - Creates optimized production build in dist/
@@ -202,9 +259,14 @@
 
 ### Database Operations
 - ✅ User creation with unique username constraint
+- ✅ Group creation with owner assignment
+- ✅ GroupMember creation with role (creator = owner)
 - ✅ Password hashing with bcrypt (10 rounds)
 - ✅ JWT token generation and verification
 - ✅ Token expiry handling (15 minutes)
+- ✅ Foreign key constraints with cascade behavior
+- ✅ Unique constraint on (groupId, userId)
+- ✅ Indexes on groupId and userId
 
 ### API Integration (Frontend ↔ Backend)
 - ✅ Frontend makes API calls to backend via Vite proxy (dev) or direct URL (prod)
@@ -220,7 +282,7 @@
 | Phase 0 completed | ✅ True |
 | Phase 1 completed (backend only) | ✅ Now complete (backend + frontend) |
 | Phase 2 implemented | ✅ Now COMPLETE (auth, profile, password change, middleware) |
-| Phase 3 not started | ✅ True |
+| Phase 3 not started | ✅ Now COMPLETE (backend) |
 
 ### README.md Claims vs Reality:
 | Claimed | Actual |
@@ -228,12 +290,12 @@
 | Frontend setup instructions | ✅ Now implemented |
 | `npm run migrate:init` script | ❌ Script doesn't exist (but migrations work via sequelize-cli) |
 | Frontend runs on port 5173 | ✅ Now implemented |
-| Database migration commands | ❌ Only one migration exists |
+| Database migration commands | ❌ Only migrations exist |
 
 ### PROJECT_PLAN.md vs Reality:
 | Planned | Status |
 |---------|--------|
-| 7 database tables | ❌ Only 1 table (Users) |
+| 7 database tables | ❌ Only 3 tables (Users, Groups, GroupMembers) |
 | Frontend React + Vite + TailwindCSS | ✅ IMPLEMENTED |
 | Socket.IO for realtime | ❌ Not installed |
 | React Context API for state | ✅ IMPLEMENTED |
@@ -241,14 +303,20 @@
 
 ## Current Phase
 
-**Phase 2: User System** - **COMPLETED** (all authentication endpoints, profile management, change password, and authentication middleware working on both frontend and backend)
+**Phase 3: Team Groups** - **COMPLETED (Backend)** (Groups, GroupMembers, CRUD, member management, authorization rules all working)
 
 ## Recommended Next Steps
 
-1. **Begin Phase 3 Team Groups (Backend):**
-   - Create Group and GroupMember models
-   - Add group migrations
-   - Implement group CRUD endpoints
-   - Implement member management endpoints
+1. **Begin Phase 3B Team Groups (Frontend):**
+   - Group list page
+   - Group detail page
+   - Group creation form
+   - Member management UI
+
+2. **Begin Phase 4 Task Management (Backend):**
+   - Create Task and Checklist models
+   - Add task migrations
+   - Implement task CRUD endpoints
+   - Implement task assignment
 
 (End of file)

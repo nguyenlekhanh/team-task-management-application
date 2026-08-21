@@ -38,4 +38,21 @@ const User = sequelize.define('User', {
   }
 });
 
+User.associate = (models) => {
+  User.hasMany(models.Group, {
+    as: 'ownedGroups',
+    foreignKey: 'ownerId'
+  });
+  User.hasMany(models.GroupMember, {
+    as: 'groupMemberships',
+    foreignKey: 'userId'
+  });
+  User.belongsToMany(models.Group, {
+    as: 'groups',
+    through: models.GroupMember,
+    foreignKey: 'userId',
+    otherKey: 'groupId'
+  });
+};
+
 module.exports = User;

@@ -140,6 +140,64 @@ Authorization: Bearer <token>
 }
 ```
 
+#### Groups
+```bash
+# Create group (requires valid JWT token)
+POST http://localhost:3000/api/groups
+Authorization: Bearer <token>
+{
+  "name": "My Group",
+  "description": "Group description",
+  "avatarUrl": "https://example.com/avatar.png"
+}
+
+# List user's groups (requires valid JWT token)
+GET http://localhost:3000/api/groups
+Authorization: Bearer <token>
+
+# Get group (requires valid JWT token, must be member)
+GET http://localhost:3000/api/groups/1
+Authorization: Bearer <token>
+
+# Update group (requires valid JWT token, owner/admin only)
+PUT http://localhost:3000/api/groups/1
+Authorization: Bearer <token>
+{
+  "name": "New Name",
+  "description": "Updated description"
+}
+
+# Delete group (requires valid JWT token, owner only)
+DELETE http://localhost:3000/api/groups/1
+Authorization: Bearer <token>
+```
+
+#### Group Members
+```bash
+# List group members (requires valid JWT token, must be member)
+GET http://localhost:3000/api/groups/1/members
+Authorization: Bearer <token>
+
+# Add member (requires valid JWT token, owner/admin only)
+POST http://localhost:3000/api/groups/1/members
+Authorization: Bearer <token>
+{
+  "userId": 2,
+  "role": "member"
+}
+
+# Remove member (requires valid JWT token, owner/admin only, cannot remove owner)
+DELETE http://localhost:3000/api/groups/1/members/2
+Authorization: Bearer <token>
+
+# Change member role (requires valid JWT token, owner only, cannot change owner)
+PUT http://localhost:3000/api/groups/1/members/2
+Authorization: Bearer <token>
+{
+  "role": "admin"
+}
+```
+
 ### Frontend Pages
 
 - **Login** (`/login`) - Username/password authentication
@@ -241,7 +299,7 @@ See `PROJECT_PLAN.md` for the complete 9-phase development roadmap with implemen
 
 - **Frontend**: React 18 + Vite 5 + TailwindCSS 3 (IMPLEMENTED)
 - **Backend**: Node.js + Express + Sequelize (IMPLEMENTED)
-- **Database**: SQLite (IMPLEMENTED - Users table only)
+- **Database**: SQLite (IMPLEMENTED - Users, Groups, GroupMembers tables)
 - **Realtime**: Socket.IO (NOT IMPLEMENTED)
 - **Authentication**: JWT + bcrypt (IMPLEMENTED)
 - **State Management**: React Context API (IMPLEMENTED)

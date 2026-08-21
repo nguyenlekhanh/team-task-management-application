@@ -23,7 +23,7 @@ A collaboration platform combining task management, group communication, and tea
 ### Components - IMPLEMENTATION STATUS
 1. **Frontend**: React + Vite with TailwindCSS - **IMPLEMENTED (Phase 1 complete)**
 2. **Backend**: Node.js + Express API server - **IMPLEMENTED (Phase 1 complete)**
-3. **Database**: SQLite with ORM (Sequelize) - **IMPLEMENTED (Users table only)**
+3. **Database**: SQLite with ORM (Sequelize) - **IMPLEMENTED (Users, Groups, GroupMembers tables)**
 4. **Realtime**: Socket.IO for chat functionality - **NOT IMPLEMENTED**
 
 ## Folder Structure - ACTUAL vs PLANNED
@@ -37,21 +37,27 @@ project-root/
 │   │   ├── controllers/
 │   │   │   ├── authController.js     ✅ EXISTS
 │   │   │   ├── healthController.js   ✅ EXISTS
-│   │   │   └── userController.js     ✅ EXISTS
+│   │   │   ├── userController.js     ✅ EXISTS
+│   │   │   └── groupController.js    ✅ EXISTS
 │   │   ├── middleware/
 │   │   │   └── auth.js               ✅ EXISTS
 │   │   ├── models/
 │   │   │   ├── User.js               ✅ EXISTS
+│   │   │   ├── Group.js              ✅ EXISTS
+│   │   │   ├── GroupMember.js        ✅ EXISTS
 │   │   │   └── index.js              ✅ EXISTS
 │   │   ├── routes/
 │   │   │   ├── auth.js               ✅ EXISTS
 │   │   │   ├── index.js              ✅ EXISTS
-│   │   │   └── users.js              ✅ EXISTS
+│   │   │   ├── users.js              ✅ EXISTS
+│   │   │   └── groups.js             ✅ EXISTS
 │   │   ├── utils/                    ⚠️ EXISTS (empty)
 │   │   ├── app.js                    ✅ EXISTS
 │   │   └── server.js                 ✅ EXISTS
 │   ├── migrations/
-│   │   └── 20240821190000-create-users.js  ✅ EXISTS
+│   │   ├── 20240821190000-create-users.js      ✅ EXISTS
+│   │   ├── 20240821190001-create-groups.js     ✅ EXISTS
+│   │   └── 20240821190002-create-group-members.js ✅ EXISTS
 │   ├── package.json                  ✅ EXISTS
 │   ├── .env                          ✅ EXISTS
 │   └── data/
@@ -103,20 +109,25 @@ project-root/
 - `created_at` ✅
 - `updated_at` ✅
 
-#### 2. Groups ❌ NOT IMPLEMENTED
-- `id` (PK, auto-increment)
-- `name`
-- `description`
-- `created_by` (FK to Users)
-- `created_at`
-- `updated_at`
+#### 2. Groups ✅ IMPLEMENTED
+- `id` (PK, auto-increment) ✅
+- `name` ✅
+- `description` ✅
+- `avatar_url` ✅
+- `owner_id` (FK to Users) ✅
+- `created_at` ✅
+- `updated_at` ✅
 
-#### 3. GroupMembers ❌ NOT IMPLEMENTED
-- `id` (PK, auto-increment)
-- `group_id` (FK to Groups)
-- `user_id` (FK to Users)
-- `role` (member, admin, owner)
-- `joined_at`
+#### 3. GroupMembers ✅ IMPLEMENTED
+- `id` (PK, auto-increment) ✅
+- `group_id` (FK to Groups) ✅
+- `user_id` (FK to Users) ✅
+- `role` (owner, admin, member) ✅
+- `joined_at` ✅
+- `created_at` ✅
+- `updated_at` ✅
+- Unique constraint on (group_id, user_id) ✅
+- Indexes on group_id, user_id ✅
 
 #### 4. Tasks ❌ NOT IMPLEMENTED
 - `id` (PK, auto-increment)
@@ -179,10 +190,12 @@ project-root/
 - Authentication middleware ✅ IMPLEMENTED
 - Change password ✅ IMPLEMENTED
 
-### Phase 3: Team Groups ❌ NOT STARTED
-- Create groups ❌
-- Add/remove members ❌
-- Group settings ❌
+### Phase 3: Team Groups ✅ COMPLETED (Backend)
+- Create groups ✅ IMPLEMENTED
+- Add/remove members ✅ IMPLEMENTED
+- Group settings ✅ IMPLEMENTED
+- Group member management ✅ IMPLEMENTED
+- Role-based authorization (owner, admin, member) ✅ IMPLEMENTED
 
 ### Phase 4: Task Management ❌ NOT STARTED
 - Create/edit tasks ❌
@@ -250,14 +263,20 @@ project-root/
 
 ## Current Phase
 
-**Phase 2: User System** - **COMPLETED** (all authentication endpoints, profile management, and change password working)
+**Phase 3: Team Groups** - **COMPLETED (Backend)** (Groups, GroupMembers, CRUD, member management, authorization rules)
 
 ## Recommended Next Steps
 
-1. **Begin Phase 3 Team Groups (Backend):**
-   - Create Group and GroupMember models
-   - Add group migrations
-   - Implement group CRUD endpoints
-   - Implement member management endpoints
+1. **Begin Phase 3B Team Groups (Frontend):**
+   - Group list page
+   - Group detail page
+   - Group creation form
+   - Member management UI
+
+2. **Begin Phase 4 Task Management (Backend):**
+   - Create Task and Checklist models
+   - Add task migrations
+   - Implement task CRUD endpoints
+   - Implement task assignment
 
 (End of file)

@@ -1,6 +1,6 @@
 # Team Task Management Application - Project Progress
 
-## Phase Status: PHASE 2 - COMPLETED (Backend + Frontend)
+## Phase Status: PHASE 3 - COMPLETED (Backend)
 
 ### What Was Implemented
 
@@ -49,6 +49,37 @@
 - Uses bcrypt for hashing
 - Never returns or logs passwords
 
+**Groups & Group Members (Phase 3 - Backend):**
+- Group model with fields: id, name, description, avatarUrl, ownerId, createdAt, updatedAt
+- GroupMember model with fields: id, groupId, userId, role (owner/admin/member), joinedAt, createdAt, updatedAt
+- Database migrations for Groups and GroupMembers tables
+- Foreign keys with proper cascade behavior
+- Unique constraint on (groupId, userId) to prevent duplicate membership
+- Indexes on groupId and userId for query performance
+
+**Group CRUD API (Phase 3):**
+- POST `/api/groups` - Create group (creator becomes owner automatically)
+- GET `/api/groups` - List authenticated user's groups with role info
+- GET `/api/groups/:id` - Get group details (must be member)
+- PUT `/api/groups/:id` - Update group (owner/admin only)
+- DELETE `/api/groups/:id` - Delete group (owner only)
+
+**Member Management API (Phase 3):**
+- GET `/api/groups/:id/members` - List group members with user info
+- POST `/api/groups/:id/members` - Add member (owner/admin only)
+- DELETE `/api/groups/:id/members/:userId` - Remove member (owner/admin, cannot remove owner)
+- PUT `/api/groups/:id/members/:userId` - Change member role (owner only, cannot change owner role)
+
+**Authorization Rules (Phase 3):**
+- All group endpoints require authentication (401 if not authenticated)
+- Users can only access groups they belong to (404 if not member)
+- Owner can manage all members, update, and delete group
+- Admin can manage normal members and update group
+- Admin cannot remove/change owner or delete group
+- Normal members cannot manage members or update/delete group
+- Duplicate membership prevented (409)
+- Invalid group/user returns 404
+
 **Frontend Pages:**
 - **Login** (`/login`) - Username/password form, redirects to dashboard on success
 - **Register** (`/register`) - Username/displayName/password form, redirects to dashboard on success
@@ -72,18 +103,24 @@
 **Backend Source Files (New):**
 - `backend/src/controllers/authController.js` - Authentication logic
 - `backend/src/controllers/userController.js` - User profile & password logic
+- `backend/src/controllers/groupController.js` - Group & member logic
 - `backend/src/routes/auth.js` - Auth route definitions
 - `backend/src/routes/users.js` - User profile & password route definitions
+- `backend/src/routes/groups.js` - Group & member route definitions
 - `backend/src/middleware/auth.js` - Authentication middleware
 - `backend/src/models/User.js` - User Sequelize model
+- `backend/src/models/Group.js` - Group Sequelize model
+- `backend/src/models/GroupMember.js` - GroupMember Sequelize model
 - `backend/src/models/index.js` - Sequelize model loader
 - `backend/config/config.json` - Sequelize CLI config
 - `backend/migrations/20240821190000-create-users.js` - Users table migration
+- `backend/migrations/20240821190001-create-groups.js` - Groups table migration
+- `backend/migrations/20240821190002-create-group-members.js` - GroupMembers table migration
 
 **Backend Modified Files:**
 - `backend/package.json` - Added bcryptjs, jsonwebtoken, cookie-parser
 - `backend/src/app.js` - Added cookie-parser middleware
-- `backend/src/routes/index.js` - Added auth and users routes mounting
+- `backend/src/routes/index.js` - Added auth, users, and groups routes mounting
 
 **Frontend Source Files (New):**
 - `frontend/src/contexts/AuthContext.jsx` - Authentication state management
@@ -108,8 +145,16 @@
 ### Database Changes
 
 - `Users` table created via migration with all planned fields
+- `Groups` table created via migration with all planned fields
+- `GroupMembers` table created via migration with all planned fields
 - `SequelizeMeta` table for migration tracking
-- Other planned tables (Groups, GroupMembers, Tasks, Checklists, Messages, Notifications) NOT CREATED
+- Foreign keys with proper cascade behavior:
+  - Group.ownerId -> Users.id (RESTRICT on delete)
+  - GroupMember.groupId -> Groups.id (CASCADE on delete)
+  - GroupMember.userId -> Users.id (CASCADE on delete)
+- Unique constraint on (groupId, userId) to prevent duplicate membership
+- Indexes on groupId and userId for query performance
+- Other planned tables (Tasks, Checklists, Messages, Notifications) NOT CREATED
 
 ### How to Run/Test
 
@@ -175,11 +220,51 @@ curl -X PUT http://localhost:3000/api/users/me/password \
 
 # Logout
 curl -X POST -H "Authorization: Bearer <token>" http://localhost:3000/api/auth/logout
+
+# Group endpoints (all require authentication)
+# Create group
+curl -X POST http://localhost:3000/api/groups \
+  -H "Authorization: Bearer <token>" \
+  -H "Content-Type: application/json" \
+  -d '{"name":"My Group","description":"Group description"}'
+
+# List user's groups
+curl -H "Authorization: Bearer <token>" http://localhost:3000/api/groups
+
+# Get group
+curl -H "Authorization: Bearer <token>" http://localhost:3000/api/groups/1
+
+# Update group
+curl -X PUT http://localhost:3000/api/groups/1 \
+  -H "Authorization: Bearer <token>" \
+  -H "Content-Type: application/json" \
+  -d '{"name":"New Name"}'
+
+# Delete group
+curl -X DELETE -H "Authorization: Bearer <token>" http://localhost:3000/api/groups/1
+
+# List members
+curl -H "Authorization: Bearer <token>" http://localhost:3000/api/groups/1/members
+
+# Add member
+curl -X POST http://localhost:3000/api/groups/1/members \
+  -H "Authorization: Bearer <token>" \
+  -H "Content-Type: application/json" \
+  -d '{"userId":2,"role":"member"}'
+
+# Remove member
+curl -X DELETE -H "Authorization: Bearer <token>" http://localhost:3000/api/groups/1/members/2
+
+# Change member role
+curl -X PUT http://localhost:3000/api/groups/1/members/2 \
+  -H "Authorization: Bearer <token>" \
+  -H "Content-Type: application/json" \
+  -d '{"role":"admin"}'
 ```
 
 ### Known Issues
 
-1. **Only 1 of 7 database tables created** - Missing Groups, GroupMembers, Tasks, Checklists, Messages, Notifications
+1. **Only 3 of 7 database tables created** - Missing Tasks, Checklists, Messages, Notifications
 2. **User System incomplete** - Missing password reset/forgot password, email verification, refresh tokens
 3. **No tests** - No unit or integration tests
 4. **Logout only clears cookie** - JWT token remains valid until expiry (stateless)
@@ -188,10 +273,16 @@ curl -X POST -H "Authorization: Bearer <token>" http://localhost:3000/api/auth/l
 
 ### Next Recommended Steps
 
-1. **Begin Phase 3 Team Groups (Backend):**
-   - Create Group and GroupMember models
-   - Add group migrations
-   - Implement group CRUD endpoints
-   - Implement member management endpoints
+1. **Begin Phase 3B Team Groups (Frontend):**
+   - Group list page
+   - Group detail page
+   - Group creation form
+   - Member management UI
+
+2. **Begin Phase 4 Task Management (Backend):**
+   - Create Task and Checklist models
+   - Add task migrations
+   - Implement task CRUD endpoints
+   - Implement task assignment
 
 (End of file)
