@@ -301,4 +301,16 @@ curl -X PUT http://localhost:3000/api/groups/1/members/2 \
    - Task creation form
    - Task assignment UI
 
+### Phase 4 Design Status: ✅ COMPLETED
+
+**Design Document**: `PHASE4_DESIGN.md` created with:
+- Database ER diagram and table definitions
+- Tasks, Checklists, TaskMembers table definitions
+- Relationships and foreign keys
+- API endpoint proposals with authorization rules
+- Frontend page proposals
+- Migration plan
+- Risks and design decisions
+- Future compatibility considerations
+
 (End of file)

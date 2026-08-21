@@ -109,11 +109,22 @@
 - **Member management UI** - Add member modal, role dropdown, remove buttons
 - **Role-based UI** - Owner sees delete/update, admin sees update/member management, member sees view-only
 
-### Phase 4: Task Management - NOT IMPLEMENTED
-- No Task model
-- No task CRUD endpoints
-- No task assignment
-- No task filtering/dashboard
+### Phase 4: Task Management - DESIGN COMPLETED ✅
+**Design Document**: `PHASE4_DESIGN.md` created with:
+- Database ER diagram and table definitions (Tasks, Checklists, TaskMembers)
+- Relationships and foreign keys
+- API endpoint proposals with authorization rules
+- Frontend page proposals
+- Migration plan
+- Risks and design decisions
+- Future compatibility considerations
+
+**Design Review Result**: Design document created and ready for implementation approval. Key design decisions:
+- Single assignee for Phase 4, TaskMembers table for future multi-assignee support
+- Checklist ordering with integer, drag-drop later
+- Overdue status computed on read, no cron needed
+- Cascade delete on group, SET NULL on assignee delete
+- TaskMembers table created now for future-proofing
 
 ### Phase 5: Task Checklist - NOT IMPLEMENTED
 - No Checklist model

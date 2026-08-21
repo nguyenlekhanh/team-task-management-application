@@ -239,6 +239,91 @@ project-root/
 3. **Engagement**: Notifications, progress tracking
 4. **UX**: Responsive design, mobile optimization
 
+## Phase 4 Design Section
+
+### Database Design - Phase 4 Task Management
+
+#### 4. Tasks ✅ DESIGNED
+- `id` (PK, auto-increment)
+- `title` (STRING, NOT NULL)
+- `description` (TEXT, nullable)
+- `creatorId` (FK to Users, NOT NULL)
+- `assigneeId` (FK to Users, nullable - single assignee for now)
+- `groupId` (FK to Groups, NOT NULL)
+- `priority` (ENUM: low, medium, high, DEFAULT 'medium')
+- `startDate` (DATE, nullable)
+- `dueDate` (DATE, nullable)
+- `status` (ENUM: todo, in_progress, completed, overdue, DEFAULT 'todo')
+- `completedAt` (DATE, nullable)
+- `createdAt` (DATE, DEFAULT NOW)
+- `updatedAt` (DATE, DEFAULT NOW)
+
+#### 5. Checklists ✅ DESIGNED
+- `id` (PK, auto-increment)
+- `taskId` (FK to Tasks, NOT NULL)
+- `title` (STRING, NOT NULL)
+- `isCompleted` (BOOLEAN, DEFAULT false)
+- `order` (INTEGER, DEFAULT 0)
+- `completedBy` (FK to Users, nullable)
+- `completedAt` (DATE, nullable)
+- `createdAt` (DATE, DEFAULT NOW)
+- `updatedAt` (DATE, DEFAULT NOW)
+
+#### 6. TaskMembers ✅ DESIGNED (for future multi-assignee support)
+- `id` (PK, auto-increment)
+- `taskId` (FK to Tasks, NOT NULL)
+- `userId` (FK to Users, NOT NULL)
+- `role` (ENUM: assignee, reviewer, follower, DEFAULT 'assignee')
+- `assignedAt` (DATE, DEFAULT NOW)
+- `assignedBy` (FK to Users, NOT NULL)
+- Unique constraint on (taskId, userId)
+
+### Relationships
+- User 1:N Tasks (creator)
+- User 1:N Tasks (assignee - single for now)
+- Group 1:N Tasks
+- Task 1:N Checklists
+- Task N:M Users (via TaskMembers - future multi-assignee)
+
+### API Endpoints (Proposed)
+- POST /api/groups/:groupId/tasks - Create task
+- GET /api/groups/:groupId/tasks - List tasks (with filters)
+- GET /api/tasks/:id - Get task details
+- PUT /api/tasks/:id - Update task
+- DELETE /api/tasks/:id - Delete task
+- PUT /api/tasks/:id/assign - Assign/reassign task
+- PUT /api/tasks/:id/status - Update task status
+- POST /api/tasks/:taskId/checklist - Add checklist item
+- GET /api/tasks/:taskId/checklist - List checklist items
+- PUT /api/checklist/:id - Update checklist item
+- PUT /api/checklist/:id/complete - Toggle completion
+- DELETE /api/checklist/:id - Delete checklist item
+
+### Authorization Rules
+- Owner: Full access to all tasks in group
+- Admin: Manage all tasks, assign tasks, cannot delete owner's tasks
+- Creator: Update/delete own tasks, change status
+- Assignee: Update status, add/complete checklist items
+- Member: Create tasks, add/complete checklist items
+
+### Frontend Pages (Proposed)
+- TaskList: /groups/:groupId/tasks
+- TaskDetail: /groups/:groupId/tasks/:taskId
+- TaskForm: /groups/:groupId/tasks/new and /edit
+- MyTasks: /tasks (cross-group dashboard)
+
+### Migration Plan
+1. 20240821190003-create-tasks.js
+2. 20240821190004-create-checklists.js
+3. 20240821190005-create-task-members.js (future-proofing)
+
+### Risks and Decisions
+- Single assignee for Phase 4, TaskMembers table for future multi-assignee
+- Checklist ordering with integer, drag-drop later
+- Overdue status computed on read, no cron needed
+- Cascade delete on group, SET NULL on assignee delete
+- TaskMembers table created now for future-proofing
+
 ## Technology Decisions - INSTALLATION STATUS
 
 - **ORM**: Sequelize (mature SQLite support, migrations) ✅ INSTALLED
