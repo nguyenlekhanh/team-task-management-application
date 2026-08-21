@@ -204,6 +204,8 @@ Authorization: Bearer <token>
 - **Register** (`/register`) - New user registration
 - **Dashboard** (`/dashboard`) - Protected route showing user info and backend health status
 - **Profile** (`/profile`) - Protected route with Profile Settings and Change Password tabs
+- **Groups** (`/groups`) - List user's groups, create new group
+- **Group Detail** (`/groups/:id`) - Group details, member management
 
 ## Git Initialization and Workflow
 
