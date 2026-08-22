@@ -53,6 +53,24 @@ User.associate = (models) => {
     foreignKey: 'userId',
     otherKey: 'groupId'
   });
+  User.hasMany(models.Task, {
+    as: 'createdTasks',
+    foreignKey: 'creatorId'
+  });
+  User.hasMany(models.Task, {
+    as: 'assignedTasks',
+    foreignKey: 'assigneeId'
+  });
+  User.hasMany(models.Checklist, {
+    as: 'completedChecklists',
+    foreignKey: 'completedBy'
+  });
+  User.belongsToMany(models.Task, {
+    as: 'taskAssignments',
+    through: models.TaskMember,
+    foreignKey: 'userId',
+    otherKey: 'taskId'
+  });
 };
 
 module.exports = User;

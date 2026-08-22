@@ -59,6 +59,11 @@ Group.associate = (models) => {
     foreignKey: 'groupId',
     onDelete: 'CASCADE'
   });
+  Group.hasMany(models.Task, {
+    as: 'tasks',
+    foreignKey: 'groupId',
+    onDelete: 'CASCADE'
+  });
 };
 
 module.exports = Group;

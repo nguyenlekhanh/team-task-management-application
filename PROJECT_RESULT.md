@@ -109,24 +109,59 @@
 - **Member management UI** - Add member modal, role dropdown, remove buttons
 - **Role-based UI** - Owner sees delete/update, admin sees update/member management, member sees view-only
 
-### Phase 4: Task Management - DESIGN COMPLETED ✅
-**Design Document**: `PHASE4_DESIGN.md` created with:
-- Database ER diagram and table definitions (Tasks, Checklists, TaskMembers)
-- Relationships and foreign keys
-- API endpoint proposals with authorization rules
-- Frontend page proposals
-- Migration plan
-- Risks and design decisions
-- Future compatibility considerations
+### Phase 4: Task Management - PHASE 4A COMPLETED ✅
+**Phase 4A - Backend Database Layer Implementation:**
 
-**Design Review Result**: Design document created and ready for implementation approval. Key design decisions:
-- Single assignee for Phase 4, TaskMembers table for future multi-assignee support
-- Checklist ordering with integer, drag-drop later
-- Overdue status computed on read, no cron needed
-- Cascade delete on group, SET NULL on assignee delete
-- TaskMembers table created now for future-proofing
+**Models Created:**
+- `backend/src/models/Task.js` - Task Sequelize model with all fields, indexes, and associations
+- `backend/src/models/Checklist.js` - Checklist Sequelize model with all fields, indexes, and associations
+- `backend/src/models/TaskMember.js` - TaskMember Sequelize model with all fields, indexes, and associations
 
-### Phase 5: Task Checklist - NOT IMPLEMENTED
+**Migrations Created and Executed:**
+- `backend/migrations/20240821190003-create-tasks.js` - Tasks table with all fields, indexes, and FKs
+- `backend/migrations/20240821190004-create-checklists.js` - Checklists table with all fields, indexes, and FKs
+- `backend/migrations/20240821190005-create-task-members.js` - TaskMembers table with all fields, indexes, and FKs
+
+**Model Association Updates:**
+- `backend/src/models/User.js` - Added createdTasks, assignedTasks, completedChecklists, taskAssignments associations
+- `backend/src/models/Group.js` - Added tasks association
+- `backend/src/models/Task.js` - Added creator, assignee, group, checklist, assignees associations
+- `backend/src/models/Checklist.js` - Added task, completer associations
+- `backend/src/models/TaskMember.js` - Added task, user, assigner associations
+
+**Verification Results:**
+- ✅ All 3 migrations executed successfully
+- ✅ All 3 tables created with correct columns, types, and constraints
+- ✅ All foreign keys created with correct cascade rules
+- ✅ All indexes created (single and composite)
+- ✅ All unique constraints enforced
+- ✅ All model associations working correctly
+- ✅ All table structures match PHASE4_DESIGN.md specifications
+
+**Database Tables Now Created (6 total):**
+- Users ✅
+- Groups ✅
+- GroupMembers ✅
+- Tasks ✅
+- Checklists ✅
+- TaskMembers ✅
+
+**Foreign Key Cascade Rules Verified:**
+- Task.creatorId → Users.id (RESTRICT on delete)
+- Task.assigneeId → Users.id (SET NULL on delete)
+- Task.groupId → Groups.id (CASCADE on delete)
+- Checklist.taskId → Tasks.id (CASCADE on delete)
+- Checklist.completedBy → Users.id (SET NULL on delete)
+- TaskMember.taskId → Tasks.id (CASCADE on delete)
+- TaskMember.userId → Users.id (CASCADE on delete)
+- TaskMember.assignedBy → Users.id (RESTRICT on delete)
+
+**Indexes Created:**
+- Tasks: groupId, assigneeId, creatorId, (groupId, status), (assigneeId, status)
+- Checklists: taskId, (taskId, order)
+- TaskMembers: (taskId, userId) unique, taskId, userId
+
+### Phase 5: Task Checklist - NOT IMPLEMENTED (Backend API pending)
 - No Checklist model
 - No checklist endpoints
 
@@ -157,18 +192,20 @@
 - `backend/src/controllers/authController.js` - Authentication logic
 - `backend/src/controllers/userController.js` - User profile & password logic
 - `backend/src/controllers/groupController.js` - Group & member logic
-- `backend/src/routes/auth.js` - Auth route definitions
-- `backend/src/routes/users.js` - User profile & password route definitions
-- `backend/src/routes/groups.js` - Group & member route definitions
-- `backend/src/middleware/auth.js` - Authentication middleware
 - `backend/src/models/User.js` - User Sequelize model
 - `backend/src/models/Group.js` - Group Sequelize model
 - `backend/src/models/GroupMember.js` - GroupMember Sequelize model
+- `backend/src/models/Task.js` - Task Sequelize model
+- `backend/src/models/Checklist.js` - Checklist Sequelize model
+- `backend/src/models/TaskMember.js` - TaskMember Sequelize model
 - `backend/src/models/index.js` - Sequelize model loader (from sequelize-cli)
 - `backend/config/config.json` - Sequelize CLI config
 - `backend/migrations/20240821190000-create-users.js` - Users table migration
 - `backend/migrations/20240821190001-create-groups.js` - Groups table migration
 - `backend/migrations/20240821190002-create-group-members.js` - GroupMembers table migration
+- `backend/migrations/20240821190003-create-tasks.js` - Tasks table migration
+- `backend/migrations/20240821190004-create-checklists.js` - Checklists table migration
+- `backend/migrations/20240821190005-create-task-members.js` - TaskMembers table migration
 
 ### Frontend Source Files:
 - `frontend/src/contexts/AuthContext.jsx` - Authentication state management
@@ -197,7 +234,7 @@
 - `frontend/package.json` - Complete dependency list
 
 ### Database:
-- `backend/data/team-management.sqlite` - SQLite database with Users, Groups, GroupMembers tables
+- `backend/data/team-management.sqlite` - SQLite database with Users, Groups, GroupMembers, Tasks, Checklists, TaskMembers tables
 
 ## Test Results
 
@@ -253,6 +290,23 @@
 - ✅ Member cannot manage members (403)
 - ✅ Duplicate membership returns 409
 - ✅ Missing group/user returns 404
+
+### Phase 4A Database Tests (Backend)
+- ✅ Tasks table created with all columns, types, and constraints
+- ✅ Checklists table created with all columns, types, and constraints
+- ✅ TaskMembers table created with all columns, types, and constraints
+- ✅ All foreign keys created with correct cascade rules
+- ✅ All indexes created (single and composite)
+- ✅ All unique constraints enforced
+- ✅ All model associations working correctly
+- ✅ User associations: createdTasks, assignedTasks, completedChecklists, taskAssignments
+- ✅ Group associations: tasks
+- ✅ Task associations: creator, assignee, group, checklist, assignees
+- ✅ Checklist associations: task, completer
+- ✅ TaskMember associations: task, user, assigner
+- ✅ Foreign key cascade rules verified for all 8 FKs
+
+### Phase 4B API Tests (Backend) - NOT STARTED
 
 ### Frontend Build & Dev Server
 - ✅ `npm run dev` - Starts Vite dev server on port 5173
@@ -318,7 +372,7 @@
 ### PROJECT_PLAN.md vs Reality:
 | Planned | Status |
 |---------|--------|
-| 7 database tables | ❌ Only 3 tables (Users, Groups, GroupMembers) |
+| 7 database tables | ❌ Only 6 tables (Users, Groups, GroupMembers, Tasks, Checklists, TaskMembers) |
 | Frontend React + Vite + TailwindCSS | ✅ IMPLEMENTED |
 | Socket.IO for realtime | ❌ Not installed |
 | React Context API for state | ✅ IMPLEMENTED |
@@ -326,20 +380,22 @@
 
 ## Current Phase
 
-**Phase 3: Team Groups** - **COMPLETED (Backend + Frontend)** (Groups, GroupMembers, CRUD, member management, authorization rules all working)
+**Phase 4B: Task Management (Backend API)** - Phase 4A database layer complete, ready for API implementation
 
 ## Recommended Next Steps
 
-1. **Begin Phase 4 Task Management (Backend):**
-   - Create Task and Checklist models
-   - Add task migrations
-   - Implement task CRUD endpoints
-   - Implement task assignment
+1. **Begin Phase 4B Task Management (Backend API):**
+   - Implement task CRUD endpoints (POST/GET/PUT/DELETE /api/groups/:groupId/tasks)
+   - Implement checklist CRUD endpoints (POST/GET/PUT/DELETE /api/tasks/:taskId/checklist)
+   - Implement task assignment endpoint (PUT /api/tasks/:id/assign)
+   - Implement task status update endpoint (PUT /api/tasks/:id/status)
+   - Add authorization middleware for task operations
 
-2. **Begin Phase 4 Task Management (Frontend):**
-   - Task list page
-   - Task detail page
-   - Task creation form
-   - Task assignment UI
+2. **Begin Phase 4C Task Management (Frontend):**
+   - Task list page (/groups/:groupId/tasks)
+   - Task detail page (/groups/:groupId/tasks/:taskId)
+   - Task creation/edit form
+   - Checklist component with completion toggle
+   - Integration with Group pages
 
 (End of file)
