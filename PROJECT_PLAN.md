@@ -132,44 +132,41 @@ project-root/
 - Unique constraint on (group_id, user_id) ✅
 - Indexes on group_id, user_id ✅
 
-#### 4. Tasks ❌ NOT IMPLEMENTED
-- `id` (PK, auto-increment)
-- `title`
-- `description`
-- `creator_id` (FK to Users)
-- `assignee_id` (FK to Users, nullable)
-- `group_id` (FK to Groups)
-- `priority` (low, medium, high)
-- `start_date`
-- `due_date`
-- `status` (todo, in_progress, completed, overdue)
-- `created_at`
-- `updated_at`
+#### 4. Tasks ✅ IMPLEMENTED (Phase 4B-1)
+- `id` (PK, auto-increment) ✅
+- `title` (STRING, NOT NULL) ✅
+- `description` (TEXT, nullable) ✅
+- `creatorId` (FK to Users, NOT NULL) ✅
+- `assigneeId` (FK to Users, nullable - single assignee for now) ✅
+- `groupId` (FK to Groups, NOT NULL) ✅
+- `status` (ENUM: todo, in_progress, completed, overdue, DEFAULT 'todo') ✅
+- `priority` (ENUM: low, medium, high, urgent, DEFAULT 'medium') ✅
+- `startDate` (DATE, nullable) ✅
+- `dueDate` (DATE, nullable) ✅
+- `completedAt` (DATE, nullable) ✅
+- `createdAt` (DATE, DEFAULT NOW) ✅
+- `updatedAt` (DATE, DEFAULT NOW) ✅
 
-#### 5. Checklists ❌ NOT IMPLEMENTED
+#### 5. Checklists ❌ NOT IMPLEMENTED (Backend API pending)
 - `id` (PK, auto-increment)
-- `task_id` (FK to Tasks)
-- `title`
-- `is_completed` (default: false)
-- `created_at`
+- `taskId` (FK to Tasks, NOT NULL)
+- `title` (STRING, NOT NULL)
+- `isCompleted` (BOOLEAN, DEFAULT false)
+- `order` (INTEGER, DEFAULT 0)
+- `completedBy` (FK to Users, nullable)
+- `completedAt` (DATE, nullable)
+- `createdAt` (DATE, DEFAULT NOW)
+- `updatedAt` (DATE, DEFAULT NOW)
 
-#### 6. Messages ❌ NOT IMPLEMENTED
-- `id` (PK, auto-increment)
-- `sender_id` (FK to Users)
-- `group_id` (FK to Groups, nullable for task comments)
-- `task_id` (FK to Tasks, nullable)
-- `content`
-- `created_at`
-
-#### 7. Notifications ❌ NOT IMPLEMENTED
-- `id` (PK, auto-increment)
-- `recipient_id` (FK to Users)
-- `sender_id` (FK to Users)
-- `task_id` (FK to Tasks, nullable)
-- `type` (task_assigned, deadline_approaching, new_message, task_completed)
-- `message`
-- `is_read` (default: false)
-- `created_at`
+#### 6. TaskMembers ✅ IMPLEMENTED (for future multi-assignee support)
+- `id` (PK, auto-increment) ✅
+- `taskId` (FK to Tasks, NOT NULL) ✅
+- `userId` (FK to Users, NOT NULL) ✅
+- `role` (ENUM: assignee, reviewer, follower, DEFAULT 'assignee') ✅
+- `assignedAt` (DATE, DEFAULT NOW) ✅
+- `assignedBy` (FK to Users, NOT NULL) ✅
+- Unique constraint on (taskId, userId) ✅
+- Indexes on taskId, userId ✅
 
 ## Development Roadmap - ACTUAL STATUS
 
@@ -200,11 +197,11 @@ project-root/
 - Group member management ✅ IMPLEMENTED
 - Role-based authorization (owner, admin, member) ✅ IMPLEMENTED
 
-### Phase 4: Task Management ❌ NOT STARTED
-- Create/edit tasks ❌
-- Assign tasks ❌
-- Task filtering ❌
-- Task dashboard ❌
+### Phase 4: Task Management ✅ PHASE 4B-1 COMPLETED (Backend CRUD)
+- Create/edit tasks ✅ IMPLEMENTED
+- Assign tasks ✅ IMPLEMENTED
+- Task filtering ✅ IMPLEMENTED
+- Task dashboard ❌ NOT STARTED (Frontend)
 
 ### Phase 5: Task Checklist ❌ NOT STARTED
 - Add checklist items ❌
@@ -351,20 +348,25 @@ project-root/
 
 ## Current Phase
 
-**Phase 3: Team Groups** - **COMPLETED (Backend + Frontend)** (Groups, GroupMembers, CRUD, member management, authorization rules all working)
+**Phase 4B: Task Management** - **PHASE 4B-1 COMPLETED (Backend CRUD API)** (Tasks CRUD, assignment, filtering, authorization all working)
 
 ## Recommended Next Steps
 
-1. **Begin Phase 4 Task Management (Backend):**
-   - Create Task and Checklist models
-   - Add task migrations
-   - Implement task CRUD endpoints
-   - Implement task assignment
+1. **Begin Phase 4B-2 Task Management (Backend Advanced):**
+   - Implement task assignment endpoint (PUT /api/tasks/:id/assign)
+   - Implement task status update endpoint (PUT /api/tasks/:id/status)
+   - Add task filtering/search enhancements
+   - Add pagination support
 
-2. **Begin Phase 4 Task Management (Frontend):**
-   - Task list page
-   - Task detail page
-   - Task creation form
-   - Task assignment UI
+2. **Begin Phase 4C Task Management (Frontend):**
+   - Task list page (/groups/:groupId/tasks)
+   - Task detail page (/groups/:groupId/tasks/:taskId)
+   - Task creation/edit form
+   - Task filtering UI
+   - Integration with Group pages
+
+3. **Begin Phase 5 Task Checklist (Backend):**
+   - Implement checklist CRUD endpoints
+   - Add checklist item completion toggle
 
 (End of file)

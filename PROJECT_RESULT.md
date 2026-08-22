@@ -109,7 +109,7 @@
 - **Member management UI** - Add member modal, role dropdown, remove buttons
 - **Role-based UI** - Owner sees delete/update, admin sees update/member management, member sees view-only
 
-### Phase 4: Task Management - PHASE 4A COMPLETED ✅
+### Phase 4: Task Management - PHASE 4B-1 COMPLETED ✅
 **Phase 4A - Backend Database Layer Implementation:**
 
 **Models Created:**
@@ -161,6 +161,60 @@
 - Checklists: taskId, (taskId, order)
 - TaskMembers: (taskId, userId) unique, taskId, userId
 
+**Phase 4B-1 - Backend Task CRUD API Implementation:**
+
+**Controller Created:**
+- `backend/src/controllers/taskController.js` - Task CRUD logic with full authorization
+
+**Routes Created:**
+- `backend/src/routes/tasks.js` - Task CRUD route definitions
+
+**Routes Mounted:**
+- `backend/src/routes/index.js` - Mounted tasks routes
+
+**API Endpoints Implemented:**
+- POST `/api/groups/:groupId/tasks` - Create task in group
+- GET `/api/groups/:groupId/tasks` - List tasks with filtering/pagination
+- GET `/api/tasks/:id` - Get task details with checklist
+- PUT `/api/tasks/:id` - Update task (owner/admin/creator/assignee)
+- DELETE `/api/tasks/:id` - Delete task (owner/admin/creator)
+
+**Authorization Rules Implemented:**
+- Owner: Full access to all tasks in group
+- Admin: Manage all tasks, assign tasks, cannot delete owner's tasks
+- Creator: Update/delete own tasks, change status
+- Assignee: Update status, add/complete checklist items
+- Member: Create tasks, add/complete checklist items
+- Non-members: 404 (group not found/access denied)
+- Unauthenticated: 401
+
+**Validation Implemented:**
+- Title required, max 200 chars
+- Description max 5000 chars
+- Status validation (todo, in_progress, completed, overdue)
+- Priority validation (low, medium, high, urgent)
+- Assignee must be group member
+- Group must exist and user must be member
+
+**Bug Fixed:**
+- Fixed authorization bug: Assignee can now update task status (was missing `isAssignee` check)
+
+**Test Results:**
+- ✅ Create task (owner/admin/member)
+- ✅ List tasks with filters (status, priority, assignee, pagination)
+- ✅ Get task details with checklist
+- ✅ Update task (owner/admin/creator/assignee)
+- ✅ Delete task (owner/admin/creator)
+- ✅ Assignee can update status/complete task
+- ✅ Member cannot update/delete other's tasks (403)
+- ✅ Non-member access denied (404)
+- ✅ Unauthenticated requests return 401
+- ✅ Invalid group returns 404
+- ✅ Invalid status/priority returns 400
+- ✅ Invalid assignee returns 400
+- ✅ Existing Phase 1/2/3 tests still pass
+- ✅ Frontend production build succeeds
+
 ### Phase 5: Task Checklist - NOT IMPLEMENTED (Backend API pending)
 - No Checklist model
 - No checklist endpoints
@@ -192,6 +246,12 @@
 - `backend/src/controllers/authController.js` - Authentication logic
 - `backend/src/controllers/userController.js` - User profile & password logic
 - `backend/src/controllers/groupController.js` - Group & member logic
+- `backend/src/controllers/taskController.js` - Task & checklist logic
+- `backend/src/routes/auth.js` - Auth route definitions
+- `backend/src/routes/users.js` - User profile & password route definitions
+- `backend/src/routes/groups.js` - Group & member route definitions
+- `backend/src/routes/tasks.js` - Task & checklist route definitions
+- `backend/src/middleware/auth.js` - Authentication middleware
 - `backend/src/models/User.js` - User Sequelize model
 - `backend/src/models/Group.js` - Group Sequelize model
 - `backend/src/models/GroupMember.js` - GroupMember Sequelize model
@@ -203,6 +263,9 @@
 - `backend/migrations/20240821190000-create-users.js` - Users table migration
 - `backend/migrations/20240821190001-create-groups.js` - Groups table migration
 - `backend/migrations/20240821190002-create-group-members.js` - GroupMembers table migration
+- `backend/migrations/20240821190003-create-tasks.js` - Tasks table migration
+- `backend/migrations/20240821190004-create-checklists.js` - Checklists table migration
+- `backend/migrations/20240821190005-create-task-members.js` - TaskMembers table migration
 - `backend/migrations/20240821190003-create-tasks.js` - Tasks table migration
 - `backend/migrations/20240821190004-create-checklists.js` - Checklists table migration
 - `backend/migrations/20240821190005-create-task-members.js` - TaskMembers table migration
@@ -280,6 +343,13 @@
 - ✅ `DELETE /api/groups/:id/members/:userId` - Removes member (owner/admin, not owner)
 - ✅ `PUT /api/groups/:id/members/:userId` - Changes role (owner only, not owner)
 
+### Task & Member Endpoints (Backend - Phase 4B-1)
+- ✅ `POST /api/groups/:groupId/tasks` - Creates task in group
+- ✅ `GET /api/groups/:groupId/tasks` - Lists user's groups with role info
+- ✅ `GET /api/tasks/:id` - Returns task details (member only)
+- ✅ `PUT /api/tasks/:id` - Updates task (owner/admin/creator/assignee)
+- ✅ `DELETE /api/tasks/:id` - Deletes task (owner/admin/creator)
+
 ### Authorization Tests (Backend)
 - ✅ Unauthenticated requests return 401
 - ✅ Non-members cannot access group (404)
@@ -290,6 +360,27 @@
 - ✅ Member cannot manage members (403)
 - ✅ Duplicate membership returns 409
 - ✅ Missing group/user returns 404
+
+### Phase 4B-1 Task CRUD Tests (Backend)
+- ✅ `POST /api/groups/:groupId/tasks` - Creates task, creator becomes owner
+- ✅ `GET /api/groups/:groupId/tasks` - Lists user's groups with role info
+- ✅ `GET /api/tasks/:id` - Returns task details (member only)
+- ✅ `PUT /api/tasks/:id` - Updates task (owner/admin/creator/assignee)
+- ✅ `DELETE /api/tasks/:id` - Deletes task (owner/admin/creator)
+- ✅ Authorization: Unauthenticated requests return 401
+- ✅ Authorization: Non-members cannot access group (404)
+- ✅ Authorization: Invalid group returns 404
+- ✅ Authorization: Member cannot update/delete group (403)
+- ✅ Authorization: Admin can update group but not delete (403)
+- ✅ Authorization: Admin cannot remove/change owner (403)
+- ✅ Authorization: Member cannot manage members (403)
+- ✅ Authorization: Assignee can update status/complete task (200)
+- ✅ Validation: Missing title returns 400
+- ✅ Validation: Invalid status returns 400
+- ✅ Validation: Invalid priority returns 400
+- ✅ Validation: Assignee not in group returns 400
+
+### Frontend Build & Dev Server
 
 ### Phase 4A Database Tests (Backend)
 - ✅ Tasks table created with all columns, types, and constraints

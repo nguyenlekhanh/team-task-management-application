@@ -1,14 +1,4 @@
-const Group = require('../models/Group');
-const GroupMember = require('../models/GroupMember');
-const User = require('../models/User');
-
-Group.belongsTo(User, { as: 'owner', foreignKey: 'ownerId' });
-Group.hasMany(GroupMember, { as: 'members', foreignKey: 'groupId', onDelete: 'CASCADE' });
-GroupMember.belongsTo(Group, { as: 'group', foreignKey: 'groupId', onDelete: 'CASCADE' });
-GroupMember.belongsTo(User, { as: 'user', foreignKey: 'userId', onDelete: 'CASCADE' });
-User.hasMany(Group, { as: 'ownedGroups', foreignKey: 'ownerId' });
-User.hasMany(GroupMember, { as: 'groupMemberships', foreignKey: 'userId' });
-User.belongsToMany(Group, { as: 'groups', through: GroupMember, foreignKey: 'userId', otherKey: 'groupId' });
+const { Group, GroupMember, User } = require('../models');
 
 function sanitizeGroup(group) {
   return {

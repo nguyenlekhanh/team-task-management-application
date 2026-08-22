@@ -332,50 +332,86 @@ curl -X PUT http://localhost:3000/api/groups/1/members/2 \
 5. **No Socket.IO** - Real-time features not available
 6. **Node.js version mismatch** - Project requires Node >= 20.17.0 but running v18.19.1 (sqlite3 warning)
 
-### Phase 4A Implementation Status: ✅ COMPLETED
+## Phase Status: PHASE 4B-1 COMPLETED (Backend Task CRUD API)
 
-**Phase 4A - Backend Database Layer Implementation:**
+### Phase 4B-1 Implementation Status: ✅ COMPLETED
 
-**Models Created:**
-- `backend/src/models/Task.js` - Task Sequelize model with all fields, indexes, and associations
-- `backend/src/models/Checklist.js` - Checklist Sequelize model with all fields, indexes, and associations
-- `backend/src/models/TaskMember.js` - TaskMember Sequelize model with all fields, indexes, and associations
+**Phase 4B-1 - Backend Task CRUD API Implementation:**
 
-**Migrations Created and Executed:**
-- `backend/migrations/20240821190003-create-tasks.js` - Tasks table with all fields, indexes, and FKs
-- `backend/migrations/20240821190004-create-checklists.js` - Checklists table with all fields, indexes, and FKs
-- `backend/migrations/20240821190005-create-task-members.js` - TaskMembers table with all fields, indexes, and FKs
+**Controller Created:**
+- `backend/src/controllers/taskController.js` - Task CRUD logic with full authorization
 
-**Model Association Updates:**
-- `backend/src/models/User.js` - Added createdTasks, assignedTasks, completedChecklists, taskAssignments associations
-- `backend/src/models/Group.js` - Added tasks association
-- `backend/src/models/Task.js` - Added creator, assignee, group, checklist, assignees associations
-- `backend/src/models/Checklist.js` - Added task, completer associations
-- `backend/src/models/TaskMember.js` - Added task, user, assigner associations
+**Routes Created:**
+- `backend/src/routes/tasks.js` - Task CRUD route definitions
 
-**Verification Results:**
-- ✅ All 3 migrations executed successfully
-- ✅ All 3 tables created with correct columns, types, and constraints
-- ✅ All foreign keys created with correct cascade rules
-- ✅ All indexes created (single and composite)
-- ✅ All unique constraints enforced
-- ✅ All model associations working correctly
-- ✅ All table structures match PHASE4_DESIGN.md specifications
+**Routes Mounted:**
+- `backend/src/routes/index.js` - Added tasks routes mounting
+
+**API Endpoints Implemented:**
+- POST `/api/groups/:groupId/tasks` - Create task in group
+- GET `/api/groups/:groupId/tasks` - List tasks with filtering/pagination
+- GET `/api/tasks/:id` - Get task details with checklist
+- PUT `/api/tasks/:id` - Update task (owner/admin/creator/assignee)
+- DELETE `/api/tasks/:id` - Delete task (owner/admin/creator)
+
+**Authorization Rules Implemented:**
+- Owner: Full access to all tasks in group
+- Admin: Manage all tasks, assign tasks, cannot delete owner's tasks
+- Creator: Update/delete own tasks, change status
+- Assignee: Update status, add/complete checklist items
+- Member: Create tasks, add/complete checklist items
+- Non-members: 404 (group not found/access denied)
+- Unauthenticated: 401
+
+**Validation Implemented:**
+- Title required, max 200 chars
+- Description max 5000 chars
+- Status validation (todo, in_progress, completed, overdue)
+- Priority validation (low, medium, high, urgent)
+- Assignee must be group member
+- Group must exist and user must be member
+
+**Bug Fixed:**
+- Fixed authorization bug: Assignee can now update task status (was missing `isAssignee` check)
+
+**Test Results:**
+- ✅ Create task (owner/admin/member)
+- ✅ List tasks with filters (status, priority, assignee, pagination)
+- ✅ Get task details with checklist
+- ✅ Update task (owner/admin/creator/assignee)
+- ✅ Delete task (owner/admin/creator)
+- ✅ Assignee can update status/complete task
+- ✅ Member cannot update/delete other's tasks (403)
+- ✅ Non-member access denied (404)
+- ✅ Unauthenticated requests return 401
+- ✅ Invalid group returns 404
+- ✅ Invalid status/priority returns 400
+- ✅ Invalid assignee returns 400
+- ✅ Existing Phase 1/2/3 tests still pass
+- ✅ Frontend production build succeeds
+
+### Known Issues
+
+1. **Only 6 of 7 database tables created** - Missing Checklists, Messages, Notifications
+2. **User System incomplete** - Missing password reset/forgot password, email verification, refresh tokens
+3. **No tests** - No unit or integration tests
+4. **Logout only clears cookie** - JWT token remains valid until expiry (stateless)
+5. **No Socket.IO** - Real-time features not available
+6. **Node.js version mismatch** - Project requires Node >= 20.17.0 but running v18.19.1 (sqlite3 warning)
 
 ### Next Recommended Steps
 
-1. **Begin Phase 4B Task Management (Backend API):**
-   - Implement task CRUD endpoints (POST/GET/PUT/DELETE /api/groups/:groupId/tasks)
-   - Implement checklist CRUD endpoints (POST/GET/PUT/DELETE /api/tasks/:taskId/checklist)
+1. **Begin Phase 4B-2 Task Management (Backend Advanced):**
    - Implement task assignment endpoint (PUT /api/tasks/:id/assign)
    - Implement task status update endpoint (PUT /api/tasks/:id/status)
-   - Add authorization middleware for task operations
+   - Add task filtering/search enhancements
+   - Add pagination support
 
 2. **Begin Phase 4C Task Management (Frontend):**
    - Task list page (/groups/:groupId/tasks)
    - Task detail page (/groups/:groupId/tasks/:taskId)
    - Task creation/edit form
-   - Checklist component with completion toggle
+   - Task filtering UI
    - Integration with Group pages
 
 (End of file)
