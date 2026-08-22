@@ -166,6 +166,9 @@ export function GroupDetail() {
               <Link to="/groups" className="px-4 py-2 bg-gray-600 text-white rounded-md hover:bg-gray-700 text-sm">
                 Groups
               </Link>
+              <Link to={`/groups/${id}/tasks`} className="px-4 py-2 bg-purple-600 text-white rounded-md hover:bg-purple-700 text-sm">
+                Tasks
+              </Link>
               <Link to="/profile" className="px-4 py-2 bg-gray-600 text-white rounded-md hover:bg-gray-700 text-sm">
                 Profile
               </Link>

@@ -6,6 +6,9 @@ import { Dashboard } from './pages/Dashboard'
 import { Profile } from './pages/Profile'
 import { Groups } from './pages/Groups'
 import { GroupDetail } from './pages/GroupDetail'
+import { TaskList } from './pages/TaskList'
+import { TaskDetail } from './pages/TaskDetail'
+import { MyTasks } from './pages/MyTasks'
 
 function ProtectedRoute({ children }) {
   const { isAuthenticated, loading } = useAuth()
@@ -92,6 +95,30 @@ function App() {
           element={
             <ProtectedRoute>
               <GroupDetail />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/groups/:groupId/tasks"
+          element={
+            <ProtectedRoute>
+              <TaskList />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/groups/:groupId/tasks/:taskId"
+          element={
+            <ProtectedRoute>
+              <TaskDetail />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/tasks"
+          element={
+            <ProtectedRoute>
+              <MyTasks />
             </ProtectedRoute>
           }
         />

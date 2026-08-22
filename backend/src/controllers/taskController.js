@@ -570,6 +570,92 @@ async function updateTaskStatus(req, res) {
   }
 }
 
+async function getMyTasks(req, res) {
+  const { 
+    status, 
+    priority, 
+    assigneeId, 
+    creatorId,
+    search,
+    startDate,
+    endDate,
+    sortBy = 'createdAt',
+    sortOrder = 'DESC',
+    page = 1, 
+    limit = 20 
+  } = req.query;
+
+  try {
+    // Get all groups the user is a member of
+    const memberships = await GroupMember.findAll({
+      where: { userId: req.user.id },
+      attributes: ['groupId']
+    });
+
+    const groupIds = memberships.map(m => m.groupId);
+
+    if (groupIds.length === 0) {
+      return res.json({
+        tasks: [],
+        pagination: { total: 0, page: 1, limit: 20, totalPages: 0 }
+      });
+    }
+
+    const where = { groupId: { [Op.in]: groupIds } };
+    if (status) where.status = status;
+    if (priority) where.priority = priority;
+    if (assigneeId) where.assigneeId = parseInt(assigneeId, 10);
+    if (creatorId) where.creatorId = parseInt(creatorId, 10);
+    
+    if (search) {
+      where[Op.or] = [
+        { title: { [Op.like]: `%${search}%` } },
+        { description: { [Op.like]: `%${search}%` } }
+      ];
+    }
+
+    if (startDate || endDate) {
+      where.createdAt = {};
+      if (startDate) where.createdAt[Op.gte] = new Date(startDate);
+      if (endDate) where.createdAt[Op.lte] = new Date(endDate);
+    }
+
+    const validSortFields = ['createdAt', 'updatedAt', 'title', 'status', 'priority', 'dueDate'];
+    const validSortOrders = ['ASC', 'DESC'];
+    const sortField = validSortFields.includes(sortBy) ? sortBy : 'createdAt';
+    const sortOrderDir = validSortOrders.includes(sortOrder.toUpperCase()) ? sortOrder.toUpperCase() : 'DESC';
+
+    const pageNum = Math.max(1, parseInt(page, 10));
+    const limitNum = Math.min(100, Math.max(1, parseInt(limit, 10)));
+    const offset = (pageNum - 1) * limitNum;
+
+    const { count, rows } = await Task.findAndCountAll({
+      where,
+      include: [
+        { model: User, as: 'creator', attributes: ['id', 'username', 'displayName', 'avatarUrl'] },
+        { model: User, as: 'assignee', attributes: ['id', 'username', 'displayName', 'avatarUrl'] },
+        { model: Group, as: 'group', attributes: ['id', 'name'] }
+      ],
+      order: [[sortField, sortOrderDir]],
+      limit: limitNum,
+      offset
+    });
+
+    res.json({
+      tasks: rows.map(sanitizeTaskList),
+      pagination: {
+        total: count,
+        page: pageNum,
+        limit: limitNum,
+        totalPages: Math.ceil(count / limitNum)
+      }
+    });
+  } catch (err) {
+    console.error('[ERROR] getMyTasks:', err.message, err.stack);
+    return res.status(500).json({ error: 'Failed to fetch tasks' });
+  }
+}
+
 module.exports = {
   createTask,
   getGroupTasks,
@@ -578,6 +664,7 @@ module.exports = {
   deleteTask,
   assignTask,
   updateTaskStatus,
+  getMyTasks,
   sanitizeTask,
   sanitizeTaskList
 };

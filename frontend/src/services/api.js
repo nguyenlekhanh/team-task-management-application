@@ -62,4 +62,19 @@ export const groupApi = {
   updateMemberRole: (id, userId, data) => api.put(`/groups/${id}/members/${userId}`, data),
 }
 
+export const taskApi = {
+  list: (groupId, params) => api.get(`/groups/${groupId}/tasks`, { params }),
+  create: (groupId, data) => api.post(`/groups/${groupId}/tasks`, data),
+  get: (id) => api.get(`/tasks/${id}`),
+  update: (id, data) => api.put(`/tasks/${id}`, data),
+  delete: (id) => api.delete(`/tasks/${id}`),
+  assign: (id, data) => api.put(`/tasks/${id}/assign`, data),
+  updateStatus: (id, data) => api.put(`/tasks/${id}/status`, data),
+  getChecklist: (taskId) => api.get(`/tasks/${taskId}/checklist`),
+  addChecklistItem: (taskId, data) => api.post(`/tasks/${taskId}/checklist`, data),
+  updateChecklistItem: (taskId, itemId, data) => api.put(`/tasks/${taskId}/checklist/${itemId}`, data),
+  deleteChecklistItem: (taskId, itemId) => api.delete(`/tasks/${taskId}/checklist/${itemId}`),
+  toggleChecklistItem: (taskId, itemId, data) => api.put(`/tasks/${taskId}/checklist/${itemId}/toggle`, data),
+}
+
 export default api

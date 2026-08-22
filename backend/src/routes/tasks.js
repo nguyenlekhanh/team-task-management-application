@@ -7,6 +7,7 @@ router.use(authenticate);
 
 router.post('/groups/:groupId/tasks', taskController.createTask);
 router.get('/groups/:groupId/tasks', taskController.getGroupTasks);
+router.get('/tasks', taskController.getMyTasks);
 router.get('/tasks/:id', taskController.getTask);
 router.put('/tasks/:id', taskController.updateTask);
 router.delete('/tasks/:id', taskController.deleteTask);
