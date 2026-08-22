@@ -446,17 +446,32 @@ curl -X PUT http://localhost:3000/api/groups/1/members/2 \
 
 ### Phase 4B-2 Implementation Status: ✅ COMPLETED
 
+### Phase 4C Plan Created: ✅ PHASE4C_PLAN.md
+
+**Phase 4C Plan Document**: `PHASE4C_PLAN.md` created with:
+- Goal: Implement Task Management frontend
+- 5 pages: TaskList, TaskDetail, CreateTask modal, EditTask modal, MyTasks
+- 5 components: TaskCard, TaskFilter, TaskStatusBadge, PriorityBadge, Checklist component
+- API integration mapping
+- UI requirements, role-based actions, loading/error states
+- Testing checklist with 20+ items
+
+### Phase 4B-2 Implementation Status: ✅ COMPLETED
+
 ### Next Recommended Steps
 
 1. **Begin Phase 4C Task Management (Frontend):**
    - Task list page (/groups/:groupId/tasks)
    - Task detail page (/groups/:groupId/tasks/:taskId)
-   - Task creation/edit form
-   - Task filtering UI
+   - Task creation/edit modal
+   - Task filtering UI (status, priority, assignee, search, date range)
+   - Pagination UI
+   - Sorting UI
    - Integration with Group pages
 
 2. **Begin Phase 5 Task Checklist (Backend):**
    - Implement checklist CRUD endpoints
    - Add checklist item completion toggle
+   - Add checklist item ordering
 
 (End of file)

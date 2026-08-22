@@ -491,7 +491,7 @@
 ### PROJECT_PLAN.md vs Reality:
 | Planned | Status |
 |---------|--------|
-| 7 database tables | ❌ Only 6 tables (Users, Groups, GroupMembers, Tasks, Checklists, TaskMembers) |
+| 8 database tables | ❌ Only 6 implemented (Users, Groups, GroupMembers, Tasks, Checklists, TaskMembers); 2 pending (Messages, Notifications) |
 | Frontend React + Vite + TailwindCSS | ✅ IMPLEMENTED |
 | Socket.IO for realtime | ❌ Not installed |
 | React Context API for state | ✅ IMPLEMENTED |

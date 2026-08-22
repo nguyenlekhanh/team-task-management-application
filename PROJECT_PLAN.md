@@ -23,7 +23,7 @@ A collaboration platform combining task management, group communication, and tea
 ### Components - IMPLEMENTATION STATUS
 1. **Frontend**: React + Vite with TailwindCSS - **IMPLEMENTED (Phase 1 complete)**
 2. **Backend**: Node.js + Express API server - **IMPLEMENTED (Phase 1 complete)**
-3. **Database**: SQLite with ORM (Sequelize) - **IMPLEMENTED (Users, Groups, GroupMembers tables)**
+3. **Database**: SQLite with ORM (Sequelize) - **IMPLEMENTED (Users, Groups, GroupMembers, Tasks, Checklists, TaskMembers tables)**
 4. **Realtime**: Socket.IO for chat functionality - **NOT IMPLEMENTED**
 
 ## Folder Structure - ACTUAL vs PLANNED
@@ -147,16 +147,16 @@ project-root/
 - `createdAt` (DATE, DEFAULT NOW) ✅
 - `updatedAt` (DATE, DEFAULT NOW) ✅
 
-#### 5. Checklists ❌ NOT IMPLEMENTED (Backend API pending)
-- `id` (PK, auto-increment)
-- `taskId` (FK to Tasks, NOT NULL)
-- `title` (STRING, NOT NULL)
-- `isCompleted` (BOOLEAN, DEFAULT false)
-- `order` (INTEGER, DEFAULT 0)
-- `completedBy` (FK to Users, nullable)
-- `completedAt` (DATE, nullable)
-- `createdAt` (DATE, DEFAULT NOW)
-- `updatedAt` (DATE, DEFAULT NOW)
+#### 5. Checklists ✅ IMPLEMENTED (Database layer - Phase 4A)
+- `id` (PK, auto-increment) ✅
+- `taskId` (FK to Tasks, NOT NULL) ✅
+- `title` (STRING, NOT NULL) ✅
+- `isCompleted` (BOOLEAN, DEFAULT false) ✅
+- `order` (INTEGER, DEFAULT 0) ✅
+- `completedBy` (FK to Users, nullable) ✅
+- `completedAt` (DATE, nullable) ✅
+- `createdAt` (DATE, DEFAULT NOW) ✅
+- `updatedAt` (DATE, DEFAULT NOW) ✅
 
 #### 6. TaskMembers ✅ IMPLEMENTED (for future multi-assignee support)
 - `id` (PK, auto-increment) ✅
@@ -167,6 +167,24 @@ project-root/
 - `assignedBy` (FK to Users, NOT NULL) ✅
 - Unique constraint on (taskId, userId) ✅
 - Indexes on taskId, userId ✅
+
+#### 7. Messages ❌ NOT IMPLEMENTED (Phase 6)
+- `id` (PK, auto-increment)
+- `senderId` (FK to Users)
+- `groupId` (FK to Groups, nullable for task comments)
+- `taskId` (FK to Tasks, nullable)
+- `content`
+- `createdAt`
+
+#### 8. Notifications ❌ NOT IMPLEMENTED (Phase 7)
+- `id` (PK, auto-increment)
+- `recipientId` (FK to Users)
+- `senderId` (FK to Users)
+- `taskId` (FK to Tasks, nullable)
+- `type` (task_assigned, deadline_approaching, new_message, task_completed)
+- `message`
+- `isRead` (DEFAULT false)
+- `createdAt`
 
 ## Development Roadmap - ACTUAL STATUS
 
@@ -197,11 +215,22 @@ project-root/
 - Group member management ✅ IMPLEMENTED
 - Role-based authorization (owner, admin, member) ✅ IMPLEMENTED
 
-### Phase 4: Task Management ✅ PHASE 4B-1 COMPLETED (Backend CRUD)
+### Phase 4: Task Management ✅ PHASE 4B-2 COMPLETED (Backend Advanced)
 - Create/edit tasks ✅ IMPLEMENTED
 - Assign tasks ✅ IMPLEMENTED
 - Task filtering ✅ IMPLEMENTED
-- Task dashboard ❌ NOT STARTED (Frontend)
+- Task dashboard ❌ NOT STARTED (Frontend - Phase 4C)
+- Task assignment endpoint ✅ IMPLEMENTED
+- Task status update endpoint ✅ IMPLEMENTED
+- Task filtering/search enhancements ✅ IMPLEMENTED
+- Pagination support ✅ IMPLEMENTED
+
+### Phase 4C: Task Management Frontend ❌ NOT STARTED
+- Task list page ❌
+- Task detail page ❌
+- Task creation/edit form ❌
+- Task filtering UI ❌
+- Integration with Group pages ❌
 
 ### Phase 5: Task Checklist ❌ NOT STARTED
 - Add checklist items ❌
@@ -348,25 +377,22 @@ project-root/
 
 ## Current Phase
 
-**Phase 4B: Task Management** - **PHASE 4B-1 COMPLETED (Backend CRUD API)** (Tasks CRUD, assignment, filtering, authorization all working)
+**Phase 4C: Task Management Frontend** - Ready to begin (Backend API complete)
 
 ## Recommended Next Steps
 
-1. **Begin Phase 4B-2 Task Management (Backend Advanced):**
-   - Implement task assignment endpoint (PUT /api/tasks/:id/assign)
-   - Implement task status update endpoint (PUT /api/tasks/:id/status)
-   - Add task filtering/search enhancements
-   - Add pagination support
-
-2. **Begin Phase 4C Task Management (Frontend):**
+1. **Begin Phase 4C Task Management (Frontend):**
    - Task list page (/groups/:groupId/tasks)
    - Task detail page (/groups/:groupId/tasks/:taskId)
-   - Task creation/edit form
-   - Task filtering UI
+   - Task creation/edit form (modal)
+   - Task filtering UI (status, priority, assignee, search, date range)
+   - Pagination UI
+   - Sorting UI
    - Integration with Group pages
 
-3. **Begin Phase 5 Task Checklist (Backend):**
+2. **Begin Phase 5 Task Checklist (Backend):**
    - Implement checklist CRUD endpoints
    - Add checklist item completion toggle
+   - Add checklist item ordering
 
 (End of file)
