@@ -153,7 +153,19 @@ async function createTask(req, res) {
 
 async function getGroupTasks(req, res) {
   const groupId = parseInt(req.params.groupId, 10);
-  const { status, priority, assigneeId, page = 1, limit = 20 } = req.query;
+  const { 
+    status, 
+    priority, 
+    assigneeId, 
+    creatorId,
+    search,
+    startDate,
+    endDate,
+    sortBy = 'createdAt',
+    sortOrder = 'DESC',
+    page = 1, 
+    limit = 20 
+  } = req.query;
 
   if (isNaN(groupId)) {
     return res.status(400).json({ error: 'Invalid group ID' });
@@ -164,6 +176,7 @@ async function getGroupTasks(req, res) {
     const membership = await GroupMember.findOne({
       where: { groupId, userId: req.user.id }
     });
+    console.log('[DEBUG] getGroupTasks - userId:', req.user.id, 'groupId:', groupId, 'membership:', membership ? 'found' : 'not found');
 
     if (!membership) {
       return res.status(404).json({ error: 'Group not found or access denied' });
@@ -173,10 +186,33 @@ async function getGroupTasks(req, res) {
     if (status) where.status = status;
     if (priority) where.priority = priority;
     if (assigneeId) where.assigneeId = parseInt(assigneeId, 10);
+    if (creatorId) where.creatorId = parseInt(creatorId, 10);
+    
+    // Search in title and description (case-insensitive)
+    if (search) {
+      where[Op.or] = [
+        { title: { [Op.like]: `%${search}%` } },
+        { description: { [Op.like]: `%${search}%` } }
+      ];
+    }
+
+    // Date range filtering
+    if (startDate || endDate) {
+      where.createdAt = {};
+      if (startDate) where.createdAt[Op.gte] = new Date(startDate);
+      if (endDate) where.createdAt[Op.lte] = new Date(endDate);
+    }
+
+    const validSortFields = ['createdAt', 'updatedAt', 'title', 'status', 'priority', 'dueDate'];
+    const validSortOrders = ['ASC', 'DESC'];
+    const sortField = validSortFields.includes(sortBy) ? sortBy : 'createdAt';
+    const sortOrderDir = validSortOrders.includes(sortOrder.toUpperCase()) ? sortOrder.toUpperCase() : 'DESC';
 
     const pageNum = Math.max(1, parseInt(page, 10));
     const limitNum = Math.min(100, Math.max(1, parseInt(limit, 10)));
     const offset = (pageNum - 1) * limitNum;
+
+    console.log('[DEBUG] getGroupTasks - where:', JSON.stringify(where), 'sort:', sortField, sortOrderDir, 'page:', pageNum, 'limit:', limitNum);
 
     const { count, rows } = await Task.findAndCountAll({
       where,
@@ -184,10 +220,11 @@ async function getGroupTasks(req, res) {
         { model: User, as: 'creator', attributes: ['id', 'username', 'displayName', 'avatarUrl'] },
         { model: User, as: 'assignee', attributes: ['id', 'username', 'displayName', 'avatarUrl'] }
       ],
-      order: [['createdAt', 'DESC']],
+      order: [[sortField, sortOrderDir]],
       limit: limitNum,
       offset
     });
+    console.log('[DEBUG] getGroupTasks - count:', count, 'rows:', rows.length);
 
     res.json({
       tasks: rows.map(sanitizeTaskList),
@@ -199,6 +236,7 @@ async function getGroupTasks(req, res) {
       }
     });
   } catch (err) {
+    console.error('[ERROR] getGroupTasks:', err.message, err.stack);
     return res.status(500).json({ error: 'Failed to fetch tasks' });
   }
 }
@@ -396,12 +434,150 @@ async function deleteTask(req, res) {
   }
 }
 
+async function assignTask(req, res) {
+  const taskId = parseInt(req.params.id, 10);
+  const { assigneeId } = req.body;
+
+  if (isNaN(taskId)) {
+    return res.status(400).json({ error: 'Invalid task ID' });
+  }
+
+  if (!assigneeId) {
+    return res.status(400).json({ error: 'Assignee ID is required' });
+  }
+
+  try {
+    const task = await Task.findByPk(taskId, {
+      include: [{ model: Group, as: 'group' }]
+    });
+
+    if (!task) {
+      return res.status(404).json({ error: 'Task not found' });
+    }
+
+    // Check if user is a member of the task's group
+    const membership = await GroupMember.findOne({
+      where: { groupId: task.groupId, userId: req.user.id }
+    });
+
+    if (!membership) {
+      return res.status(404).json({ error: 'Task not found or access denied' });
+    }
+
+    // Authorization: only owner or admin can assign tasks
+    const isOwner = membership.role === 'owner';
+    const isAdmin = membership.role === 'admin';
+
+    if (!isOwner && !isAdmin) {
+      return res.status(403).json({ error: 'Only owner or admin can assign tasks' });
+    }
+
+    // Validate assignee is a member of the group
+    if (assigneeId) {
+      const assigneeMembership = await GroupMember.findOne({
+        where: { groupId: task.groupId, userId: assigneeId }
+      });
+      if (!assigneeMembership) {
+        return res.status(400).json({ error: 'Assignee must be a member of the group' });
+      }
+    }
+
+    const updates = { assigneeId: assigneeId || null };
+    await task.update(updates);
+
+    const updatedTask = await Task.findByPk(taskId, {
+      include: [
+        { model: User, as: 'creator', attributes: ['id', 'username', 'displayName', 'avatarUrl'] },
+        { model: User, as: 'assignee', attributes: ['id', 'username', 'displayName', 'avatarUrl'] },
+        { model: Checklist, as: 'checklist', order: [['order', 'ASC']] }
+      ]
+    });
+
+    res.json({
+      message: 'Task assigned successfully',
+      task: sanitizeTask(task)
+    });
+  } catch (err) {
+    return res.status(500).json({ error: 'Failed to assign task' });
+  }
+}
+
+async function updateTaskStatus(req, res) {
+  const taskId = parseInt(req.params.id, 10);
+  const { status } = req.body;
+
+  if (isNaN(taskId)) {
+    return res.status(400).json({ error: 'Invalid task ID' });
+  }
+
+  const validStatuses = ['todo', 'in_progress', 'completed', 'overdue'];
+
+  if (!status || !validStatuses.includes(status)) {
+    return res.status(400).json({ error: 'Valid status is required (todo, in_progress, completed, overdue)' });
+  }
+
+  try {
+    const task = await Task.findByPk(taskId, {
+      include: [{ model: Group, as: 'group' }]
+    });
+
+    if (!task) {
+      return res.status(404).json({ error: 'Task not found' });
+    }
+
+    // Check if user is a member of the task's group
+    const membership = await GroupMember.findOne({
+      where: { groupId: task.groupId, userId: req.user.id }
+    });
+
+    if (!membership) {
+      return res.status(404).json({ error: 'Task not found or access denied' });
+    }
+
+    // Authorization: owner, admin, creator, or assignee can update status
+    const isOwner = membership.role === 'owner';
+    const isAdmin = membership.role === 'admin';
+    const isCreator = task.creatorId === req.user.id;
+    const isAssignee = task.assigneeId === req.user.id;
+
+    if (!isOwner && !isAdmin && !isCreator && !isAssignee) {
+      return res.status(403).json({ error: 'Only owner, admin, creator, or assignee can update task status' });
+    }
+
+    const updates = { status };
+    if (status === 'completed' && task.status !== 'completed') {
+      updates.completedAt = new Date();
+    } else if (status !== 'completed' && task.status === 'completed') {
+      updates.completedAt = null;
+    }
+
+    await task.update(updates);
+
+    const updatedTask = await Task.findByPk(taskId, {
+      include: [
+        { model: User, as: 'creator', attributes: ['id', 'username', 'displayName', 'avatarUrl'] },
+        { model: User, as: 'assignee', attributes: ['id', 'username', 'displayName', 'avatarUrl'] },
+        { model: Checklist, as: 'checklist', order: [['order', 'ASC']] }
+      ]
+    });
+
+    res.json({
+      message: 'Task status updated successfully',
+      task: sanitizeTask(task)
+    });
+  } catch (err) {
+    return res.status(500).json({ error: 'Failed to update task status' });
+  }
+}
+
 module.exports = {
   createTask,
   getGroupTasks,
   getTask,
   updateTask,
   deleteTask,
+  assignTask,
+  updateTaskStatus,
   sanitizeTask,
   sanitizeTaskList
 };

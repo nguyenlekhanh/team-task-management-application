@@ -399,19 +399,64 @@ curl -X PUT http://localhost:3000/api/groups/1/members/2 \
 5. **No Socket.IO** - Real-time features not available
 6. **Node.js version mismatch** - Project requires Node >= 20.17.0 but running v18.19.1 (sqlite3 warning)
 
+### Phase 4B-2 Implementation Status: ✅ COMPLETED
+
+**Phase 4B-2 - Backend Advanced API Implementation:**
+
+**New Endpoints Implemented:**
+- `PUT /api/tasks/:id/assign` - Assign/reassign task (owner/admin only)
+- `PUT /api/tasks/:id/status` - Update task status (owner/admin/creator/assignee)
+
+**Enhanced GET /api/groups/:groupId/tasks:**
+- Pagination support (`page`, `limit` parameters)
+- Filtering by: `status`, `priority`, `assigneeId`, `creatorId`
+- Search in title/description (`search` parameter)
+- Date range filtering (`startDate`, `endDate`)
+- Multi-field sorting (`sortBy`, `sortOrder`)
+
+**Authorization Rules:**
+- Task assignment: Owner/Admin only
+- Status update: Owner/Admin/Creator/Assignee
+- All endpoints require authentication (401 if unauthenticated)
+- Group membership required (404 if not member)
+- Invalid group/user returns 404
+- Invalid assignee returns 400
+- Invalid status/priority returns 400
+
+**Bug Fixes:**
+- Fixed sortOrder variable shadowing bug in getGroupTasks
+- Fixed authorization bug: Assignee can now update task status
+
+**Test Results:**
+- ✅ Task assignment (owner/admin)
+- ✅ Task status update (owner/admin/creator/assignee)
+- ✅ Enhanced filtering (status, priority, assignee, creator, search, date range)
+- ✅ Pagination (page, limit)
+- ✅ Multi-field sorting (createdAt, updatedAt, title, status, priority, dueDate)
+- ✅ Date range filtering (startDate, endDate)
+- ✅ Search in title/description
+- ✅ Assignee can update their task status
+- ✅ Member cannot update other's tasks (403)
+- ✅ Non-member access denied (404)
+- ✅ Invalid group/user returns 404
+- ✅ Invalid status/priority returns 400
+- ✅ Invalid assignee returns 400
+- ✅ Existing Phase 1/2/3 tests still pass
+- ✅ Frontend production build succeeds
+
+### Phase 4B-2 Implementation Status: ✅ COMPLETED
+
 ### Next Recommended Steps
 
-1. **Begin Phase 4B-2 Task Management (Backend Advanced):**
-   - Implement task assignment endpoint (PUT /api/tasks/:id/assign)
-   - Implement task status update endpoint (PUT /api/tasks/:id/status)
-   - Add task filtering/search enhancements
-   - Add pagination support
-
-2. **Begin Phase 4C Task Management (Frontend):**
+1. **Begin Phase 4C Task Management (Frontend):**
    - Task list page (/groups/:groupId/tasks)
    - Task detail page (/groups/:groupId/tasks/:taskId)
    - Task creation/edit form
    - Task filtering UI
    - Integration with Group pages
+
+2. **Begin Phase 5 Task Checklist (Backend):**
+   - Implement checklist CRUD endpoints
+   - Add checklist item completion toggle
 
 (End of file)

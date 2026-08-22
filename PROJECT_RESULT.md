@@ -397,7 +397,35 @@
 - ✅ TaskMember associations: task, user, assigner
 - ✅ Foreign key cascade rules verified for all 8 FKs
 
-### Phase 4B API Tests (Backend) - NOT STARTED
+### Phase 4B-1 Task CRUD Tests (Backend)
+- ✅ `POST /api/groups/:groupId/tasks` - Creates task, creator becomes owner
+- ✅ `GET /api/groups/:groupId/tasks` - Lists user's groups with role info
+- ✅ `GET /api/tasks/:id` - Returns task details (member only)
+- ✅ `PUT /api/tasks/:id` - Updates task (owner/admin/creator/assignee)
+- ✅ `DELETE /api/tasks/:id` - Deletes task (owner/admin/creator)
+
+### Phase 4B-2 Task Advanced API Tests (Backend) - COMPLETED ✅
+- ✅ `PUT /api/tasks/:id/assign` - Assigns task (owner/admin only)
+- ✅ `PUT /api/tasks/:id/status` - Updates task status (owner/admin/creator/assignee)
+- ✅ `GET /api/groups/:groupId/tasks` - Enhanced filtering (status, priority, assignee, creator, search, date range)
+- ✅ `GET /api/groups/:groupId/tasks` - Pagination (page, limit)
+- ✅ `GET /api/groups/:groupId/tasks` - Multi-field sorting (createdAt, updatedAt, title, status, priority, dueDate)
+- ✅ `GET /api/groups/:groupId/tasks` - Date range filtering (startDate, endDate)
+- ✅ `GET /api/groups/:groupId/tasks` - Search in title/description
+- ✅ Authorization: Unauthenticated requests return 401
+- ✅ Authorization: Non-members cannot access group (404)
+- ✅ Authorization: Invalid group returns 404
+- ✅ Authorization: Member cannot update/delete group (403)
+- ✅ Authorization: Admin can update group but not delete (403)
+- ✅ Authorization: Admin cannot remove/change owner (403)
+- ✅ Authorization: Member cannot manage members (403)
+- ✅ Authorization: Assignee can update status/complete task (200)
+- ✅ Validation: Missing title returns 400
+- ✅ Validation: Invalid status returns 400
+- ✅ Validation: Invalid priority returns 400
+- ✅ Validation: Assignee not in group returns 400
+
+### Phase 4B API Tests (Backend) - COMPLETED ✅
 
 ### Frontend Build & Dev Server
 - ✅ `npm run dev` - Starts Vite dev server on port 5173
@@ -471,22 +499,22 @@
 
 ## Current Phase
 
-**Phase 4B: Task Management (Backend API)** - Phase 4A database layer complete, ready for API implementation
+**Phase 4B-2: Task Management (Backend Advanced API)** - **COMPLETED** (Task CRUD, assignment, status updates, enhanced filtering, pagination, sorting all working)
 
 ## Recommended Next Steps
 
-1. **Begin Phase 4B Task Management (Backend API):**
-   - Implement task CRUD endpoints (POST/GET/PUT/DELETE /api/groups/:groupId/tasks)
-   - Implement checklist CRUD endpoints (POST/GET/PUT/DELETE /api/tasks/:taskId/checklist)
-   - Implement task assignment endpoint (PUT /api/tasks/:id/assign)
-   - Implement task status update endpoint (PUT /api/tasks/:id/status)
-   - Add authorization middleware for task operations
-
-2. **Begin Phase 4C Task Management (Frontend):**
+1. **Begin Phase 4C Task Management (Frontend):**
    - Task list page (/groups/:groupId/tasks)
    - Task detail page (/groups/:groupId/tasks/:taskId)
    - Task creation/edit form
-   - Checklist component with completion toggle
+   - Task filtering UI (status, priority, assignee, search, date range)
+   - Pagination UI
+   - Sorting UI
    - Integration with Group pages
+
+2. **Begin Phase 5 Task Checklist (Backend):**
+   - Implement checklist CRUD endpoints (POST/GET/PUT/DELETE /api/tasks/:taskId/checklist)
+   - Add checklist item completion toggle endpoint
+   - Add checklist item ordering
 
 (End of file)
