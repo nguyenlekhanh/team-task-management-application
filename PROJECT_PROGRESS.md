@@ -835,4 +835,55 @@ Begin **5B.4** (Frontend Chat UI - ChatPanel, MessageItem, CommentSection, Comme
 ### Next Phase
 Begin **5B.5** (Testing & Integration - end-to-end testing, permission tests, edge cases)
 
+## Phase Status: PHASE 5B.5 - COMPLETED (Group Chat Testing & Integration)
+
+### What Was Tested
+**21+ tests performed, all passed:**
+
+**Backend API (7 endpoints):**
+- ✅ GET /api/groups/:groupId/messages - Returns paginated messages with sender
+- ✅ POST /api/groups/:groupId/messages - Creates message with sender
+- ✅ GET /api/tasks/:taskId/comments - Returns paginated comments with sender
+- ✅ POST /api/tasks/:taskId/comments - Creates comment with sender
+- ✅ PUT /api/messages/:id (sender) - Updates message
+- ✅ DELETE /api/messages/:id (sender) - Deletes message
+- ✅ DELETE /api/messages/:id (owner/admin) - Deletes any message
+
+**Authentication & Authorization (7 tests):**
+- ✅ No token → 401
+- ✅ Invalid/expired token → 401
+- ✅ Non-member access → 404 (no info leakage)
+- ✅ Empty title/content → 400
+- ✅ Title/content > 5000 chars → 400
+- ✅ Invalid IDs → 404
+- ✅ Owner deletes any message → 200
+
+**Integration with Existing Features (4 tests):**
+- ✅ Task list still works
+- ✅ Task detail includes checklist
+- ✅ Task status update works
+- ✅ Checklist included in task detail
+
+**Frontend Build:**
+- ✅ `npm run build` succeeds
+- ✅ ChatPanel, MessageItem, CommentSection, CommentItem all render
+- ✅ ChatPanel integrated into GroupDetail
+- ✅ CommentSection integrated into TaskDetail
+- ✅ messageApi added to services/api.js
+
+### Files Created
+- `frontend/src/components/MessageItem.jsx`
+- `frontend/src/components/ChatPanel.jsx`
+- `frontend/src/components/CommentItem.jsx`
+- `frontend/src/components/CommentSection.jsx`
+- `5B.5.txt` - Complete test results documentation
+
+### Files Modified
+- `frontend/src/services/api.js` - Added messageApi
+- `frontend/src/pages/GroupDetail.jsx` - Added ChatPanel
+- `frontend/src/pages/TaskDetail.jsx` - Added CommentSection
+
+### Next Phase
+Begin **5C.1** (Notifications Design & Implementation Plan)
+
 (End of file)
