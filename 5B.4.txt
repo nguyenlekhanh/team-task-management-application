@@ -1,0 +1,139 @@
+# Phase 5B.4 - Group Chat Frontend UI
+
+## STATUS
+COMPLETED
+
+## OBJECTIVE
+Create frontend chat UI components and integrate them into GroupDetail and TaskDetail pages.
+
+## IMPLEMENTATION
+
+### Files Created
+
+**Frontend Components (New):**
+- `frontend/src/components/MessageItem.jsx` - Individual message display with sender avatar, content, timestamp, edit/delete actions
+- `frontend/src/components/ChatPanel.jsx` - Full chat panel for group chat with message list, pagination, send input
+- `frontend/src/components/CommentItem.jsx` - Individual comment display for task comments
+- `frontend/src/components/CommentSection.jsx` - Comment section for task details with pagination, add/edit/delete
+
+**Frontend Services (Modified):**
+- `frontend/src/services/api.js` - Added `messageApi` with 6 methods:
+  - `getGroupMessages(groupId, params)` - GET /api/groups/:groupId/messages
+  - `addGroupMessage(groupId, data)` - POST /api/groups/:groupId/messages
+  - `getTaskComments(taskId, params)` - GET /api/tasks/:taskId/comments
+  - `addTaskComment(taskId, data)` - POST /api/tasks/:taskId/comments
+  - `updateMessage(id, data)` - PUT /api/messages/:id
+  - `deleteMessage(id)` - DELETE /api/messages/:id
+
+**Frontend Pages (Modified):**
+- `frontend/src/pages/GroupDetail.jsx` - Added ChatPanel integration in second column
+- `frontend/src/pages/TaskDetail.jsx` - Replaced Activity Log placeholder with CommentSection
+
+### Features Implemented
+
+**ChatPanel (GroupDetail):**
+- Message list with sender avatar, name, timestamp, content
+- Own messages right-aligned (blue), others left-aligned (gray)
+- Pagination with "Load more" button (cursor-based)
+- Auto-scroll to bottom on new messages
+- Message input with Enter to send, Shift+Enter for newline
+- Optimistic UI updates (immediate local update)
+- Edit/Delete dropdown for own messages (sender only)
+- Owner/Admin can delete any message
+- Loading states, error handling, empty states
+- Responsive design with sticky positioning
+
+**MessageItem:**
+- Sender avatar with initial
+- Message content with whitespace preservation
+- Sender name and relative timestamp
+- Hover dropdown for Edit/Delete (own messages)
+- Owner/Admin can delete any message
+- Own messages right-aligned (blue), others left-aligned (gray)
+
+**CommentSection (TaskDetail):**
+- Task comments with pagination
+- Add comment form with validation
+- Comment list with sender avatar, content, timestamp
+- Edit/Delete for own comments
+- Green-themed styling (distinct from blue chat messages)
+- Pagination with "Load more"
+
+**CommentItem:**
+- Similar to MessageItem but green-themed
+- Sender avatar with initial
+- Content with timestamp
+- Edit/Delete for own comments
+
+### Integration Points
+
+**GroupDetail:**
+- ChatPanel added to second column above Members list
+- Passes groupId, currentUserId, userRole for authorization
+- Uses messageApi for all chat operations
+
+**TaskDetail:**
+- Replaced Activity Log placeholder with CommentSection
+- Passes taskId and currentUserId
+- Uses messageApi for comment operations
+
+### Styling
+- TailwindCSS consistent with existing design
+- Blue theme for group messages (ChatPanel)
+- Green theme for task comments (CommentSection)
+- Own messages right-aligned with distinct background color
+- Responsive design with flexbox/grid
+- Hover states, transitions, focus states
+
+## TESTS
+
+### Build Test
+- ✅ `npm run build` succeeds without errors
+
+### Manual API Tests (verified in 5B.3)
+All backend endpoints working correctly:
+- GET /api/groups/:groupId/messages
+- POST /api/groups/:groupId/messages
+- GET /api/tasks/:taskId/comments
+- POST /api/tasks/:taskId/comments
+- PUT /api/messages/:id
+- DELETE /api/messages/:id
+
+### Manual Frontend Tests (to be performed)
+- [ ] ChatPanel loads in GroupDetail
+- [ ] Messages display with sender info
+- [ ] Send message works
+- [ ] Edit own message works
+- [ ] Delete own message works
+- [ ] Owner/Admin can delete any message
+- [ ] Non-member cannot access (404)
+- [ ] CommentSection loads in TaskDetail
+- [ ] Add comment works
+- [ ] Edit own comment works
+- [ ] Delete own comment works
+- [ ] Pagination works (load more)
+- [ ] Empty states display correctly
+- [ ] Error states display correctly
+- [ ] Frontend build succeeds
+
+## FILES CREATED
+- `frontend/src/components/MessageItem.jsx`
+- `frontend/src/components/ChatPanel.jsx`
+- `frontend/src/components/CommentItem.jsx`
+- `frontend/src/components/CommentSection.jsx`
+- `5B.4.txt` (this file)
+
+## FILES MODIFIED
+- `frontend/src/services/api.js` - Added messageApi
+- `frontend/src/pages/GroupDetail.jsx` - Added ChatPanel integration
+- `frontend/src/pages/TaskDetail.jsx` - Replaced Activity Log with CommentSection
+
+## KNOWN ISSUES
+1. **No real-time updates**: Uses polling/pagination only (Socket.IO in 5D)
+2. **Optimistic updates only**: No server confirmation rollback on failure
+3. **No message editing UI**: Uses browser prompt (can be enhanced with modal)
+4. **No unread indicators**: Not implemented yet
+5. **No file/image attachments**: Text only for MVP
+
+## NEXT STEP
+Begin **5B.5** - Testing & Integration (end-to-end testing, permission tests, edge cases)

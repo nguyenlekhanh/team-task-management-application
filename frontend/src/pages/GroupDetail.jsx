@@ -2,8 +2,9 @@ import { useState, useEffect } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { Link } from 'react-router-dom'
 import { useAuth } from '../contexts/AuthContext'
-import { groupApi } from '../services/api'
+import { groupApi, messageApi } from '../services/api'
 import { AddMemberModal } from '../components/AddMemberModal'
+import { ChatPanel } from '../components/ChatPanel'
 
 export function GroupDetail() {
   const { id } = useParams()
@@ -20,6 +21,8 @@ export function GroupDetail() {
   const canManageMembers = isOwner || isAdmin
   const canUpdateGroup = isOwner || isAdmin
   const canDeleteGroup = isOwner
+
+  const userRole = group?.role || 'member'
 
   useEffect(() => {
     if (!isAuthenticated) {
@@ -312,8 +315,16 @@ export function GroupDetail() {
             )}
           </div>
 
-          {/* Members - Second Column */}
-          <div className="lg:col-span-1">
+          {/* Members & Chat - Second Column */}
+          <div className="lg:col-span-1 space-y-6">
+            {/* Chat Panel */}
+            <ChatPanel
+              groupId={id}
+              currentUserId={user.id}
+              userRole={userRole}
+            />
+
+            {/* Members */}
             <div className="bg-white shadow rounded-lg sticky top-8">
               <div className="px-6 py-4 border-b border-gray-200 flex justify-between items-center">
                 <h3 className="text-lg font-semibold text-gray-900">Members ({members.length})</h3>

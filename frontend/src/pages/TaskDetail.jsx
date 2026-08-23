@@ -1,12 +1,13 @@
 import { useState, useEffect } from 'react'
 import { useNavigate, useParams, Link } from 'react-router-dom'
 import { useAuth } from '../contexts/AuthContext'
-import { taskApi, groupApi } from '../services/api'
+import { taskApi, groupApi, messageApi } from '../services/api'
 import { TaskStatusBadge } from '../components/TaskStatusBadge'
 import { PriorityBadge } from '../components/PriorityBadge'
 import { CreateTaskModal } from '../components/CreateTaskModal'
 import { EditTaskModal } from '../components/EditTaskModal'
 import { Checklist } from '../components/Checklist'
+import { CommentSection } from '../components/CommentSection'
 import { format } from 'date-fns'
 import { getRoleColor } from '../utils/permissions'
 
@@ -324,11 +325,8 @@ export function TaskDetail() {
             canManage={true}
           />
 
-          {/* Activity Log - Placeholder */}
-          <div className="bg-white shadow rounded-lg p-6">
-            <h3 className="text-lg font-semibold text-gray-900 mb-4">Activity</h3>
-            <p className="text-gray-500 text-center py-8">Activity log coming soon</p>
-</div>
+          {/* Comments */}
+          <CommentSection taskId={id} currentUserId={user.id} />
       </div>
 
         {/* Sidebar - Actions & Members */}

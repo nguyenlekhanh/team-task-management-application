@@ -775,4 +775,64 @@ Begin **5B.3** (Backend API - messageController, routes, 6 endpoints)
 ### Next Phase
 Begin **5B.4** (Frontend Chat UI - ChatPanel, MessageItem, CommentSection, CommentItem)
 
+## Phase Status: PHASE 5B.4 - COMPLETED (Group Chat Frontend UI Implemented)
+
+### What Was Implemented
+- **MessageItem component** (`frontend/src/components/MessageItem.jsx`):
+  - Individual message display with sender avatar, content, timestamp
+  - Own messages right-aligned (blue), others left-aligned (gray)
+  - Edit/Delete dropdown for own messages
+  - Owner/Admin can delete any message
+
+- **ChatPanel component** (`frontend/src/components/ChatPanel.jsx`):
+  - Full chat panel for group chat with message list, pagination, send input
+  - Message list with sender avatar, name, timestamp
+  - Auto-scroll to bottom on new messages
+  - Load more button for pagination
+  - Optimistic updates for immediate feedback
+  - Edit/Delete for own messages, Owner/Admin can delete any
+
+- **CommentItem component** (`frontend/src/components/CommentItem.jsx`):
+  - Individual comment display for task comments
+  - Green-themed styling (distinct from chat)
+  - Edit/Delete for own comments
+
+- **CommentSection component** (`frontend/src/components/CommentSection.jsx`):
+  - Progress indicator showing comment count
+  - Add comment form with validation
+  - List of CommentItem components
+  - Pagination with "Load more"
+
+- **TaskDetail integration** (`frontend/src/pages/TaskDetail.jsx`):
+  - Replaced Activity Log placeholder with CommentSection
+  - Added messageApi import
+
+- **GroupDetail integration** (`frontend/src/pages/GroupDetail.jsx`):
+  - Added ChatPanel in second column above Members
+  - Added userRole state for authorization
+  - Added messageApi import
+
+- **API Service** (`frontend/src/services/api.js`):
+  - Added messageApi with 6 endpoints
+
+### Files Created
+- `frontend/src/components/MessageItem.jsx`
+- `frontend/src/components/ChatPanel.jsx`
+- `frontend/src/components/CommentItem.jsx`
+- `frontend/src/components/CommentSection.jsx`
+- `5B.4.txt` - Complete implementation documentation
+
+### Files Modified
+- `frontend/src/services/api.js` - Added messageApi
+- `frontend/src/pages/GroupDetail.jsx` - Added ChatPanel
+- `frontend/src/pages/TaskDetail.jsx` - Added CommentSection
+
+### Test Results
+- ✅ `npm run build` succeeds
+- ✅ All components render without errors
+- ✅ Components follow existing design patterns
+
+### Next Phase
+Begin **5B.5** (Testing & Integration - end-to-end testing, permission tests, edge cases)
+
 (End of file)

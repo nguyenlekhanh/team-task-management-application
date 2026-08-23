@@ -77,4 +77,13 @@ export const taskApi = {
   toggleChecklistItem: (taskId, itemId, data) => api.put(`/tasks/${taskId}/checklist/${itemId}/toggle`, data),
 }
 
+export const messageApi = {
+  getGroupMessages: (groupId, params) => api.get(`/groups/${groupId}/messages`, { params }),
+  addGroupMessage: (groupId, data) => api.post(`/groups/${groupId}/messages`, data),
+  getTaskComments: (taskId, params) => api.get(`/tasks/${taskId}/comments`, { params }),
+  addTaskComment: (taskId, data) => api.post(`/tasks/${taskId}/comments`, data),
+  updateMessage: (id, data) => api.put(`/messages/${id}`, data),
+  deleteMessage: (id) => api.delete(`/messages/${id}`),
+}
+
 export default api
