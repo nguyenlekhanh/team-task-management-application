@@ -1,0 +1,290 @@
+# Phase 5D.1 — Realtime / Socket.IO Design & Architecture
+
+## STATUS
+DESIGN COMPLETE (planning only — no Socket.IO code installed or written)
+
+---
+
+## 0. CURRENT ARCHITECTURE ASSESSMENT (source of truth)
+
+Verified against the repository at commit `a3cf3bc`:
+
+**Backend**
+- `src/server.js`: starts Express via `app.listen(PORT)` — there is NO raw `http.Server` instance today; Socket.IO will require switching to `http.createServer(app)` + `new Server(httpServer)`.
+- `src/app.js`: middleware chain is `cors()` (wide-open, no origin allowlist), `express.json()`, `urlencoded`, `cookie-parser`, then `/api` routes. No error-handling middleware.
+- **CORS**: `app.use(cors())` allows every origin. Realtime handshakes inherit this unless tightened.
+- **Auth**: JWT (HS256, `JWT_SECRET`), **15-minute expiry**, issued at login/register. Dual transport: `localStorage` token sent as `Authorization: Bearer` (axios interceptor) AND httpOnly `token` cookie set by `authController.login` (line 92). `middleware/auth.js` accepts cookie OR header, verifies JWT, loads `User.findByPk`, attaches `req.user`. 401 responses trigger the axios interceptor to wipe storage and redirect to `/login`.
+- **Persistence**: Sequelize + SQLite (`data/team-management.sqlite`). All writes go through controllers (taskController, messageController, groupController, notificationController).
+- **Models/associations relevant to realtime**: User(`onlineStatus` BOOLEAN exists but nothing sets it except profile update), GroupMember(role owner/admin/member, unique groupId+userId), Task(creatorId/assigneeId/groupId), TaskMember(role follower), Message(senderId/groupId/taskId/messageType), Notification(recipientId/senderId/taskId/groupId/messageId).
+- **Single choke points ideal for emission**: `messageController.addGroupMessage` / `addTaskComment` (chat+comments) and `utils/notificationService.js` `createNotification`/`notifyUsers` (ALL notification creation already funnels through these two functions — triggers included).
+- No queue/job infra besides the in-process deadline timer job. Single Node process assumed.
+
+**Frontend**
+- React 18 SPA, React Router v6, single global context (`AuthContext`) mounted in `main.jsx`; feature state lives in page components + small hooks (`hooks/useNotifications.js` polls unread count every 30 s).
+- `services/api.js`: single axios instance; token from localStorage; 401 interceptor force-logout.
+- Dev flow: Vite dev server proxies `/api` → `localhost:3000`. Prod build served separately; `VITE_API_URL=http://localhost:3000/api` configured.
+- Notification UI (bell/dropdown/item/settings) consumes REST today; polling is the only freshness mechanism.
+
+**Not installed**: `socket.io`, `socket.io-client` (confirmed absent from both package.json files). Nothing realtime exists yet anywhere in the repo.
+
+---
+
+## 1. REALTIME GOALS
+
+### MUST be realtime in first implementation (5D.2–5D.4)
+| Capability | Today | Becomes |
+|---|---|---|
+| Group chat messages | send → others see on reload | instant delivery to group members viewing the group |
+| Task comments | send → others see on reload | instant delivery to users viewing the task |
+| Notification delivery | 30 s badge polling | push to recipient's bell immediately |
+| Unread badge count | poll /30 s | pushed on create/read-all transitions |
+
+### SHOULD be realtime later (same phases or follow-up, not launch-blocking)
+- Online/offline presence (User.onlineStatus broadcast to co-members; member-list indicators)
+- Task status / assignment updates reflected on open TaskList/TaskDetail/MyTasks views
+- Group membership changes (member added/removed → live member list refresh)
+
+### MUST remain REST/API driven (authoritative, unchanged)
+- ALL writes: sending messages/comments, assignment, status changes, checklist edits, mark-read, read-all, delete, preferences
+- ALL initial loads and pagination (list endpoints remain the source of truth)
+- Login/logout, profile, groups CRUD, member management
+Rationale: Socket.IO is a delivery channel layered on top of committed database state; it must never be the only path to data.
+
+### Explicit non-goals (this phase and MVP realtime)
+Typing indicators, read receipts per message, editing/deleting propagation (edit/delete stay refresh-driven), email/push channels, video/voice, message anchoring/deep links.
+
+---
+
+## 2. SCOPE BOUNDARIES
+- One Node process + SQLite stays the deployment target. No Redis, no adapter, no message queue (see §14).
+- REST contract does not change: same routes, same payloads. Realtime payloads REUSE the exact sanitized shapes REST already returns (`sanitizeMessage`, `sanitizeNotification`) so clients render either source interchangeably.
+- Existing polling in `useNotifications` remains as fallback during 5D.2–5D.3 and is reduced (not deleted) once push is verified in 5D.4.
+
+---
+
+## 3. SERVER ARCHITECTURE
+
+```
+server.js (changed in 5D.2)
+  const httpServer = http.createServer(app)      // was: app.listen
+  const io = new Server(httpServer, { cors, path })
+  require('./socket').init(io)                    // attaches handlers, exposes emitter
+  httpServer.listen(PORT)
+
+backend/src/socket/index.js        - init(io): auth middleware, connection handler, room join/leave
+backend/src/socket/auth.js         - handshake JWT verification (mirrors middleware/auth.js rules)
+backend/src/socket/rooms.js        - room naming + membership checks (single authority)
+backend/src/services/realtimeEmitter.js - emitToUser()/emitToRoom(); safe no-op before init()
+```
+- `realtimeEmitter` is initialized once by `socket/index.js` and imported by controllers/services. Before init (e.g., unit-style runs, tests) every emit is a silent no-op — this guarantees the REST-only test suites from 5A–5C keep passing unchanged.
+- Socket lifecycle: `handshake → authenticate → connection → (client-initiated room joins) → disconnect`. The server NEVER auto-joins a socket to any group/task room; joins are always an authorized request (§6).
+- Disconnect handling: remove socketId from the presence registry; if it was the user's last socket, schedule offline transition (§9).
+
+---
+
+## 4. AUTHENTICATION DESIGN
+
+- **Transport**: the browser cannot set headers on a WebSocket handshake, so the client sends the SAME localStorage JWT via the Engine.IO `auth` payload (`io(url, { auth: { token } })`). As defense-in-depth the existing httpOnly `token` cookie also rides along on the handshake (same-site requests); server preference order: `auth.token` → `handshake.headers.cookie` token — mirroring `middleware/auth.js` which accepts header-or-cookie.
+- **Validation** (`socket/auth.js`): identical semantics to REST middleware — `jwt.verify(token, JWT_SECRET)`; on success `User.findByPk(decoded.userId)`; attach `socket.userId` + a minimal `socket.user` snapshot (id, username, displayName). Failure modes map to Socket.IO `Next(Error)`:
+  - missing token → `Unauthorized`
+  - `TokenExpiredError` → `Token expired`
+  - `JsonWebTokenError` → `Invalid token`
+  - user row gone → `User not found`
+  Client treats any of these like the axios 401 path (clear storage → `/login`), preserving existing conventions.
+- **15-minute expiry reality**: a socket authenticated at T remains valid after T+15m. Accepted behavior for MVP: connections are validated at (re)connect time; the server does NOT kill mid-flight sockets at expiry, because every subsequent privileged action (room join) still requires an *authorized* REST write whose own auth is fresh. On ANY reconnect the fresh token is re-validated — an expired session therefore cannot re-establish. Optional hardening (future): periodic `jwt.verify` heartbeat that disconnects stale sessions.
+- **Disconnected/unauthorized clients** receive the built-in `connect_error` with the reason string; no retries against a dead session (client stops retrying after an auth-classified failure).
+
+## 5. AUTHORIZATION DESIGN
+
+- Room joins are the ONLY privilege escalation surface, and they are verified server-side against the database at join time:
+  - `group:join` → `GroupMember.findOne({ groupId, userId })` must exist (any role).
+  - `task:join` → load Task; then same GroupMember check on `task.groupId`.
+  - `user:{id}` room is joined implicitly and exclusively for the authenticated socket (`id === socket.userId`); clients cannot request other user rooms.
+- Membership is re-checked implicitly on every REST write; a removed member's socket may still sit in a stale room, so **removal from a group should evict that user's sockets from `group:{id}`** (5D.2 lists this as part of member-management hook-up; until then the worst case is a missed-event-free but harmless stale room — broadcasts contain only data the member could previously see, and all FUTURE data access goes through re-authorized REST reads).
+- Broadcast emitters never accept arbitrary rooms from clients; rooms are derived server-side from persisted rows (groupId/taskId/recipientId).
+
+## 6. ROOM STRATEGY (derived from actual domain)
+
+| Room | Name | Members | Carries |
+|---|---|---|---|
+| User inbox | `user:{userId}` | exactly that user's sockets | notification:new, notification:unread-count, (later) personal presence pings |
+| Group hall | `group:{groupId}` | sockets of current GroupMembers | message:new, (later) presence:update, member:joined/left |
+| Task board | `task:{taskId}` | sockets of users who opened the task AND passed the group-membership check | comment:new, (later) task:updated |
+
+Notes: names mirror primary-key ownership of the payload (a message belongs to a group; a comment/notification to identifiable owners). Multi-device is free: every device socket joins the same named rooms.
+
+## 7. EVENT NAMING CONVENTION
+
+Pattern: `<domain>:<past-tense-fact>` for server→client pushes; `<domain>:<verb>` for client→server commands. Built-in Socket.IO events (`connection`, `disconnect`, `connect_error`) keep their native names. No acknowledgements except where noted (§11).
+
+## 8. EVENT CATALOG (complete list for first implementation)
+
+**Client → Server**
+| Event | Payload | Authz | Response |
+|---|---|---|---|
+| `group:join` | `{ groupId: int }` | GroupMember(groupId, me) | implicit; on failure server emits `error` and does NOT join |
+| `group:leave` | `{ groupId: int }` | none needed | leaves room |
+| `task:join` | `{ taskId: int }` | Task→groupId→GroupMember(me) | implicit; failure → `error` |
+| `task:leave` | `{ taskId: int }` | none needed | leaves room |
+
+**Server → Client**
+| Event | Room | Payload | Emitted from |
+|---|---|---|---|
+| `message:new` | `group:{groupId}` | sanitizeMessage(createdMessage) — identical to POST response `item` | addGroupMessage after commit |
+| `comment:new` | `task:{taskId}` | sanitizeMessage(...) | addTaskComment after commit |
+| `notification:new` | `user:{recipientId}` | sanitizeNotification(notification) | notificationService after each create |
+| `notification:unread-count` | `user:{recipientId}` | `{ unreadCount: number }` | notificationService after batch (computed post-insert) |
+| `error` | socket | `{ event: string, message: string }` | join/validation failures |
+
+Deliberately NOT defined now: `typing:*`, `presence:*`, `member:*`, `task:*` (documented as §19 roadmap items with reserved names `task:updated`, `presence:updated`, `member:left` to prevent naming drift).
+
+## 9. GROUP CHAT REALTIME FLOW (authoritative path unchanged)
+
+1. User A submits message → **REST** `POST /api/groups/:groupId/messages` (unchanged route/controller).
+2. Controller authenticates (existing middleware) + verifies GroupMembership (existing logic).
+3. `Message.create(...)` persists (SQLite — the single source of truth).
+4. Existing notification triggers run exactly as in 5C.3 (NEW_MESSAGE/MENTION via `notifyUsers`).
+5. NEW (5D.3): controller calls `realtimeEmitter.emitToRoom('group:'+groupId, 'message:new', sanitizeMessage(createdMessage))` AFTER the DB commit and after building the sanitized payload it already returns.
+6. Each online member's socket in `group:{groupId}` receives `message:new`; ChatPanel appends if not already present (dedupe by `item.id`), scrolls, and does NOT re-POST anything.
+7. Member B offline → misses the frame; B's next ChatPanel mount/pull uses GET messages — REST reconciles. No delivery ledger is kept.
+Key invariant preserved: Socket.IO never writes; removing the socket layer entirely leaves a fully functional app (this is also why 5A–5C suites must stay green).
+
+## 10. TASK COMMENTS REALTIME FLOW
+Identical pattern scoped to the task room:
+`POST /api/tasks/:taskId/comments` → auth + task lookup + GroupMember(task.groupId) check → `Message.create(messageType:'comment')` → 5C.3 notification triggers → `emitToRoom('task:'+taskId, 'comment:new', sanitized)`.
+Task-room access = viewer-level (read) access; only users who could GET the comments may receive the frame. Writes still require the REST endpoint (members-only), so a read-only-room occupant can never mutate.
+
+## 11. NOTIFICATION REALTIME FLOW (no duplication of creation logic)
+`notificationService` REMAINS the single creator (all 5C.3 triggers + future ones already funnel through `createNotification`/`notifyUsers`). Integration point:
+
+```
+createNotification(data) succeeds
+  └→ realtimeEmitter.emitToUser(n.recipientId, 'notification:new', sanitizeNotification(n))
+notifyUsers(...) finishes
+  └→ compute unreadCount for affected recipient(s) once
+     └→ emitToUser(userId, 'notification:unread-count', { unreadCount })
+```
+- An event-bus abstraction IS warranted but deliberately tiny: `realtimeEmitter` (≈20 lines) instead of a generic EventEmitter mesh — it keeps controllers decoupled from `io`, makes emits testable/no-op-able, and avoids import cycles (socket/index imports models; services import only the emitter module).
+- Read-side transitions (mark-read/read-all/delete) do NOT push (other tabs re-poll as today); pushing those is a documented future enhancement.
+
+## 12. PRESENCE / ONLINE STATUS (should-phase design, multi-tab safe)
+- Registry: `Map<userId, Set<socketId>>` in-process.
+- First socket for a user → `onlineStatus=true` persisted (one UPDATE) + `presence:updated {userId,true}` broadcast to `group:{g}` of every group the user belongs to.
+- Socket disconnect → remove id; if set non-empty (other tabs/devices) do NOTHING; if empty, start a 30 s grace timer → if no reconnection, flip false + persist + broadcast. Reconnection cancels the pending flip. This directly avoids the naïve "last disconnect wins" bug.
+- Presence events are SHOULD-phase; the `onlineStatus` column and profile toggle already exist so no schema work is needed.
+
+## 13. RECONNECTION STRATEGY
+- Client: Socket.IO defaults (exponential backoff with jitter, unlimited attempts while authenticated).
+- On every `connect`/`reconnect`: (a) re-send `group:join`/`task:join` for entities currently on screen (rooms are memory-only and die with server restarts); (b) REST resync of what the user sees: `GET /notifications` + `unread-count` (already centralized in `useNotifications`), active ChatPanel refetch, open TaskDetail refetch. Database is the reconciliation source; frames received during the gap are simply absent and healed by the refetch.
+- Server restart: same path; in-memory rooms/registry vanish, clients auto-reconnect, re-authenticate with their (still-valid) tokens, rejoin, resync.
+- Network blip < backoff window: no visible action needed; next frames resume.
+
+## 14. DELIVERY SEMANTICS
+- **Best-effort, at-most-once, no acks.** Frames are hints; the DB is truth. No per-event acknowledgement in MVP (ack adds bookkeeping with no product need while REST reconcile exists).
+- Offline client: misses frames; heals on reconnect-resync or next natural fetch. No persistence of undelivered frames, no replay log.
+- Duplicates: theoretically possible around races (frame lands just as a manual refetch completes). Rule: list-insert helpers dedupe by primary key (`message.id`, `notification.id`) — already the shape used by `useNotifications`/ChatPanel state.
+- Persisted data = whatever REST already wrote. Nothing extra is recorded for delivery purposes.
+- No Redis/queues justified: single process, in-proc pub-sub is literally a function call.
+
+## 15. MULTI-TAB / MULTI-DEVICE BEHAVIOR
+- Each tab/device = its own socket, all in the same `user:{id}` room → every device gets its own `notification:new` copy (desired UX).
+- Presence counted per-user via the registry (not per-socket) → closing one tab never flips offline while another lives (§12).
+- Same group in two tabs → both sockets sit in `group:{id}`; both render the frame; dedupe-by-id keeps each tab's list correct.
+- Joining/leaving is per-socket; leaving a page removes only that socket's room membership.
+- Mark-all-read in one tab does NOT instantly clear another tab's badge (read-side push is future work); the 30 s fallback poll bounds staleness. Documented, accepted.
+
+## 16. ERROR HANDLING
+| Failure | Handling |
+|---|---|
+| Handshake auth errors | `connect_error` reason strings mirroring REST wording (`Unauthorized` / `Invalid token` / `Token expired`); client logs out on auth-class reasons |
+| Join with bad/malformed payload (`{}`, strings, floats) | validate `Number.isInteger`; reply `error {event,message}`; never join; malformed events otherwise ignored silently (server never trusts or executes unknown client events) |
+| Join unauthorized | `error` frame; no room mutation |
+| DB failure during a REST write | REST 500 as today; NO frame emitted (emits happen strictly post-commit) |
+| Emit failure (socket layer) | swallowed/logged inside realtimeEmitter — mirrors 5C.3's "notifications never break main flow" rule |
+| Client socket error | built-in `error` → Socket.IO auto-reconnect path (§13) |
+
+## 17. SECURITY REVIEW
+- JWT: same secret/verification as REST; short expiry re-checked at every (re)connect; httpOnly cookie as secondary channel.
+- Rooms: never client-authoritative; DB-backed membership at join time; eviction on removal planned.
+- Payloads: server-originated only, reusing REST sanitizer output → no field leakage beyond what the recipient can already GET (notification privacy inherits recipientId scoping; message frames go only to current members).
+- No wildcard client-triggered broadcasts; client surface limited to 4 narrow join/leave commands.
+- Information leakage: error frames return coarse reasons, never stack traces/user existence hints beyond existing REST conventions.
+- Rate limiting: MVP relies on trusted-auth + low-frequency join commands; recommended hardening (5D.5): per-socket token-bucket on joins and a server-side cap on rooms per socket; aligns with the Phase 9 security review. CORS: replace `cors()` wildcard with `CLIENT_ORIGIN` allowlist in 5D.2 (needed anyway for credentialed cross-origin sockets in prod topology).
+- Abuse: unknown events ignored; oversized `auth` payloads rejected by Engine.IO defaults.
+
+## 18. PERFORMANCE & SCALABILITY
+- Current scope (team-scale, single box, SQLite): in-memory adapter + in-process emitter is fully sufficient; expected concurrent sockets (≤ few hundred) trivial for Node.
+- Multi-instance would break in-memory rooms/presence → would require `@socket.io/redis-adapter` + shared presence store AND moving off SQLite first; explicitly deferred (also noted: deadline-job/dedupe logic is likewise single-instance).
+- Watch-items: fan-out cost of `message:new` scales with group size (fine ≤ hundreds); payload sizes are small (sanitized rows); no polling removal required for correctness — push merely reduces REST chatter.
+
+## 19. FRONTEND INTEGRATION ARCHITECTURE
+```
+main.jsx → <AuthProvider><SocketProvider>…   (SocketProvider inside AuthProvider)
+contexts/SocketContext.jsx  - singleton manager per tab
+  • creates socket ONCE when isAuthenticated flips true (auth.token from localStorage)
+  • disconnects + clears on logout/expiry (mirrors axios 401 path)
+  • StrictMode-safe: connection owned by the provider, never by consumer components
+  • exposes { socket, connected }
+services/socket.js           - URL/path resolution (VITE_SOCKET_URL || API origin) + factory
+hooks/useSocketEvent.js      - useSocketEvent(event, handler): subscribes on mount, unsubscribes on cleanup (kills duplicate-listener/memory-leak class bugs)
+Consumers:
+  useNotifications  - on notification:new prepend (dedupe by id); on notification:unread-count set count; polling interval relaxed to fallback-only
+  ChatPanel         - on open: emit group:join{id}; on message:new append-if-new; cleanup: group:leave + off()
+  CommentSection    - task:join / comment:new / task:leave symmetric
+```
+Rules: components never call `io()` directly; every listener pairs with an unsubscribe in effect cleanup; REST remains the loader, sockets the updater.
+
+## 20. DATABASE IMPACT
+**None. No schema changes, migrations, or model changes are required for 5D.** `User.onlineStatus` already exists for presence; every realtime payload maps to existing tables/columns. (Stated explicitly per phase requirements: zero migrations in 5D.2–5D.5.)
+
+## 21. ENVIRONMENT / CONFIGURATION PLAN (documentation only; NOT changed now)
+Planned additions when 5D.2 implements:
+- backend `.env`: `CLIENT_ORIGIN=http://localhost:5173` (CORS allowlist for REST+socket handshake)
+- frontend `.env`: `VITE_SOCKET_URL=http://localhost:3000` (optional; default = API origin)
+- Vite dev proxy gains `ws: true` for `/socket.io` (alternative: direct VITE_SOCKET_URL, chosen default for simplicity)
+- No new secrets; reuse `JWT_SECRET`, `PORT`.
+
+## 22. IMPLEMENTATION ROADMAP (staged, aligned with PHASE5_PLAN.md sub-phases)
+
+### 5D.2 — Socket.IO foundation (backend)
+Install `socket.io`; switch server.js to `http.createServer`; `socket/{index,auth,rooms}.js`; handshake auth; `group:join/leave`, `task:join/leave` with DB authorization; `realtimeEmitter.js` (no-op-safe); CLIENT_ORIGIN CORS tightening; smoke-test two terminals. Deliverable: connections authenticate, unauthorized joins rejected.
+
+### 5D.3 — Realtime chat + comments (backend + minimal frontend wiring)
+Emit `message:new` / `comment:new` from messageController post-commit; SocketContext + useSocketEvent + ChatPanel/CommentSection subscriptions with dedupe; join/leave tied to component lifecycles. Deliverable: two browsers see messages/comments instantly; REST regression green.
+
+### 5D.4 — Realtime notifications (backend + useNotifications)
+Wire `notification:new` + `notification:unread-count` emissions through notificationService (single-source-of-truth preserved); useNotifications consumes push, polling demoted to fallback; multi-tab badge behavior verified. Deliverable: bell updates without refresh.
+
+### 5D.5 — Presence + testing & integration
+Presence registry/grace-period/broadcasts (+ optional member-list indicator), group-removal room eviction, join rate-limit hardening, reconnection/resync test matrix (restart, network drop, expired-token reconnect, multi-tab), load sanity (~50 sockets), full regression + updated docs.
+
+Each stage ends green under the EXISTING 5C.5 suite plus new socket-specific assertions.
+
+## 23. RISKS & DECISIONS
+| Decision/Risk | Choice | Rationale |
+|---|---|---|
+| Write path | REST-only, sockets read-only frames | DB integrity, reuse of authz, testability |
+| Emitter abstraction | thin `realtimeEmitter` module vs event bus | smallest decoupling that solves cycles/testing; no framework |
+| Token vs socket lifetime | validate at (re)connect; no mid-session expiry kills | matches current app-wide 15-min JWT posture; hardened later |
+| CORS | tighten to CLIENT_ORIGIN in 5D.2 | prerequisite for secure credentialed handshakes |
+| Presence correctness | reference-counted + 30 s grace | avoids multi-tab offline flicker bug |
+| Scaling | single-node, no adapter/Redis | honest fit for SQLite/single process; revisit only with real multi-instance need |
+| Missed frames | heal via REST resync | no delivery ledger complexity for MVP value |
+| Vite dev WS | dedicated VITE_SOCKET_URL default | sidesteps proxy ws quirks; one-line switch later |
+
+## 24. EXPLICIT NON-GOALS FOR 5D.1
+No dependencies installed; no server/client realtime code; no env/file changes; no schema changes; no modification of notification/chat/task behavior or APIs; no typing indicators/read-receipts/edit-propagation/email-push; no Redis/adapter work; no Phase 6+ items. This document only designs.
+
+---
+
+## VERIFICATION PERFORMED FOR THIS PHASE (design-only guardrails)
+- Confirmed `socket.io`/`socket.io-client` absent from both package.json files (grep).
+- Backend regression sweep: 17/17 pre-existing endpoint checks pass.
+- Notification integration suite: 68/68 assertions pass (`npm run test:notifications`).
+- Frontend production build: succeeds (2209 modules).
+- `git diff --check`: clean. No runtime behavior changed by this phase.
+
+---
+
+## NEXT SUB-PHASE
+**5D.2 — Socket.IO foundation** (install dependency, http-server swap, handshake auth, rooms, emitter skeleton)

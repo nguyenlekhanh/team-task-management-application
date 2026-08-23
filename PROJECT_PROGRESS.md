@@ -1092,3 +1092,32 @@ Begin **5C.5** (Notifications Testing & Integration)
 
 ### Next Phase
 Phase 5C COMPLETE. Begin **5D.1** (Realtime / Socket.IO Design & Architecture Plan)
+
+## Phase Status: PHASE 5D.1 - COMPLETED (Realtime / Socket.IO Design & Architecture Plan)
+
+### What Was Planned (design only - no code)
+Created `5D.1.txt`, an implementation-ready architecture derived from the actual repository:
+- **Assessment**: server.js uses app.listen (http.createServer swap required); CORS wide-open; JWT 15-min with localStorage Bearer + httpOnly cookie dual transport; notificationService is the single notification-creation choke point; socket.io not installed anywhere
+- **Goals split**: MUST realtime = group messages, task comments, notification push + unread count; SHOULD later = presence (onlineStatus column exists), task status/assignment updates, membership changes; MUST stay REST = all writes and initial loads
+- **Architecture**: Socket.IO attached to new http.Server in 5D.2; thin no-op-safe `realtimeEmitter` service keeps controllers decoupled; REST stays authoritative — sockets never write
+- **Auth**: handshake via auth.token (cookie fallback), identical validation to middleware/auth.js, connect_error reasons mirror REST wording; rooms never client-authoritative (DB membership checked at join)
+- **Rooms**: user:{id} (notifications), group:{id} (chat), task:{id} (comments) — derived from payload ownership
+- **Event catalog**: 4 client commands (group/task join/leave) + 4 server pushes (message:new, comment:new, notification:new, notification:unread-count) reusing REST sanitizer shapes; naming convention documented; future names reserved
+- **Flows**: chat/comment/notification sequences keep DB commit before emit; missed frames healed by REST resync on reconnect; best-effort at-most-once delivery, dedupe by primary key client-side
+- **Presence**: reference-counted multi-tab registry + 30s grace period before offline flip + broadcast (should-phase)
+- **Security/perf**: CORS tightening planned, join rate-limiting deferred to hardening, single-node in-memory adapter sufficient (no Redis until multi-instance)
+- **Database impact**: NONE — explicitly zero migrations for all of Phase 5D
+- **Roadmap**: 5D.2 foundation → 5D.3 realtime chat/comments → 5D.4 realtime notifications → 5D.5 presence + testing/integration
+
+### Files Created
+- `5D.1.txt` - Complete design document
+
+### Verification (design-phase guardrails)
+- ✅ No runtime changes: socket.io absent from both package.json files
+- ✅ Backend regression sweep 17/17 pass
+- ✅ Notification integration suite 68/68 pass
+- ✅ Frontend production build succeeds
+- ✅ git diff --check clean
+
+### Next Phase
+Begin **5D.2** (Socket.IO Foundation - Backend)

@@ -382,14 +382,14 @@ project-root/
 
 ## Current Phase
 
-**Phase 5C.5: Notifications Testing & Integration** - **COMPLETED** (68-assertion automated integration suite added, 1 real bug found+fixed in notificationService, all triggers/preferences/deadline-job/authorization paths verified, regression green)
+**Phase 5D.1: Realtime / Socket.IO Design & Architecture Plan** - **COMPLETED** (design document 5D.1.txt: REST-authoritative socket architecture, handshake JWT auth, user/group/task rooms, event catalog, presence/reconnection/delivery semantics, staged 5D.2–5D.5 roadmap; no realtime code installed)
 
 ## Recommended Next Steps
 
-1. **Begin Phase 5D.1 Realtime / Socket.IO Design & Architecture Plan:**
-   - Plan Socket.IO server alongside Express
-   - Events: connection, join-room, message, task-update, notification
-   - Rooms: group/task/user; JWT auth on handshake
-   - Frontend socket context + reconnection strategy
+1. **Begin Phase 5D.2 Socket.IO Foundation (backend):**
+   - Install socket.io; switch server.js to http.createServer + attach Server
+   - Handshake JWT auth mirroring middleware/auth.js
+   - Authorized group/task room join/leave commands
+   - realtimeEmitter no-op-safe abstraction; CLIENT_ORIGIN CORS tightening
 
 (End of file)

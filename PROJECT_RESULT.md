@@ -232,7 +232,7 @@
 - Per-user notification preferences (persisted on Users table) ✅
 - Frontend notification UI ✅ (Phase 5C.4: bell + badge, dropdown panel, preferences tab)
 - Testing & integration ✅ (Phase 5C.5: 68-assertion automated suite, 1 bug found+fixed)
-- Real-time delivery ❌ (Phase 5D Socket.IO)
+- Real-time delivery ❌ (Phase 5D: 5D.1 architecture design COMPLETE, implementation starts 5D.2)
 
 ### Phase 8: UI Improvement - PARTIALLY IMPLEMENTED
 - Basic responsive layout with TailwindCSS ✅
@@ -522,13 +522,14 @@
 **Phase 5C.3: Notifications Backend API + Trigger Logic** - **COMPLETED** (7 REST endpoints, 4 trigger types in task/message controllers, deadline cron job, preferences storage; 53 test assertions passed)
 **Phase 5C.4: Notifications Frontend UI** - **COMPLETED** (NotificationBell/Dropdown/Item/Settings components, useNotifications hook, notificationApi, Profile Notifications tab, bell in all authenticated page navs; build + 16 integration assertions + regression passed)
 **Phase 5C.5: Notifications Testing & Integration** - **COMPLETED** (68-assertion automated integration suite `backend/tests/notification-integration.js` + npm runner; 1 real bug found and fixed — string recipient IDs dropped in notifyUsers; all triggers/preferences/deadline-job/isolation verified; 17/17 regression checks pass)
+**Phase 5D.1: Realtime / Socket.IO Design & Architecture Plan** - **COMPLETED** (design document 5D.1.txt created; no realtime code installed — REST-authoritative socket design, handshake JWT auth, user/group/task rooms, event catalog, presence/reconnection/delivery semantics, staged 5D.2–5D.5 roadmap)
 
 ## Recommended Next Steps
 
-1. **Begin Phase 5D.1 Realtime / Socket.IO Design & Architecture Plan:**
-   - Plan Socket.IO server alongside Express
-   - Events: connection, join-room, message, task-update, notification
-   - Rooms: group/task/user; JWT auth on handshake
-   - Frontend socket context + reconnection strategy
+1. **Begin Phase 5D.2 Socket.IO Foundation (backend):**
+   - Install socket.io; http.createServer swap in server.js
+   - Handshake JWT auth mirroring middleware/auth.js
+   - Authorized group/task room join/leave
+   - realtimeEmitter abstraction + CLIENT_ORIGIN CORS tightening
 
 (End of file)
