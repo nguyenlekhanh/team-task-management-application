@@ -1,0 +1,403 @@
+# Phase 5A.1 - Checklist Design & Implementation Plan
+
+## STATUS
+PLANNED
+
+## OBJECTIVE
+Implement full checklist management functionality for tasks, including CRUD operations, completion toggling, ordering, and progress tracking. The database layer already exists (created in Phase 4A). This phase covers backend API, frontend UI, and integration.
+
+## CURRENT PROJECT STATE
+
+### Database (✅ Already Implemented - Phase 4A)
+- **Checklist table** exists with migration `20240821190004-create-checklists.js`
+- **Fields**: id, taskId (FK), title, isCompleted, order, completedBy (FK), completedAt, createdAt, updatedAt
+- **Indexes**: taskId, (taskId, order)
+- **Foreign Keys**: 
+  - taskId → Tasks.id (CASCADE on delete)
+  - completedBy → Users.id (SET NULL on delete)
+- **Model associations** defined:
+  - Task.hasMany(Checklist, { as: 'checklist', foreignKey: 'taskId', onDelete: 'CASCADE' })
+  - Checklist.belongsTo(Task, { as: 'task', foreignKey: 'taskId', onDelete: 'CASCADE' })
+  - Checklist.belongsTo(User, { as: 'completer', foreignKey: 'completedBy', onDelete: 'SET NULL' })
+  - User.hasMany(Checklist, { as: 'completedChecklists', foreignKey: 'completedBy' })
+
+### Backend API (❌ Not Implemented)
+- **taskController.js**: Includes checklist in GET /api/tasks/:id and GET /api/groups/:groupId/tasks responses, but NO checklist-specific endpoints
+- **routes/tasks.js**: Only has task CRUD routes, NO checklist routes
+- **Endpoints defined in frontend api.js** but not implemented in backend:
+  - GET /api/tasks/:taskId/checklist
+  - POST /api/tasks/:taskId/checklist
+  - PUT /api/tasks/:taskId/checklist/:itemId
+  - DELETE /api/tasks/:taskId/checklist/:itemId
+  - PUT /api/tasks/:taskId/checklist/:itemId/toggle
+
+### Frontend (⚠️ Partially Implemented)
+- **api.js**: Has all checklist endpoint definitions (lines 73-77)
+- **TaskDetail.jsx**: Has placeholder at line 269 ("No checklist items yet")
+- **CreateTaskModal/EditTaskModal**: No checklist integration
+- **No checklist components** exist yet
+
+### Existing Patterns to Follow
+- **Authorization**: Use existing `authenticate` middleware + role-based checks (owner/admin/creator/assignee/member)
+- **Validation**: Follow taskController patterns (required fields, length limits, enum validation)
+- **Response format**: Use existing `sanitizeTask` / `sanitizeTaskList` pattern
+- **Error handling**: Return 401, 403, 404, 400, 500 with consistent JSON format
+- **Frontend**: Use react-hook-form, TailwindCSS, existing component patterns
+
+## FUNCTIONAL REQUIREMENTS
+
+### Core Features
+1. **List checklist items** for a task (ordered by `order` field)
+2. **Add checklist item** to a task
+3. **Edit checklist item** (title, order)
+4. **Delete checklist item**
+5. **Toggle completion** (mark complete/incomplete) with automatic `completedBy` and `completedAt`
+6. **Reorder items** (update `order` field)
+7. **Progress indicator** on task detail (X of Y items completed)
+8. **Permission-based UI** (who can add/edit/delete/complete)
+
+### User Stories
+- As a **task assignee**, I want to add checklist items to break down my work
+- As a **task creator/owner/admin**, I want to manage all checklist items
+- As a **group member**, I want to view checklist progress
+- As an **assignee**, I want to mark items complete and see progress
+
+## DATABASE DESIGN
+
+### Existing Checklist Table (Verified)
+| Field | Type | Constraints | Description |
+|-------|------|-------------|-------------|
+| id | INTEGER | PK, auto-increment | Unique identifier |
+| taskId | INTEGER | FK → Tasks.id, NOT NULL, CASCADE | Parent task |
+| title | STRING(500) | NOT NULL, len 1-500 | Item description |
+| isCompleted | BOOLEAN | NOT NULL, DEFAULT false | Completion status |
+| order | INTEGER | NOT NULL, DEFAULT 0 | Display order |
+| completedBy | INTEGER | FK → Users.id, NULLABLE, SET NULL | User who completed |
+| completedAt | DATE | NULLABLE | Completion timestamp |
+| createdAt | DATE | DEFAULT NOW | Creation timestamp |
+| updatedAt | DATE | DEFAULT NOW | Last update timestamp |
+
+### Indexes
+- `taskId` - for fetching task's checklist items
+- `(taskId, order)` - for ordered retrieval
+
+### Relationships
+- **Task 1:N Checklist** (CASCADE delete)
+- **User 1:N Checklist** (as completer, SET NULL on user delete)
+
+### No Schema Changes Needed
+The database layer is complete. Only API and UI implementation required.
+
+## API DESIGN
+
+### Checklist Endpoints
+
+#### 1. GET /api/tasks/:taskId/checklist
+**Purpose**: List all checklist items for a task
+- **Auth**: Required (Bearer token or cookie)
+- **Authorization**: User must be member of task's group
+- **Params**: None
+- **Response**: 
+```json
+{
+  "items": [
+    {
+      "id": 1,
+      "taskId": 5,
+      "title": "Design database schema",
+      "isCompleted": true,
+      "order": 0,
+      "completedBy": 2,
+      "completedAt": "2024-08-22T10:30:00Z",
+      "createdAt": "2024-08-22T10:00:00Z",
+      "updatedAt": "2024-08-22T10:30:00Z",
+      "completer": { "id": 2, "username": "john", "displayName": "John Doe", "avatarUrl": null }
+    }
+  ]
+}
+```
+- **Errors**: 401 (unauthenticated), 404 (task not found/access denied)
+
+#### 2. POST /api/tasks/:taskId/checklist
+**Purpose**: Add a new checklist item to a task
+- **Auth**: Required
+- **Authorization**: User must be member of task's group (all members can add)
+- **Body**:
+```json
+{
+  "title": "Write unit tests",
+  "order": 2  // optional, defaults to end
+}
+```
+- **Validation**: title required, max 500 chars, order >= 0 integer
+- **Response**: 201 Created with new item (including completer if completed)
+- **Errors**: 400 (validation), 401, 404 (task not found/access denied)
+
+#### 3. PUT /api/tasks/:taskId/checklist/:itemId
+**Purpose**: Update a checklist item (title, order)
+- **Auth**: Required
+- **Authorization**: User must be member of task's group
+- **Body**:
+```json
+{
+  "title": "Updated title",  // optional
+  "order": 3  // optional
+}
+```
+- **Validation**: title max 500 chars if provided, order >= 0 if provided
+- **Response**: 200 OK with updated item
+- **Errors**: 400, 401, 404 (item/task not found), 403 (if needed - but all members can edit)
+
+#### 4. DELETE /api/tasks/:taskId/checklist/:itemId
+**Purpose**: Delete a checklist item
+- **Auth**: Required
+- **Authorization**: User must be member of task's group (all members can delete)
+- **Response**: 200 OK { "message": "Checklist item deleted" }
+- **Errors**: 401, 404 (item/task not found)
+
+#### 5. PUT /api/tasks/:taskId/checklist/:itemId/toggle
+**Purpose**: Toggle completion status of a checklist item
+- **Auth**: Required
+- **Authorization**: User must be member of task's group (all members can toggle)
+- **Body**: `{ "isCompleted": true }` or `{ "isCompleted": false }`
+- **Behavior**:
+  - If `isCompleted: true` and was false: set `completedBy = req.user.id`, `completedAt = NOW()`
+  - If `isCompleted: false` and was true: set `completedBy = null`, `completedAt = null`
+- **Response**: 200 OK with updated item (including completer user object)
+- **Errors**: 400 (isCompleted required), 401, 404
+
+### Implementation Notes
+- All endpoints require authentication via existing `authenticate` middleware
+- Group membership verified by checking `GroupMember` for `task.groupId` and `req.user.id`
+- Consistent with task authorization: all group members can manage checklist
+- Return sanitized items with `completer` user object (id, username, displayName, avatarUrl)
+
+## AUTHORIZATION RULES
+
+| Action | Owner | Admin | Creator | Assignee | Member |
+|--------|-------|-------|---------|----------|--------|
+| View checklist | ✅ | ✅ | ✅ | ✅ | ✅ |
+| Add item | ✅ | ✅ | ✅ | ✅ | ✅ |
+| Edit item (title/order) | ✅ | ✅ | ✅ | ✅ | ✅ |
+| Delete item | ✅ | ✅ | ✅ | ✅ | ✅ |
+| Toggle completion | ✅ | ✅ | ✅ | ✅ | ✅ |
+| Reorder items | ✅ | ✅ | ✅ | ✅ | ✅ |
+
+**Rationale**: Checklists are collaborative - all group members can contribute. This matches the Phase 4 design: "Member: Create tasks, add/complete checklist items" and "Assignee: Update status, add/complete checklist items".
+
+**Backend enforcement**: All endpoints verify group membership (404 if not member). No additional role checks needed for checklist operations.
+
+## FRONTEND DESIGN
+
+### TaskDetail Integration (Primary Location)
+The checklist UI lives inside the TaskDetail page (`/groups/:groupId/tasks/:taskId`)
+
+#### Checklist Section Layout
+```
+┌─────────────────────────────────────────────────────┐
+│ Checklist                    [Progress: 3/5] [+]   │
+├─────────────────────────────────────────────────────┤
+│ ☑  Design database schema          [⋮] [🗑]        │
+│    └─ Completed by John Doe • 2 hours ago          │
+│ ☐  Write API endpoints              [⋮] [🗑]       │
+│ ☐  Write unit tests                 [⋮] [🗑]       │
+│ ☐  Update documentation             [⋮] [🗑]       │
+│ ☐  Deploy to staging                [⋮] [🗑]       │
+├─────────────────────────────────────────────────────┤
+│ [+ Add checklist item]                              │
+└─────────────────────────────────────────────────────┘
+```
+
+#### Components Needed
+
+**1. Checklist Component** (`frontend/src/components/Checklist.jsx`)
+- Props: `taskId`, `items`, `groupMembers`, `currentUser`, `onAdd`, `onToggle`, `onUpdate`, `onDelete`, `onReorder`
+- Displays ordered list with drag handles (future: react-beautiful-dnd)
+- Each item: checkbox, title, completedBy/completedAt, actions menu (edit/delete)
+- Inline "Add item" input at bottom
+
+**2. ChecklistItem Component** (`frontend/src/components/ChecklistItem.jsx`)
+- Single item row with checkbox, title, metadata, action buttons
+- Edit mode: inline input for title
+- Completed items: strikethrough, show completer + timestamp
+
+**3. AddChecklistItem Form** (inline in Checklist component)
+- Simple input + submit, validation (required, max 500 chars)
+
+**4. Progress Indicator**
+- Shows "X of Y completed" with percentage
+- Visual progress bar (optional)
+
+#### Permission-Based UI
+- All members see checklist
+- All members can add items (show "+ Add" button)
+- All members can toggle completion (checkbox enabled)
+- All members can edit/delete own items (or all items - simpler: all members can edit/delete any item)
+- Show completer name and timestamp on completed items
+
+#### Loading/Error States
+- Skeleton loader while fetching checklist
+- Inline error for failed mutations
+- Optimistic updates for toggle (immediate UI feedback)
+
+### API Integration
+- Use existing `taskApi.getChecklist`, `taskApi.addChecklistItem`, etc.
+- Fetch checklist when TaskDetail loads (already included in task GET)
+- Mutations refresh checklist or use optimistic updates
+
+## IMPLEMENTATION ORDER
+
+### 5A.2 - Checklist Database / Model Layer ✅ COMPLETED
+- Database table exists (migration 20240821190004)
+- Checklist model exists (`backend/src/models/Checklist.js`)
+- Associations defined in Task.js, User.js, Checklist.js
+- **No work needed** - verify only
+
+### 5A.3 - Checklist Backend API
+1. Add checklist controller functions in `taskController.js`:
+   - `getChecklist(req, res)`
+   - `addChecklistItem(req, res)`
+   - `updateChecklistItem(req, res)`
+   - `deleteChecklistItem(req, res)`
+   - `toggleChecklistItem(req, res)`
+2. Add checklist routes in `backend/src/routes/tasks.js`:
+   - `router.get('/tasks/:taskId/checklist', ...)`
+   - `router.post('/tasks/:taskId/checklist', ...)`
+   - `router.put('/tasks/:taskId/checklist/:itemId', ...)`
+   - `router.delete('/tasks/:taskId/checklist/:itemId', ...)`
+   - `router.put('/tasks/:taskId/checklist/:itemId/toggle', ...)`
+3. Add sanitization function for checklist items
+4. Test all endpoints with curl
+
+### 5A.4 - Checklist Frontend UI
+1. Create `frontend/src/components/Checklist.jsx`
+2. Create `frontend/src/components/ChecklistItem.jsx`
+3. Integrate into `TaskDetail.jsx` (replace placeholder)
+4. Add progress indicator to TaskDetail header
+5. Update `api.js` if needed (already has endpoints)
+6. Style with TailwindCSS, match existing design
+
+### 5A.5 - Checklist Testing & Integration
+1. Backend API tests (all endpoints, auth, validation, authorization)
+2. Frontend build test (`npm run build`)
+3. Integration test: create task → add items → toggle → reorder → delete
+4. Permission tests: all roles can perform all checklist actions
+5. Edge case tests (see RISKS section)
+6. Update PROJECT_PROGRESS.md and PROJECT_RESULT.md
+
+## FILES EXPECTED TO CHANGE
+
+### Backend (New/Modified)
+- `backend/src/controllers/taskController.js` - Add 5 checklist controller functions
+- `backend/src/routes/tasks.js` - Add 5 checklist routes
+- `backend/src/models/index.js` - Verify associations loaded (already done)
+
+### Frontend (New)
+- `frontend/src/components/Checklist.jsx` - Main checklist component
+- `frontend/src/components/ChecklistItem.jsx` - Individual item component
+
+### Frontend (Modified)
+- `frontend/src/pages/TaskDetail.jsx` - Integrate Checklist component
+- `frontend/src/services/api.js` - Verify endpoints (already defined)
+
+## TEST PLAN
+
+### Backend API Tests (5A.3)
+- [ ] GET /api/tasks/:taskId/checklist - returns ordered items with completer
+- [ ] POST /api/tasks/:taskId/checklist - creates item, returns with completer=null
+- [ ] POST validation - missing title returns 400, title > 500 returns 400
+- [ ] PUT /api/tasks/:taskId/checklist/:itemId - updates title/order
+- [ ] DELETE /api/tasks/:taskId/checklist/:itemId - removes item
+- [ ] PUT /api/tasks/:taskId/checklist/:itemId/toggle - toggles completion
+  - [ ] Completes: sets completedBy, completedAt
+  - [ ] Uncompletes: clears completedBy, completedAt
+- [ ] Auth: 401 without token
+- [ ] Auth: 404 for non-member
+- [ ] Auth: 404 for invalid taskId/itemId
+- [ ] Order: items returned sorted by `order` ASC
+
+### Frontend Tests (5A.4)
+- [ ] Checklist renders in TaskDetail
+- [ ] Items display with checkbox, title, order
+- [ ] Completed items show strikethrough, completer, timestamp
+- [ ] Progress indicator shows "X of Y completed"
+- [ ] Add item: input appears, submits, appears in list
+- [ ] Toggle: checkbox updates immediately (optimistic), syncs with backend
+- [ ] Edit item: click edit → inline input → save → updates
+- [ ] Delete item: confirmation → removes from list
+- [ ] Reorder: drag-drop (if implemented) or up/down buttons
+- [ ] Empty state: "No checklist items yet" with add prompt
+- [ ] Loading: skeleton while fetching
+- [ ] Error: toast on failed mutation
+
+### Integration Tests (5A.5)
+- [ ] Full flow: create task → open detail → add 3 items → complete 2 → verify progress 2/3
+- [ ] Multiple users: user A adds item, user B completes it → shows user B as completer
+- [ ] Task deletion cascades to checklist items
+- [ ] User deletion sets completedBy to NULL
+
+## RISKS / EDGE CASES
+
+| Risk | Mitigation |
+|------|------------|
+| Task deletion | CASCADE delete on Checklist.taskId handles automatically |
+| Checklist item deletion | Simple DELETE, no dependencies |
+| CompletedBy user deletion | FK SET NULL handles - completer becomes null, item retains completion status |
+| Duplicate items | No unique constraint on title - allow duplicates, use order for distinction |
+| Ordering conflicts | Use integer `order` field; on add, set to MAX(order)+1; on reorder, update affected items |
+| Unauthorized users | All endpoints verify group membership via existing pattern |
+| Non-members | Return 404 (not 403) to avoid information leakage |
+| Invalid taskId | Return 404 |
+| Invalid checklist itemId | Return 404 |
+| Empty title | Validation: required, min 1 char |
+| Title too long | Validation: max 500 chars |
+| Concurrent updates | Optimistic locking not needed for MVP; last-write-wins acceptable |
+| Large checklists | Pagination not needed initially (typically < 50 items) |
+| CompletedAt timezone | Store as UTC, display in user's local time (date-fns) |
+
+## COMPATIBILITY
+
+### Existing Architecture Compatibility
+- **User model**: Already has `completedChecklists` association
+- **Group model**: No changes needed
+- **GroupMember model**: Used for authorization (existing pattern)
+- **Task model**: Already has `checklist` association (hasMany)
+- **TaskMember model**: No changes needed (multi-assignee future)
+- **Checklist model**: Complete, no changes needed
+- **Migrations**: Already executed (Phase 4A)
+- **Frontend patterns**: Follow TaskList/TaskDetail component structure
+- **API patterns**: Follow taskController sanitization and error handling
+
+### No Breaking Changes
+- New endpoints only (additive)
+- Existing task endpoints unchanged
+- Database schema unchanged
+- Frontend routes unchanged
+
+## COMPLETION CRITERIA
+
+Phase 5A.1 is complete when:
+
+1. ✅ This plan document (5A.1.txt) is created and saved
+2. ✅ PROJECT_PROGRESS.md updated to reflect 5A.1 planning complete
+3. ✅ PROJECT_RESULT.md updated if appropriate
+4. ✅ All sections above are filled with accurate, verified information
+5. ✅ Plan reflects ACTUAL repository state (not assumptions)
+6. ✅ No implementation code written
+7. ✅ No migrations created
+8. ✅ No API endpoints implemented
+9. ✅ Ready to begin 5A.2 (which is just verification)
+
+---
+
+## SUMMARY
+
+**Phase 5A.1 Plan Complete** - The checklist database layer already exists from Phase 4A. This plan defines:
+- 5 backend API endpoints to implement
+- 2 new frontend components (Checklist, ChecklistItem)
+- Integration into existing TaskDetail page
+- Authorization: all group members can manage checklist
+- Test plan for backend, frontend, and integration
+- Identified risks and mitigations
+
+**Next**: Begin 5A.2 (verify database/model layer) → 5A.3 (implement backend API)

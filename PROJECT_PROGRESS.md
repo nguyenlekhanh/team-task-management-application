@@ -474,4 +474,125 @@ curl -X PUT http://localhost:3000/api/groups/1/members/2 \
    - Add checklist item completion toggle
    - Add checklist item ordering
 
+## Phase Status: PHASE 5A.1 - COMPLETED (Checklist Design & Implementation Plan)
+
+### What Was Planned
+
+**Phase 5A.1 - Checklist Design & Implementation Plan:**
+- Created detailed plan document: `5A.1.txt`
+- Analyzed existing Checklist database model (already implemented in Phase 4A)
+- Defined 5 backend API endpoints for checklist CRUD + toggle
+- Defined authorization rules: all group members can manage checklist items
+- Designed frontend UI components: Checklist, ChecklistItem
+- Planned integration into existing TaskDetail page
+- Defined implementation order for 5A.2 through 5A.5
+- Identified test cases and edge cases
+- Verified compatibility with existing User, Group, Task, TaskMember models
+
+### Files Created
+- `5A.1.txt` - Complete design and implementation plan
+
+### Key Findings
+- Checklist database table already exists (migration 20240821190004)
+- Checklist model and associations already defined
+- Frontend api.js already has endpoint definitions
+- Backend taskController includes checklist in responses but has NO checklist endpoints
+- Routes/tasks.js has NO checklist routes
+- TaskDetail.jsx has placeholder for checklist
+
+### Next Phase
+Ready to begin **5A.2** (verify database/model layer) then **5A.3** (implement backend API)
+
+## Phase Status: PHASE 5 ROADMAP CREATED
+
+### What Was Done
+- Created comprehensive `PHASE5_PLAN.md` covering all sub-phases 5A.1 through 5E.5
+- Defined objectives, dependencies, expected files, database changes, API changes, frontend changes, testing requirements, and completion criteria for each sub-phase
+- Mapped dependency chain: 5A.1→5A.5→5B.1→5B.5→5C.1→5C.5→5D.1→5D.5→5E.1→5E.5
+- Identified 25 state files to be created (5A.1.txt through 5E.5.txt)
+
+### Key Planning Decisions
+- **5A Checklist**: Database already exists, need API + UI only
+- **5B Group Chat**: New Messages table, REST API first, Socket.IO later (5D)
+- **5C Notifications**: New Notifications table, triggered from existing controllers
+- **5D Realtime**: Socket.IO server + frontend context, replaces polling
+- **5E Polish**: Integration, UX, security, performance, documentation
+
+### Next Phase
+Begin **5A.2** (verify database/model layer for Checklists)
+
+## Phase Status: PHASE 5A.2 - COMPLETED (Checklist Database/Model Layer Verified)
+
+### What Was Verified
+- Checklist model (`backend/src/models/Checklist.js`) - all fields, indexes, associations defined
+- Task model association - `Task.hasMany(Checklist, { as: 'checklist', onDelete: 'CASCADE' })`
+- User model association - `User.hasMany(Checklist, { as: 'completedChecklists', foreignKey: 'completedBy' })`
+- Migration `20240821190004-create-checklists.js` - table with correct schema
+- Database table `Checklists` exists with:
+  - 9 columns: id, taskId, title, isCompleted, order, completedBy, completedAt, createdAt, updatedAt
+  - 2 indexes: taskId, (taskId, order)
+  - FK: taskId → Tasks (CASCADE), completedBy → Users (SET NULL)
+- All associations working: Task.checklist, Checklist.task, Checklist.completer, User.completedChecklists
+
+### Files Verified (No Changes)
+- `backend/src/models/Checklist.js`
+- `backend/src/models/Task.js`
+- `backend/src/models/User.js`
+- `backend/src/models/index.js`
+- `backend/migrations/20240821190004-create-checklists.js`
+
+### Test Results
+- ✅ Database connection
+- ✅ Table exists
+- ✅ Schema matches model
+- ✅ Indexes created
+- ✅ Model loads
+- ✅ Task-Checklist association
+- ✅ User-Checklist association
+
+### Next Phase
+Begin **5A.3** (implement Checklist Backend API endpoints)
+
+## Phase Status: PHASE 5A.3 - COMPLETED (Checklist Backend API Implemented)
+
+### What Was Implemented
+- 5 checklist REST endpoints in `taskController.js`:
+  1. `getChecklist` - GET /api/tasks/:taskId/checklist
+  2. `addChecklistItem` - POST /api/tasks/:taskId/checklist
+  3. `updateChecklistItem` - PUT /api/tasks/:taskId/checklist/:itemId
+  4. `deleteChecklistItem` - DELETE /api/tasks/:taskId/checklist/:itemId
+  5. `toggleChecklistItem` - PUT /api/tasks/:taskId/checklist/:itemId/toggle
+- Added `sanitizeChecklistItem` helper for response formatting
+- Added 5 routes in `routes/tasks.js`
+- Updated module.exports
+
+### Authorization & Validation
+- All endpoints require authentication + group membership
+- Returns 404 for non-members (no information leakage)
+- Title: required, max 500 chars
+- Order: non-negative integer
+- isCompleted: boolean (for toggle)
+- Toggle sets/clears completedBy and completedAt
+
+### Files Modified
+- `backend/src/controllers/taskController.js` - Added 5 functions + sanitizeChecklistItem + exports
+- `backend/src/routes/tasks.js` - Added 5 routes
+
+### Test Results (All Passed)
+- ✅ GET /api/tasks/:taskId/checklist - Returns ordered items with completer
+- ✅ POST /api/tasks/:taskId/checklist - Creates items, auto-orders
+- ✅ PUT /api/tasks/:taskId/checklist/:itemId - Updates title and order
+- ✅ PUT /api/tasks/:taskId/checklist/:itemId/toggle - Sets/clears completedBy, completedAt
+- ✅ DELETE /api/tasks/:taskId/checklist/:itemId - Deletes items
+- ✅ Auth: 401 without token
+- ✅ Auth: 404 for non-member / invalid taskId / invalid itemId
+- ✅ Validation: 400 for missing/invalid title, invalid order, invalid isCompleted
+- ✅ Items returned ordered by `order` ASC
+
+### Files Created
+- `5A.3.txt` - Complete implementation documentation
+
+### Next Phase
+Begin **5A.4** (Checklist Frontend UI - create Checklist and ChecklistItem components, integrate into TaskDetail)
+
 (End of file)

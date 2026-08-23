@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
 import { useParams, useNavigate, Link } from 'react-router-dom'
 import { useAuth } from '../contexts/AuthContext'
-import { taskApi } from '../services/api'
+import { taskApi, groupApi } from '../services/api'
 import { TaskCard } from '../components/TaskCard'
 import { TaskFilter } from '../components/TaskFilter'
 import { TaskStatusBadge } from '../components/TaskStatusBadge'
@@ -9,7 +9,7 @@ import { PriorityBadge } from '../components/PriorityBadge'
 import { CreateTaskModal } from '../components/CreateTaskModal'
 import { format } from 'date-fns'
 
-export function Tasks() {
+export function TaskList() {
   const { groupId } = useParams()
   const { isAuthenticated, user } = useAuth()
   const navigate = useNavigate()
@@ -55,7 +55,7 @@ export function Tasks() {
 
   const fetchGroupMembers = async () => {
     try {
-      const response = await taskApi.getGroupMembers(groupId)
+      const response = await groupApi.getMembers(groupId)
       setGroupMembers(response.data.members)
     } catch (err) {
       console.error('Failed to fetch group members:', err)
@@ -172,8 +172,6 @@ export function Tasks() {
     }))
     setCreateError('')
   }
-    return <div>Loading...</div>
-  }
 
   if (loading) {
     return (
@@ -274,7 +272,7 @@ export function Tasks() {
         {!loading && !error && tasks.length === 0 && (
           <div className="text-center py-12">
             <svg className="mx-auto h-12 w-12 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 000 4h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-1.429 5.618m-3.284 0A11.955 11.955 0 0112 2.944 11.955 11.955 0 018.574 10.556" className="mx-auto h-12 w-12 text-gray-400" stroke="currentColor" fill="none" strokeWidth="2" />
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 000 4h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-1.429 5.618m-3.284 0A11.955 11.955 0 0112 2.944 11.955 11.955 0 018.574 10.556" />
             </svg>
             <h3 className="mt-2 text-lg font-medium text-gray-900">No tasks found</h3>
             <p className="mt-1 text-sm text-gray-500">No tasks found for this group.</p>
@@ -369,17 +367,17 @@ export function Tasks() {
               </button>
             </div>
           </div>
-        </div>
+        )}
       </main>
-    </div>
-
     <CreateTaskModal
       isOpen={showCreateModal}
       onClose={() => setShowCreateModal(false)}
       groupId={groupId}
+      groupMembers={groupMembers}
       onTaskCreated={fetchTasks}
     />
+  </div>
   )
 }
 
-export default Tasks
+export default TaskList

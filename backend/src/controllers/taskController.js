@@ -343,9 +343,27 @@ async function updateTask(req, res) {
         });
         if (!assigneeMembership) {
           return res.status(400).json({ error: 'Assignee must be a member of the group' });
-        }
-      }
-    }
+}
+  }
+}
+
+module.exports = {
+  createTask,
+  getGroupTasks,
+  getTask,
+  updateTask,
+  deleteTask,
+  assignTask,
+  updateTaskStatus,
+  getMyTasks,
+  getChecklist,
+  addChecklistItem,
+  updateChecklistItem,
+  deleteChecklistItem,
+  toggleChecklistItem,
+  sanitizeTask,
+  sanitizeTaskList
+};
 
     const updates = {};
     if (title !== undefined) updates.title = title.trim();
@@ -656,6 +674,297 @@ async function getMyTasks(req, res) {
   }
 }
 
+function sanitizeChecklistItem(item) {
+  return {
+    id: item.id,
+    taskId: item.taskId,
+    title: item.title,
+    isCompleted: item.isCompleted,
+    order: item.order,
+    completedBy: item.completedBy,
+    completedAt: item.completedAt,
+    createdAt: item.createdAt,
+    updatedAt: item.updatedAt,
+    completer: item.completer ? {
+      id: item.completer.id,
+      username: item.completer.username,
+      displayName: item.completer.displayName,
+      avatarUrl: item.completer.avatarUrl
+    } : null
+  };
+}
+
+async function getChecklist(req, res) {
+  const taskId = parseInt(req.params.taskId, 10);
+
+  if (isNaN(taskId)) {
+    return res.status(400).json({ error: 'Invalid task ID' });
+  }
+
+  try {
+    const task = await Task.findByPk(taskId);
+
+    if (!task) {
+      return res.status(404).json({ error: 'Task not found' });
+    }
+
+    // Check if user is a member of the task's group
+    const membership = await GroupMember.findOne({
+      where: { groupId: task.groupId, userId: req.user.id }
+    });
+
+    if (!membership) {
+      return res.status(404).json({ error: 'Task not found or access denied' });
+    }
+
+    const items = await Checklist.findAll({
+      where: { taskId },
+      include: [
+        { model: User, as: 'completer', attributes: ['id', 'username', 'displayName', 'avatarUrl'] }
+      ],
+      order: [['order', 'ASC']]
+    });
+
+    res.json({ items: items.map(sanitizeChecklistItem) });
+  } catch (err) {
+    console.error('[ERROR] getChecklist:', err.message, err.stack);
+    return res.status(500).json({ error: 'Failed to fetch checklist' });
+  }
+}
+
+async function addChecklistItem(req, res) {
+  const taskId = parseInt(req.params.taskId, 10);
+  const { title, order } = req.body;
+
+  if (isNaN(taskId)) {
+    return res.status(400).json({ error: 'Invalid task ID' });
+  }
+
+  if (!title || !title.trim()) {
+    return res.status(400).json({ error: 'Checklist item title is required' });
+  }
+
+  if (title.length > 500) {
+    return res.status(400).json({ error: 'Checklist item title must be 500 characters or less' });
+  }
+
+  if (order !== undefined && (typeof order !== 'number' || order < 0 || !Number.isInteger(order))) {
+    return res.status(400).json({ error: 'Order must be a non-negative integer' });
+  }
+
+  try {
+    const task = await Task.findByPk(taskId);
+
+    if (!task) {
+      return res.status(404).json({ error: 'Task not found' });
+    }
+
+    // Check if user is a member of the task's group
+    const membership = await GroupMember.findOne({
+      where: { groupId: task.groupId, userId: req.user.id }
+    });
+
+    if (!membership) {
+      return res.status(404).json({ error: 'Task not found or access denied' });
+    }
+
+    // Determine order if not provided (append to end)
+    let itemOrder = order;
+    if (itemOrder === undefined) {
+      const maxOrderItem = await Checklist.findOne({
+        where: { taskId },
+        order: [['order', 'DESC']]
+      });
+      itemOrder = maxOrderItem ? maxOrderItem.order + 1 : 0;
+    }
+
+    const item = await Checklist.create({
+      taskId,
+      title: title.trim(),
+      isCompleted: false,
+      order: itemOrder,
+      completedBy: null,
+      completedAt: null
+    });
+
+    const createdItem = await Checklist.findByPk(item.id, {
+      include: [
+        { model: User, as: 'completer', attributes: ['id', 'username', 'displayName', 'avatarUrl'] }
+      ]
+    });
+
+    res.status(201).json({
+      message: 'Checklist item created successfully',
+      item: sanitizeChecklistItem(createdItem)
+    });
+  } catch (err) {
+    console.error('[ERROR] addChecklistItem:', err.message, err.stack);
+    return res.status(500).json({ error: 'Failed to create checklist item' });
+  }
+}
+
+async function updateChecklistItem(req, res) {
+  const taskId = parseInt(req.params.taskId, 10);
+  const itemId = parseInt(req.params.itemId, 10);
+  const { title, order } = req.body;
+
+  if (isNaN(taskId) || isNaN(itemId)) {
+    return res.status(400).json({ error: 'Invalid task ID or item ID' });
+  }
+
+  if (title !== undefined) {
+    if (!title || !title.trim()) {
+      return res.status(400).json({ error: 'Checklist item title is required' });
+    }
+    if (title.length > 500) {
+      return res.status(400).json({ error: 'Checklist item title must be 500 characters or less' });
+    }
+  }
+
+  if (order !== undefined && (typeof order !== 'number' || order < 0 || !Number.isInteger(order))) {
+    return res.status(400).json({ error: 'Order must be a non-negative integer' });
+  }
+
+  try {
+    const item = await Checklist.findOne({
+      where: { id: itemId, taskId }
+    });
+
+    if (!item) {
+      return res.status(404).json({ error: 'Checklist item not found' });
+    }
+
+    // Check if user is a member of the task's group
+    const task = await Task.findByPk(taskId);
+    const membership = await GroupMember.findOne({
+      where: { groupId: task.groupId, userId: req.user.id }
+    });
+
+    if (!membership) {
+      return res.status(404).json({ error: 'Task not found or access denied' });
+    }
+
+    const updates = {};
+    if (title !== undefined) updates.title = title.trim();
+    if (order !== undefined) updates.order = order;
+
+    if (Object.keys(updates).length === 0) {
+      return res.status(400).json({ error: 'No valid fields to update' });
+    }
+
+    await item.update(updates);
+
+    const updatedItem = await Checklist.findByPk(itemId, {
+      include: [
+        { model: User, as: 'completer', attributes: ['id', 'username', 'displayName', 'avatarUrl'] }
+      ]
+    });
+
+    res.json({
+      message: 'Checklist item updated successfully',
+      item: sanitizeChecklistItem(updatedItem)
+    });
+  } catch (err) {
+    console.error('[ERROR] updateChecklistItem:', err.message, err.stack);
+    return res.status(500).json({ error: 'Failed to update checklist item' });
+  }
+}
+
+async function deleteChecklistItem(req, res) {
+  const taskId = parseInt(req.params.taskId, 10);
+  const itemId = parseInt(req.params.itemId, 10);
+
+  if (isNaN(taskId) || isNaN(itemId)) {
+    return res.status(400).json({ error: 'Invalid task ID or item ID' });
+  }
+
+  try {
+    const item = await Checklist.findOne({
+      where: { id: itemId, taskId }
+    });
+
+    if (!item) {
+      return res.status(404).json({ error: 'Checklist item not found' });
+    }
+
+    // Check if user is a member of the task's group
+    const task = await Task.findByPk(taskId);
+    const membership = await GroupMember.findOne({
+      where: { groupId: task.groupId, userId: req.user.id }
+    });
+
+    if (!membership) {
+      return res.status(404).json({ error: 'Task not found or access denied' });
+    }
+
+    await item.destroy();
+
+    res.json({ message: 'Checklist item deleted successfully' });
+  } catch (err) {
+    console.error('[ERROR] deleteChecklistItem:', err.message, err.stack);
+    return res.status(500).json({ error: 'Failed to delete checklist item' });
+  }
+}
+
+async function toggleChecklistItem(req, res) {
+  const taskId = parseInt(req.params.taskId, 10);
+  const itemId = parseInt(req.params.itemId, 10);
+  const { isCompleted } = req.body;
+
+  if (isNaN(taskId) || isNaN(itemId)) {
+    return res.status(400).json({ error: 'Invalid task ID or item ID' });
+  }
+
+  if (typeof isCompleted !== 'boolean') {
+    return res.status(400).json({ error: 'isCompleted (boolean) is required' });
+  }
+
+  try {
+    const item = await Checklist.findOne({
+      where: { id: itemId, taskId }
+    });
+
+    if (!item) {
+      return res.status(404).json({ error: 'Checklist item not found' });
+    }
+
+    // Check if user is a member of the task's group
+    const task = await Task.findByPk(taskId);
+    const membership = await GroupMember.findOne({
+      where: { groupId: task.groupId, userId: req.user.id }
+    });
+
+    if (!membership) {
+      return res.status(404).json({ error: 'Task not found or access denied' });
+    }
+
+    const updates = { isCompleted };
+    if (isCompleted && !item.isCompleted) {
+      updates.completedBy = req.user.id;
+      updates.completedAt = new Date();
+    } else if (!isCompleted && item.isCompleted) {
+      updates.completedBy = null;
+      updates.completedAt = null;
+    }
+
+    await item.update(updates);
+
+    const updatedItem = await Checklist.findByPk(itemId, {
+      include: [
+        { model: User, as: 'completer', attributes: ['id', 'username', 'displayName', 'avatarUrl'] }
+      ]
+    });
+
+    res.json({
+      message: 'Checklist item updated successfully',
+      item: sanitizeChecklistItem(updatedItem)
+    });
+  } catch (err) {
+    console.error('[ERROR] toggleChecklistItem:', err.message, err.stack);
+    return res.status(500).json({ error: 'Failed to update checklist item' });
+  }
+}
+
 module.exports = {
   createTask,
   getGroupTasks,
@@ -665,6 +974,11 @@ module.exports = {
   assignTask,
   updateTaskStatus,
   getMyTasks,
+  getChecklist,
+  addChecklistItem,
+  updateChecklistItem,
+  deleteChecklistItem,
+  toggleChecklistItem,
   sanitizeTask,
   sanitizeTaskList
 };

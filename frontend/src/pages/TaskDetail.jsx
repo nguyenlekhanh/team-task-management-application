@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
 import { useNavigate, useParams, Link } from 'react-router-dom'
 import { useAuth } from '../contexts/AuthContext'
-import { taskApi } from '../services/api'
+import { taskApi, groupApi } from '../services/api'
 import { TaskStatusBadge } from '../components/TaskStatusBadge'
 import { PriorityBadge } from '../components/PriorityBadge'
 import { CreateTaskModal } from '../components/CreateTaskModal'
@@ -55,7 +55,7 @@ export function TaskDetail() {
   const fetchGroupMembers = async () => {
     if (!task?.groupId) return
     try {
-      const response = await taskApi.getGroupMembers(task.groupId)
+      const response = await groupApi.getMembers(task.groupId)
       setGroupMembers(response.data.members)
     } catch (err) {
       console.error('Failed to fetch group members:', err)
@@ -274,8 +274,8 @@ export function TaskDetail() {
           <div className="bg-white shadow rounded-lg p-6">
             <h3 className="text-lg font-semibold text-gray-900 mb-4">Activity</h3>
             <p className="text-gray-500 text-center py-8">Activity log coming soon</p>
-          </div>
-        </div>
+</div>
+      </div>
 
         {/* Sidebar - Actions & Members */}
         <div className="space-y-6">
@@ -288,7 +288,7 @@ export function TaskDetail() {
                   <label className="block text-sm font-medium text-gray-700 mb-1">Change Status</label>
                   <select
                     value={task.status}
-                    onChange={(e) => updateStatus(e.target.value)}
+                    onChange={(e) => handleStatusChange(e.target.value)}
                     className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                   >
                     <option value="todo">To Do</option>
@@ -357,9 +357,12 @@ export function TaskDetail() {
                   <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${getRoleColor(member.role)}`}>
                     {member.role}
                   </span>
+                </div>
+              ))}
+            </div>
 </div>
-        </div>
       </div>
+
       <EditTaskModal
         isOpen={showEditModal}
         onClose={() => setShowEditModal(false)}

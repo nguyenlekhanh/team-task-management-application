@@ -1,0 +1,151 @@
+# Phase 5A.3 - Checklist Backend API
+
+## STATUS
+COMPLETED
+
+## OBJECTIVE
+Implement 5 checklist REST endpoints in taskController.js and routes/tasks.js
+
+## PLAN
+1. Add sanitizeChecklistItem helper function
+2. Add 5 controller functions in taskController.js
+3. Add 5 routes in routes/tasks.js
+4. Update module.exports
+5. Test all endpoints
+
+## IMPLEMENTATION
+
+### Files Modified
+
+**backend/src/controllers/taskController.js**
+- Added `sanitizeChecklistItem(item)` - formats checklist item for response with completer user object
+- Added `getChecklist(req, res)` - GET /api/tasks/:taskId/checklist
+- Added `addChecklistItem(req, res)` - POST /api/tasks/:taskId/checklist
+- Added `updateChecklistItem(req, res)` - PUT /api/tasks/:taskId/checklist/:itemId
+- Added `deleteChecklistItem(req, res)` - DELETE /api/tasks/:taskId/checklist/:itemId
+- Added `toggleChecklistItem(req, res)` - PUT /api/tasks/:taskId/checklist/:itemId/toggle
+- Updated module.exports to include all 5 new functions
+
+**backend/src/routes/tasks.js**
+- Added 5 checklist routes:
+  - `router.get('/tasks/:taskId/checklist', taskController.getChecklist)`
+  - `router.post('/tasks/:taskId/checklist', taskController.addChecklistItem)`
+  - `router.put('/tasks/:taskId/checklist/:itemId', taskController.updateChecklistItem)`
+  - `router.delete('/tasks/:taskId/checklist/:itemId', taskController.deleteChecklistItem)`
+  - `router.put('/tasks/:taskId/checklist/:itemId/toggle', taskController.toggleChecklistItem)`
+
+### Controller Function Details
+
+**getChecklist**
+- Validates taskId
+- Verifies group membership
+- Returns items ordered by `order` ASC with completer user object
+- 401 if unauthenticated, 404 if not member or invalid taskId
+
+**addChecklistItem**
+- Validates taskId, title (required, max 500 chars), order (optional, non-negative integer)
+- Verifies group membership
+- Auto-assigns order (max + 1) if not provided
+- Returns 201 with created item (completer: null)
+- 400 for validation errors
+
+**updateChecklistItem**
+- Validates taskId, itemId
+- Validates title (optional, max 500 chars) and order (optional, non-negative integer)
+- Verifies group membership
+- Updates only provided fields
+- Returns updated item with completer
+- 400 if no valid fields to update
+
+**deleteChecklistItem**
+- Validates taskId, itemId
+- Verifies group membership
+- Deletes item
+- Returns success message
+
+**toggleChecklistItem**
+- Validates taskId, itemId, isCompleted (required boolean)
+- Verifies group membership
+- If completing: sets completedBy=req.user.id, completedAt=NOW()
+- If uncompleting: sets completedBy=null, completedAt=null
+- Returns updated item with completer user object
+
+### Authorization
+- All endpoints require authentication (uses existing `authenticate` middleware)
+- All endpoints verify group membership via GroupMember table
+- Returns 404 (not 403) for non-members to avoid information leakage
+- No additional role checks - all group members can manage checklist (per 5A.1 design)
+
+### Validation
+- Title: required for create, optional for update, max 500 chars
+- Order: optional, must be non-negative integer
+- isCompleted: required boolean for toggle
+- Invalid taskId/itemId: 400
+- Non-existent task/item: 404
+
+## FILES CREATED
+None
+
+## FILES MODIFIED
+- `backend/src/controllers/taskController.js` - Added 5 functions + sanitizeChecklistItem + exports
+- `backend/src/routes/tasks.js` - Added 5 routes
+
+## DATABASE CHANGES
+None (uses existing Checklists table from Phase 4A)
+
+## API CHANGES
+Added 5 new endpoints:
+- GET /api/tasks/:taskId/checklist
+- POST /api/tasks/:taskId/checklist
+- PUT /api/tasks/:taskId/checklist/:itemId
+- DELETE /api/tasks/:taskId/checklist/:itemId
+- PUT /api/tasks/:taskId/checklist/:itemId/toggle
+
+## FRONTEND CHANGES
+None (api.js already had endpoint definitions)
+
+## TESTS
+
+### Manual API Tests (All Passed)
+- [x] GET /api/tasks/16/checklist - Returns empty array initially
+- [x] POST /api/tasks/16/checklist - Creates first item (order: 0)
+- [x] POST /api/tasks/16/checklist - Creates second item with order: 1
+- [x] GET /api/tasks/16/checklist - Returns 2 items ordered by order ASC
+- [x] PUT /api/tasks/16/checklist/1 - Updates title to "Updated first item", order to 5
+- [x] GET /api/tasks/16/checklist - Returns items in correct order (item 2 first with order 1, then item 1 with order 5)
+- [x] PUT /api/tasks/16/checklist/1/toggle - Completes item (isCompleted=true, completedBy=1, completedAt set)
+- [x] GET /api/tasks/16/checklist - Shows item 1 completed with completer user object
+- [x] PUT /api/tasks/16/checklist/1/toggle - Uncompletes item (isCompleted=false, completedBy=null, completedAt=null)
+- [x] GET /api/tasks/16/checklist - Shows item 1 uncompleted, no completer
+- [x] DELETE /api/tasks/16/checklist/2 - Deletes second item
+- [x] GET /api/tasks/16/checklist - Returns only item 1
+
+### Error Cases Tested
+- [x] 401 without token (handled by authenticate middleware)
+- [x] 404 for non-member (group membership check)
+- [x] 404 for invalid taskId/itemId
+- [x] 400 for missing title on create
+- [x] 400 for invalid isCompleted on toggle
+- [x] 400 for no valid fields on update
+
+## TEST RESULTS
+All 5 endpoints working correctly:
+- ✅ Authentication enforced
+- ✅ Group membership verified
+- ✅ Items returned ordered by `order` ASC
+- ✅ Completer user object included when completed
+- ✅ Auto-order assignment works
+- ✅ Toggle sets/clears completedBy and completedAt correctly
+- ✅ Validation works for all fields
+- ✅ Proper error codes (400, 401, 404)
+
+## BUGS FIXED
+- Fixed module.exports in taskController.js to include new functions
+- Server startup issue resolved (bind to 0.0.0.0)
+
+## KNOWN ISSUES
+- Server process management: background processes die when shell exits (infrastructure issue, not code)
+- JWT token expires after 15 minutes (expected behavior)
+
+## NEXT STEP
+Begin **5A.4** - Checklist Frontend UI (create Checklist and ChecklistItem components, integrate into TaskDetail)

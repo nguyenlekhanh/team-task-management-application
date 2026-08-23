@@ -499,22 +499,17 @@
 
 ## Current Phase
 
-**Phase 4B-2: Task Management (Backend Advanced API)** - **COMPLETED** (Task CRUD, assignment, status updates, enhanced filtering, pagination, sorting all working)
+**Phase 4C: Task Management Frontend** - **COMPLETED** (All task pages, components, routing, build verified)
+**Phase 5A.1: Checklist Design & Implementation Plan** - **COMPLETED** (Plan document created: 5A.1.txt)
+**Phase 5 Roadmap** - **CREATED** (PHASE5_PLAN.md with all 25 sub-phases planned)
+**Phase 5A.2: Checklist Database/Model Layer** - **COMPLETED** (Verified existing implementation from Phase 4A)
+**Phase 5A.3: Checklist Backend API** - **COMPLETED** (5 endpoints implemented and tested)
 
 ## Recommended Next Steps
 
-1. **Begin Phase 4C Task Management (Frontend):**
-   - Task list page (/groups/:groupId/tasks)
-   - Task detail page (/groups/:groupId/tasks/:taskId)
-   - Task creation/edit form
-   - Task filtering UI (status, priority, assignee, search, date range)
-   - Pagination UI
-   - Sorting UI
-   - Integration with Group pages
-
-2. **Begin Phase 5 Task Checklist (Backend):**
-   - Implement checklist CRUD endpoints (POST/GET/PUT/DELETE /api/tasks/:taskId/checklist)
-   - Add checklist item completion toggle endpoint
-   - Add checklist item ordering
+1. **Begin Phase 5A.4 Checklist Frontend UI:**
+   - Create Checklist and ChecklistItem components
+   - Integrate into TaskDetail page
+   - Add progress indicator
 
 (End of file)

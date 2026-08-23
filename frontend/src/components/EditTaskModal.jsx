@@ -101,7 +101,11 @@ export function EditTaskModal({ isOpen, onClose, task, groupMembers, onTaskUpdat
                 className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
               >
                 <option value="">Unassigned</option>
-                {/* Assignee options will be populated by parent component */}
+                {groupMembers?.map(member => (
+                  <option key={member.userId} value={member.userId}>
+                    {member.user.displayName || member.user.username}
+                  </option>
+                ))}
               </select>
             </div>
 
