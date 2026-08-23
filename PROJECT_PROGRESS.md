@@ -674,4 +674,27 @@ Begin **5A.5** (Checklist Testing & Integration - end-to-end testing with backen
 ### Next Phase
 Begin **5B.1** (Group Chat Design & Implementation Plan)
 
+## Phase Status: PHASE 5B.1 - COMPLETED (Group Chat Design & Implementation Plan)
+
+### What Was Planned
+- Created detailed design document: `5B.1.txt`
+- Designed Messages table for group chat and task comments
+- Defined 6 REST API endpoints (group messages + task comments CRUD)
+- Designed 4 frontend components (ChatPanel, MessageItem, CommentSection, CommentItem)
+- Defined authorization rules: group members only, edit/delete own messages
+- Planned integration into GroupDetail and TaskDetail pages
+- Identified test cases, edge cases, and implementation order for 5B.2-5B.5
+
+### Files Created
+- `5B.1.txt` - Complete design and implementation plan
+
+### Key Design Decisions
+- Single Messages table with polymorphic association (groupId OR taskId)
+- messageType enum: 'message', 'comment', 'system'
+- Pagination with cursor-based (before timestamp)
+- Authorization: group members only, edit/delete own messages, owner/admin can delete any
+
+### Next Phase
+Begin **5B.2** (Database / Model Layer for Messages)
+
 (End of file)

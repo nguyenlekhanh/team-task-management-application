@@ -1,0 +1,343 @@
+# Phase 5B.1 - Group Chat Design & Implementation Plan
+
+## STATUS
+PLANNED
+
+## OBJECTIVE
+Implement group chat functionality with group messaging and task comments. REST API first, Socket.IO realtime in Phase 5D.
+
+## CURRENT PROJECT STATE
+
+### Existing Infrastructure (Verified)
+- **Auth**: JWT authentication with `authenticate` middleware
+- **Groups**: Group model, GroupMember model, role-based access (owner/admin/member)
+- **Tasks**: Task model with checklist, task belongs to group
+- **API Patterns**: RESTful endpoints, consistent error handling (401/403/404/400/500)
+- **Frontend**: React + Vite + Tailwind, components in `frontend/src/components/`, pages in `frontend/src/pages/`
+- **Database**: SQLite with Sequelize ORM, migrations in `backend/migrations/`
+
+### Missing (To Implement)
+- Messages table (not yet created)
+- Message model
+- Message controller & routes
+- Frontend chat components
+- Task comments integration
+
+## FUNCTIONAL REQUIREMENTS
+
+### Core Features
+1. **Group Chat**: Real-time messaging within groups
+2. **Task Comments**: Threaded comments on tasks
+3. **Message Types**: Text messages, system messages (task created, user joined, etc.)
+4. **Pagination**: Load older messages on scroll
+5. **Authorization**: Only group members can read/write messages
+
+### User Stories
+- As a **group member**, I want to send messages to my group
+- As a **task assignee**, I want to comment on tasks
+- As a **group member**, I want to see message history with pagination
+- As a **group owner**, I want to moderate messages if needed
+
+## DATABASE DESIGN
+
+### Messages Table (New)
+| Field | Type | Constraints | Description |
+|-------|------|-------------|-------------|
+| id | INTEGER | PK, auto-increment | Unique identifier |
+| senderId | INTEGER | FK → Users.id, NOT NULL, CASCADE | Message author |
+| groupId | INTEGER | FK → Groups.id, NULLABLE, CASCADE | Group (for group chat) |
+| taskId | INTEGER | FK → Tasks.id, NULLABLE, CASCADE | Task (for task comments) |
+| content | TEXT | NOT NULL | Message content |
+| messageType | ENUM | DEFAULT 'message' | 'message', 'comment', 'system' |
+| createdAt | DATE | DEFAULT NOW | Creation timestamp |
+| updatedAt | DATE | DEFAULT NOW | Last update timestamp |
+
+### Constraints
+- Either `groupId` OR `taskId` must be set (not both, not neither)
+- FK: senderId → Users.id (CASCADE on delete)
+- FK: groupId → Groups.id (CASCADE on delete)
+- FK: taskId → Tasks.id (CASCADE on delete)
+
+### Indexes
+- `groupId` - for group chat queries
+- `taskId` - for task comment queries
+- `(groupId, createdAt)` - for paginated group messages
+- `(taskId, createdAt)` - for paginated task comments
+
+### Model Associations
+- User.hasMany(Message, { as: 'sentMessages', foreignKey: 'senderId' })
+- Message.belongsTo(User, { as: 'sender', foreignKey: 'senderId', onDelete: 'CASCADE' })
+- Group.hasMany(Message, { as: 'messages', foreignKey: 'groupId', onDelete: 'CASCADE' })
+- Message.belongsTo(Group, { as: 'group', foreignKey: 'groupId', onDelete: 'CASCADE' })
+- Task.hasMany(Message, { as: 'comments', foreignKey: 'taskId', onDelete: 'CASCADE' })
+- Message.belongsTo(Task, { as: 'task', foreignKey: 'taskId', onDelete: 'CASCADE' })
+
+## API DESIGN
+
+### Endpoints
+
+#### 1. GET /api/groups/:groupId/messages
+**Purpose**: List group messages (paginated)
+- **Auth**: Required
+- **Authorization**: Group member
+- **Query Params**: 
+  - `page` (default: 1)
+  - `limit` (default: 50, max: 100)
+  - `before` (timestamp, for pagination - messages before this time)
+- **Response**: 
+```json
+{
+  "items": [
+    {
+      "id": 1,
+      "senderId": 2,
+      "groupId": 5,
+      "taskId": null,
+      "content": "Hello team!",
+      "messageType": "message",
+      "createdAt": "2024-08-22T10:30:00Z",
+      "updatedAt": "2024-08-22T10:30:00Z",
+      "sender": { "id": 2, "username": "john", "displayName": "John Doe", "avatarUrl": null }
+    }
+  ],
+  "pagination": { "page": 1, "limit": 50, "hasMore": true }
+}
+```
+- **Errors**: 401, 404 (group not found/access denied)
+
+#### 2. POST /api/groups/:groupId/messages
+**Purpose**: Send a message to group chat
+- **Auth**: Required
+- **Authorization**: Group member
+- **Body**: `{ "content": "Hello team!" }`
+- **Validation**: content required, max 5000 chars
+- **Response**: 201 Created with message (including sender object)
+- **Errors**: 400 (validation), 401, 404
+
+#### 3. GET /api/tasks/:taskId/comments
+**Purpose**: List task comments (paginated)
+- **Auth**: Required
+- **Authorization**: Task's group member
+- **Query Params**: page, limit, before
+- **Response**: Same format as group messages
+- **Errors**: 401, 404 (task not found/access denied)
+
+#### 4. POST /api/tasks/:taskId/comments
+**Purpose**: Add a comment to a task
+- **Auth**: Required
+- **Authorization**: Task's group member
+- **Body**: `{ "content": "This task needs review" }`
+- **Validation**: content required, max 5000 chars
+- **Response**: 201 Created with comment (including sender)
+- **Errors**: 400, 401, 404
+
+#### 5. PUT /api/messages/:id
+**Purpose**: Edit a message/comment (sender only)
+- **Auth**: Required
+- **Authorization**: Message sender
+- **Body**: `{ "content": "Updated message" }`
+- **Validation**: content required, max 5000 chars
+- **Response**: 200 with updated message
+- **Errors**: 400, 401, 403 (not sender), 404
+
+#### 6. DELETE /api/messages/:id
+**Purpose**: Delete a message/comment (sender or group owner/admin)
+- **Auth**: Required
+- **Authorization**: Sender, or group owner/admin
+- **Response**: 200 { "message": "Message deleted" }
+- **Errors**: 401, 403, 404
+
+## AUTHORIZATION RULES
+
+| Action | Owner | Admin | Member |
+|--------|-------|-------|--------|
+| View group messages | ✅ | ✅ | ✅ |
+| Send group messages | ✅ | ✅ | ✅ |
+| View task comments | ✅ | ✅ | ✅ |
+| Add task comments | ✅ | ✅ | ✅ |
+| Edit own messages | ✅ | ✅ | ✅ |
+| Delete own messages | ✅ | ✅ | ✅ |
+| Delete any message | ✅ | ✅ | ❌ |
+
+*Non-members: 404 (no information leakage)*
+
+## FRONTEND DESIGN
+
+### Components Needed
+
+#### 1. ChatPanel (`frontend/src/components/ChatPanel.jsx`)
+- Props: `groupId`, `messages`, `onSendMessage`, `onLoadMore`
+- Displays message list with sender avatar, name, timestamp
+- Auto-scroll to bottom on new messages
+- Load more button for pagination
+- Message input with send button
+
+#### 2. MessageItem (`frontend/src/components/MessageItem.jsx`)
+- Single message display
+- Sender avatar, name, timestamp, content
+- Own messages aligned right, others left
+- Edit/delete buttons for own messages (or owner/admin)
+
+#### 3. CommentSection (`frontend/src/components/CommentSection.jsx`)
+- For TaskDetail page
+- Shows task comments
+- Add comment form
+- Similar to ChatPanel but for taskId
+
+#### 4. CommentItem (`frontend/src/components/CommentItem.jsx`)
+- Single comment display
+- Similar to MessageItem
+
+### Integration Points
+- **GroupDetail page**: Add ChatPanel in sidebar or new tab
+- **TaskDetail page**: Add CommentSection below checklist
+- **API Integration**: Use existing `taskApi` or new `messageApi` in `services/api.js`
+
+### UI/UX Requirements
+- Timestamps: Relative time ("2m ago", "Yesterday at 3:45 PM")
+- Own messages: Different background color, right-aligned
+- System messages: Italic, gray, centered
+- Loading states: Skeleton loaders
+- Empty states: "No messages yet. Be the first to send one!"
+
+## IMPLEMENTATION ORDER
+
+### 5B.2 - Database / Model Layer
+1. Create migration: `20240821190006-create-messages.js`
+2. Create model: `backend/src/models/Message.js`
+3. Update associations in User.js, Group.js, Task.js
+4. Update `backend/src/models/index.js`
+5. Run migration and verify
+
+### 5B.3 - Backend API
+1. Create controller: `backend/src/controllers/messageController.js`
+2. Add 6 controller functions (getGroupMessages, addGroupMessage, getTaskComments, addTaskComment, updateMessage, deleteMessage)
+3. Add sanitization helper
+4. Create routes: `backend/src/routes/messages.js`
+4. Mount routes in `backend/src/routes/index.js`
+5. Test all endpoints
+
+### 5B.4 - Frontend Chat UI
+1. Create components: ChatPanel, MessageItem, CommentSection, CommentItem
+2. Add messageApi to `frontend/src/services/api.js`
+3. Integrate ChatPanel into GroupDetail
+4. Integrate CommentSection into TaskDetail
+5. Style with TailwindCSS
+
+### 5B.5 - Testing & Integration
+1. Backend API tests (all endpoints, auth, validation, authz)
+2. Frontend build test (`npm run build`)
+3. Integration: create group → send messages → add task comments
+4. Permission tests: owner/admin/member
+5. Update PROJECT_PROGRESS.md and PROJECT_RESULT.md
+
+## FILES EXPECTED TO CHANGE
+
+### Backend (New)
+- `backend/migrations/20240821190006-create-messages.js`
+- `backend/src/models/Message.js`
+- `backend/src/controllers/messageController.js`
+- `backend/src/routes/messages.js`
+
+### Backend (Modified)
+- `backend/src/models/User.js` - Add sentMessages association
+- `backend/src/models/Group.js` - Add messages association
+- `backend/src/models/Task.js` - Add comments association
+- `backend/src/models/index.js` - Auto-loads Message model
+- `backend/src/routes/index.js` - Mount messages routes
+
+### Frontend (New)
+- `frontend/src/components/ChatPanel.jsx`
+- `frontend/src/components/MessageItem.jsx`
+- `frontend/src/components/CommentSection.jsx`
+- `frontend/src/components/CommentItem.jsx`
+
+### Frontend (Modified)
+- `frontend/src/services/api.js` - Add messageApi
+- `frontend/src/pages/GroupDetail.jsx` - Add ChatPanel
+- `frontend/src/pages/TaskDetail.jsx` - Add CommentSection
+
+## TEST PLAN
+
+### Backend API Tests (5B.3)
+- [ ] GET /api/groups/:groupId/messages - returns paginated messages with sender
+- [ ] POST /api/groups/:groupId/messages - creates message, returns with sender
+- [ ] POST validation - empty content → 400, >5000 chars → 400
+- [ ] GET /api/tasks/:taskId/comments - returns paginated comments
+- [ ] POST /api/tasks/:taskId/comments - creates comment
+- [ ] PUT /api/messages/:id - updates message (sender only)
+- [ ] DELETE /api/messages/:id - deletes message (sender or owner/admin)
+- [ ] Auth: 401 without token
+- [ ] Auth: 404 for non-member
+- [ ] Auth: 403 for editing others' messages
+- [ ] Pagination: page, limit, before params work
+
+### Frontend Tests (5B.4)
+- [ ] ChatPanel renders in GroupDetail
+- [ ] Messages display with sender, timestamp, content
+- [ ] Own messages right-aligned, different color
+- [ ] Send message: input → submit → appears in list
+- [ ] Load more: fetches older messages
+- [ ] CommentSection renders in TaskDetail
+- [ ] Add comment works
+- [ ] Edit/delete own messages
+- [ ] Empty states display correctly
+
+### Integration Tests (5B.5)
+- [ ] Full flow: create group → send messages → add task comment
+- [ ] Task comment appears in both task comments and group chat (if linked)
+- [ ] Multiple users: user A sends, user B sees it
+- [ ] Permissions: owner can delete any, user only own
+
+## RISKS / EDGE CASES
+
+| Risk | Mitigation |
+|------|------------|
+| Task deletion | CASCADE deletes task comments automatically |
+| Group deletion | CASCADE deletes group messages |
+| User deletion | CASCADE deletes sent messages (or SET NULL if preferred) |
+| Large message history | Pagination with cursor-based (before timestamp) |
+| Concurrent edits | Last-write-wins acceptable for MVP |
+| Long messages | Max 5000 chars validation |
+| Non-member access | Return 404 (not 403) to avoid info leakage |
+| Deleted messages | Soft delete? For MVP: hard delete |
+
+## COMPATIBILITY
+
+### Existing Architecture
+- **User model**: Add `sentMessages` association
+- **Group model**: Add `messages` association
+- **Task model**: Add `comments` association (messageType='comment')
+- **GroupMember**: Used for authorization
+- **Migrations**: New migration for Messages table
+
+### No Breaking Changes
+- New endpoints only
+- Existing endpoints unchanged
+- Database additive only
+
+## COMPLETION CRITERIA
+
+Phase 5B.1 is complete when:
+1. ✅ This plan document (5B.1.txt) is created and saved
+2. ✅ PROJECT_PROGRESS.md updated to reflect 5B.1 planning complete
+3. ✅ PROJECT_RESULT.md updated if appropriate
+4. ✅ All sections above filled with accurate, verified information
+5. ✅ Plan reflects ACTUAL repository state
+6. ✅ No implementation code written
+7. ✅ No migrations created yet
+8. ✅ No API endpoints implemented yet
+9. ✅ Ready to begin 5B.2 (database/model layer)
+
+---
+
+## SUMMARY
+
+**Phase 5B.1 Plan Complete** - Group Chat feature will add:
+- Messages table (group chat + task comments)
+- 6 REST endpoints (group messages CRUD + task comments CRUD)
+- 4 frontend components (ChatPanel, MessageItem, CommentSection, CommentItem)
+- Integration into GroupDetail and TaskDetail
+- Authorization: group members only, edit/delete own messages
+
+**Next**: Begin 5B.2 (database/model layer for Messages)
