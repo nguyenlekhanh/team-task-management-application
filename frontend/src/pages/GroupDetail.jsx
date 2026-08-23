@@ -5,6 +5,7 @@ import { useAuth } from '../contexts/AuthContext'
 import { groupApi, messageApi } from '../services/api'
 import { AddMemberModal } from '../components/AddMemberModal'
 import { ChatPanel } from '../components/ChatPanel'
+import { NotificationBell } from '../components/NotificationBell'
 
 export function GroupDetail() {
   const { id } = useParams()
@@ -160,6 +161,7 @@ export function GroupDetail() {
               <h1 className="text-xl font-bold text-gray-900">Team Task Management</h1>
             </div>
             <div className="flex items-center space-x-4">
+              <NotificationBell />
               <span className="text-sm text-gray-700">
                 Logged in as <strong>{user?.displayName || user?.username}</strong>
               </span>

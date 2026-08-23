@@ -382,14 +382,15 @@ project-root/
 
 ## Current Phase
 
-**Phase 5C.3: Notifications Backend API + Trigger Logic** - **COMPLETED** (7 REST endpoints, TASK_ASSIGNED/TASK_COMPLETED/NEW_MESSAGE/MENTION triggers, deadline cron job, notification preferences)
+**Phase 5C.4: Notifications Frontend UI** - **COMPLETED** (NotificationBell/Dropdown/Item/Settings components, useNotifications hook, notificationApi, Profile Notifications tab, bell integrated in all authenticated pages)
 
 ## Recommended Next Steps
 
-1. **Begin Phase 5C.4 Notifications Frontend UI:**
-   - NotificationBell, NotificationDropdown, NotificationItem, NotificationSettings components
-   - useNotifications hook + notificationApi in services/api.js
-   - Bell in header with unread badge; Notifications tab in Profile
-   - Production build verification
+1. **Begin Phase 5C.5 Notifications Testing & Integration:**
+   - End-to-end flows: trigger each type -> badge/list -> interact -> navigate
+   - Multi-user recipient/exclusion verification
+   - Preference filtering across all types
+   - Responsive/cross-browser checks
+   - Update docs; ready for 5D.1
 
 (End of file)

@@ -230,7 +230,7 @@
 - Triggers: TASK_ASSIGNED, TASK_COMPLETED, NEW_MESSAGE, MENTION ✅
 - DEADLINE_APPROACHING daily job (09:00 UTC, deduplicated) ✅
 - Per-user notification preferences (persisted on Users table) ✅
-- Frontend notification UI ❌ (Phase 5C.4)
+- Frontend notification UI ✅ (Phase 5C.4: bell + badge, dropdown panel, preferences tab)
 - Real-time delivery ❌ (Phase 5D Socket.IO)
 
 ### Phase 8: UI Improvement - PARTIALLY IMPLEMENTED
@@ -519,13 +519,15 @@
 **Phase 5C.1: Notifications Design & Implementation Plan** - **COMPLETED** (Plan document created: 5C.1.txt)
 **Phase 5C.2: Notifications Database / Model Layer** - **COMPLETED** (Notifications table, Notification model, 10 associations, migration + rollback verified)
 **Phase 5C.3: Notifications Backend API + Trigger Logic** - **COMPLETED** (7 REST endpoints, 4 trigger types in task/message controllers, deadline cron job, preferences storage; 53 test assertions passed)
+**Phase 5C.4: Notifications Frontend UI** - **COMPLETED** (NotificationBell/Dropdown/Item/Settings components, useNotifications hook, notificationApi, Profile Notifications tab, bell in all authenticated page navs; build + 16 integration assertions + regression passed)
 
 ## Recommended Next Steps
 
-1. **Begin Phase 5C.4 Notifications Frontend UI:**
-   - NotificationBell, NotificationDropdown, NotificationItem, NotificationSettings components
-   - useNotifications hook + notificationApi in services/api.js
-   - Bell with unread badge in header; Notifications tab in Profile
-   - Production build verification
+1. **Begin Phase 5C.5 Notifications Testing & Integration:**
+   - End-to-end flows: trigger each type -> badge/list -> interact -> navigate
+   - Multi-user recipient/exclusion verification
+   - Preference filtering across all types
+   - Responsive/cross-browser checks
+   - Update docs; ready for 5D.1
 
 (End of file)

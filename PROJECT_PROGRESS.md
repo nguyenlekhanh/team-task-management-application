@@ -1014,4 +1014,50 @@ Begin **5C.3** (Notifications Backend API + Trigger Logic)
 ### Next Phase
 Begin **5C.4** (Frontend Notification UI)
 
+## Phase Status: PHASE 5C.4 - COMPLETED (Frontend Notification UI)
+
+### What Was Implemented
+**New components (all TailwindCSS, lucide-react icons, no new dependencies):**
+- `NotificationBell.jsx` - bell button with red unread badge ("99+" cap), toggles dropdown, fetches on open
+- `NotificationDropdown.jsx` - panel under bell: header + Mark all read, loading/error/empty states, "Load more", outside-click and Escape to close
+- `NotificationItem.jsx` - type icon/color, title (bold when unread), 2-line message, relative timestamp, unread dot + tinted background; click marks read + navigates; delete button
+- `NotificationSettings.jsx` - five preference toggle switches, loads persisted prefs, save via API with success/error/saving states
+
+**New hook:**
+- `hooks/useNotifications.js` - list/pagination/unreadCount/loading/error state; 30s badge polling while authenticated; optimistic mark-read/mark-all/delete keep badge in sync
+
+**API service:** added notificationApi (list, unreadCount, markAsRead, markAllAsRead, delete, getPreferences, updatePreferences) reusing existing axios instance/auth interceptors
+
+**Integration:**
+- Profile page: new "Notifications" tab rendering NotificationSettings
+- NotificationBell inserted into nav of all 7 authenticated pages (Dashboard, Groups, GroupDetail, TaskList, TaskDetail, MyTasks, Profile)
+
+**Navigation behavior:** metadata.taskId+groupId -> task detail; groupId only -> group page; graceful fallback when no navigable references (non-clickable row)
+
+### Files Created
+- `frontend/src/hooks/useNotifications.js`
+- `frontend/src/components/NotificationBell.jsx`
+- `frontend/src/components/NotificationDropdown.jsx`
+- `frontend/src/components/NotificationItem.jsx`
+- `frontend/src/components/NotificationSettings.jsx`
+- `5C.4.txt` - Complete implementation documentation
+
+### Files Modified
+- `frontend/src/services/api.js` - notificationApi
+- `frontend/src/pages/Profile.jsx` - Notifications tab
+- `frontend/src/pages/Dashboard.jsx`, `Groups.jsx`, `GroupDetail.jsx`, `TaskList.jsx`, `TaskDetail.jsx`, `MyTasks.jsx` - bell in nav
+
+### Test Results
+- ✅ `npm run build` succeeds (2209 modules, gzip JS 111 kB)
+- ✅ Backend integration vs live server: 16 assertions passed (badge counts, list fields, mark read decrements badge, delete shrinks list, read-all clears badge, pagination 20+hasMore/no-overlap, preferences load/save/persist, disabled type suppresses notifications end-to-end, invalid token 401)
+- ✅ Regression: 13 existing endpoints pass (health, login, users/me, groups, members, tasks incl. GET /api/tasks my-tasks, checklist, messages, comments, status update); test data cleaned up afterwards
+
+### Known Limitations
+- Badge updates by 30s polling (real-time push planned for Phase 5D Socket.IO)
+- Per-page hook instance (no global state needed; one page renders at a time)
+- Deep-links land on task/group page (no per-message anchor yet)
+
+### Next Phase
+Begin **5C.5** (Notifications Testing & Integration)
+
 (End of file)

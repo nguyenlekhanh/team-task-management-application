@@ -1,0 +1,134 @@
+# Phase 5C.4 - Frontend Notification UI
+
+## STATUS
+COMPLETED
+
+## OBJECTIVE
+Build the frontend UI for the notification system: bell with unread badge, dropdown panel with mark-read/mark-all/delete actions, navigation to related entities, notification preferences UI, using existing project conventions (React 18, TailwindCSS, axios service, no new dependencies).
+
+---
+
+## IMPLEMENTATION SUMMARY
+
+### Files Created
+1. **`frontend/src/hooks/useNotifications.js`**
+   - State hook: notifications list, unreadCount, pagination {page, hasMore, total}, loading, error
+   - `fetchNotifications()` - loads page 1 (limit 20) + refreshes unread count from server (authoritative)
+   - `fetchUnreadCount()` - badge polling every 30s while authenticated (interval cleaned up on unmount/logout)
+   - `loadMore()` - fetches next page and appends
+   - Optimistic updates for mark-read / mark-all-read / delete keep badge synchronized instantly; server errors surface friendly messages
+
+2. **`frontend/src/components/NotificationBell.jsx`**
+   - Bell icon button (lucide-react `Bell`) rendered in the nav of all authenticated pages
+   - Red badge with unread count ("99+" cap), hidden at zero
+   - Toggles dropdown; opening triggers a fresh fetch; aria-label includes unread count
+   - Owns the useNotifications hook instance
+
+3. **`frontend/src/components/NotificationDropdown.jsx`**
+   - Panel anchored under the bell (`absolute right-0`, z-50), width w-full mobile / sm:w-96 desktop, max-h scrollable list
+   - Header row: "Notifications" title + "Mark all read" (disabled when nothing unread)
+   - States: loading spinner, error box with "Try again", empty state ("No notifications yet"), "Load more" button when pagination.hasMore
+   - Closes on outside click (mousedown) and Escape key
+
+4. **`frontend/src/components/NotificationItem.jsx`**
+   - Row layout: type-colored circular icon, title (bold when unread), message (2-line clamp), relative timestamp (date-fns formatDistanceToNow), blue dot + tinted background for unread
+   - Type icons/colors: TASK_ASSIGNED (clipboard/blue), TASK_COMPLETED (check/green), NEW_MESSAGE (chat/purple), DEADLINE_APPROACHING (clock/orange), MENTION (@/pink); unknown types fall back to message styling
+   - Click: marks read if unread, then navigates to target path (keyboard accessible: Enter/Space); delete button (stopPropagation) removes the item
+   - Navigation resolution: metadata.taskId+groupId → `/groups/:groupId/tasks/:taskId`; groupId only → `/groups/:groupId`; falls back through top-level taskId/groupId fields; no navigable refs → item is non-clickable (no navigation, still mark-read/delete-able)
+
+5. **`frontend/src/components/NotificationSettings.jsx`**
+   - Preferences editor used in Profile → Notifications tab
+   - Five toggle switches (taskAssigned, taskCompleted, newMessage, deadlineApproaching, mention) with human labels/descriptions matching backend semantics
+   - Loads persisted preferences via GET on mount (loading spinner / error fallback states)
+   - Save button PUTs full preference object; success/error banners; saving state disables button
+   - Does not hard-code filtering behavior — backend performs actual suppression (verified in tests)
+
+### Files Modified
+6. **`frontend/src/services/api.js`** - added `notificationApi`: list, unreadCount, markAsRead, markAllAsRead, delete, getPreferences, updatePreferences (reuses shared axios instance, interceptors, token handling)
+7. **`frontend/src/pages/Profile.jsx`** - added third tab "Notifications" rendering NotificationSettings
+8. **Authenticated page navs** (7 files): inserted `<NotificationBell />` before the user greeting in Dashboard.jsx, Groups.jsx, GroupDetail.jsx, TaskList.jsx, TaskDetail.jsx, MyTasks.jsx, Profile.jsx (+ corresponding imports)
+
+### Conventions followed
+- Existing axios instance with localStorage token + 401 redirect interceptor reused (expired auth behaves like the rest of the app)
+- Tailwind utility classes matching current design language (white cards, gray-50 bg, blue accents, rounded-lg, focus rings)
+- lucide-react + date-fns already in package.json - zero new dependencies
+- No global state library added; per-page hook instance is sufficient since one page renders at a time
+
+---
+
+## API INTEGRATION MAP
+
+| UI action | API call |
+|-----------|----------|
+| Badge refresh (30s poll + after actions/open) | GET /api/notifications/unread-count |
+| Open dropdown / retry | GET /api/notifications?page=1&limit=20 |
+| Load more | GET /api/notifications?page=N&limit=20 |
+| Click unread item | PUT /api/notifications/:id/read |
+| Mark all read | PUT /api/notifications/read-all |
+| Delete icon | DELETE /api/notifications/:id |
+| Settings tab load | GET /api/notifications/preferences |
+| Settings save | PUT /api/notifications/preferences |
+
+Friendly error strings are shown in-component; raw backend errors are not exposed.
+
+---
+
+## TESTS PERFORMED & RESULTS
+
+### Production build
+- ✅ `npm run build` succeeds: 2209 modules transformed, dist emitted (gzip JS 111 kB)
+
+### Backend integration (16 assertions, ALL PASSED - simulates exact UI calls against live 5C.3 backend)
+- ✅ Badge shows unread count > 0 after assignment + mention events
+- ✅ List loads with title/message/type/isRead/createdAt on every item
+- ✅ sender/task/group objects present where applicable
+- ✅ Mark single read returns isRead=true + readAt; badge decremented server-side
+- ✅ Delete removes item; total drops by exactly 1
+- ✅ read-all clears badge to 0
+- ✅ Pagination: page 1 = 20 items with hasMore=true; page 2 returns remainder with no overlap (25-item scenario)
+- ✅ Preferences: load defaults (all true), save partial update, persistence verified by re-fetch
+- ✅ Disabled newMessage suppresses NEW_MESSAGE notifications end-to-end (backend filtering honored)
+- ✅ Invalid/expired token handled consistently (401)
+
+### Regression (13 assertions passed + 1 test-script correction)
+- ✅ health, login, users/me, groups list/detail/members, task list/detail/my-tasks, checklist, group messages, task comments, status update, notifications co-existence
+- Note: initial regression script called wrong path (/api/tasks/my); correct endpoint is GET /api/tasks which returns 200 with data. App behavior unchanged.
+- Test data cleaned up afterwards: notifications cleared, bulk messages removed, uiu1 membership removed, task 16 restored (assigneeId null, in_progress)
+
+---
+
+## KNOWN LIMITATIONS
+1. **Polling only**: badge updates every 30s and on open/action; true real-time push arrives in Phase 5D (Socket.IO).
+2. **Per-page hook instances**: each authenticated page mounts its own poller; acceptable since only one page renders at a time, avoids introducing global state.
+3. **Dropdown pagination is append-only** ("Load more"); no virtualization - fine for expected volumes (<100s per user).
+4. **Navigation targets existing pages only**: comment/message deep-links land on the task or group page (no per-message anchor yet).
+5. **NotificationItem uses CSS line-clamp** for 2-line truncation (Tailwind line-clamp plugin is core in Tailwind 3.3+; verified in build).
+
+---
+
+## FILES SUMMARY
+Created:
+- `frontend/src/hooks/useNotifications.js`
+- `frontend/src/components/NotificationBell.jsx`
+- `frontend/src/components/NotificationDropdown.jsx`
+- `frontend/src/components/NotificationItem.jsx`
+- `frontend/src/components/NotificationSettings.jsx`
+- `5C.4.txt` (this file)
+
+Modified:
+- `frontend/src/services/api.js` (notificationApi)
+- `frontend/src/pages/Profile.jsx` (Notifications tab)
+- `frontend/src/pages/Dashboard.jsx`, `Groups.jsx`, `GroupDetail.jsx`, `TaskList.jsx`, `TaskDetail.jsx`, `MyTasks.jsx` (bell in nav)
+
+---
+
+## NEXT SUB-PHASE
+
+**5C.5 - Testing & Integration**
+
+Scope (per 5C.1.txt section 18):
+- End-to-end flows: trigger each notification type -> see badge/list -> interact -> navigate
+- Multi-user verification of recipients and exclusions
+- Preference filtering across all types
+- Responsive/cross-browser checks
+- Update PROJECT_PROGRESS.md and PROJECT_RESULT.md; ready for 5D.1

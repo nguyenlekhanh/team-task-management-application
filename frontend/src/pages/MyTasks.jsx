@@ -7,6 +7,7 @@ import { TaskFilter } from '../components/TaskFilter'
 import { TaskStatusBadge } from '../components/TaskStatusBadge'
 import { PriorityBadge } from '../components/PriorityBadge'
 import { format } from 'date-fns'
+import { NotificationBell } from '../components/NotificationBell'
 
 export function MyTasks() {
   const { isAuthenticated, user } = useAuth()
@@ -137,6 +138,7 @@ const fetchTasks = async () => {
               <h1 className="text-xl font-bold text-gray-900">My Tasks</h1>
             </div>
             <div className="flex items-center space-x-4">
+              <NotificationBell />
               <span className="text-sm text-gray-700">
                 Logged in as <strong>{user?.displayName || user?.username}</strong>
               </span>

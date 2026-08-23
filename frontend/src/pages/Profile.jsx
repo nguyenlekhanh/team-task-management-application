@@ -2,6 +2,8 @@ import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../contexts/AuthContext'
 import { userApi } from '../services/api'
+import { NotificationSettings } from '../components/NotificationSettings'
+import { NotificationBell } from '../components/NotificationBell'
 
 export function Profile() {
   const { user, logout, isAuthenticated, checkAuth } = useAuth()
@@ -141,6 +143,7 @@ export function Profile() {
               <h1 className="text-xl font-bold text-gray-900">Team Task Management</h1>
             </div>
             <div className="flex items-center space-x-4">
+              <NotificationBell />
               <span className="text-sm text-gray-700">
                 Logged in as <strong>{user?.displayName || user?.username}</strong>
               </span>
@@ -185,6 +188,16 @@ export function Profile() {
                 >
                   Change Password
                 </button>
+                <button
+                  onClick={() => setActiveTab('notifications')}
+                  className={`py-4 px-6 border-b-2 font-medium text-sm transition-colors ${
+                    activeTab === 'notifications'
+                      ? 'border-blue-500 text-blue-600'
+                      : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                  }`}
+                >
+                  Notifications
+                </button>
               </nav>
             </div>
 
@@ -200,6 +213,8 @@ export function Profile() {
                   {success}
                 </div>
               )}
+
+              {activeTab === 'notifications' && <NotificationSettings />}
 
               {activeTab === 'profile' && (
                 <form onSubmit={handleProfileSubmit} className="space-y-4">

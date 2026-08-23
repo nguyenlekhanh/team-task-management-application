@@ -8,6 +8,7 @@ import { TaskStatusBadge } from '../components/TaskStatusBadge'
 import { PriorityBadge } from '../components/PriorityBadge'
 import { CreateTaskModal } from '../components/CreateTaskModal'
 import { format } from 'date-fns'
+import { NotificationBell } from '../components/NotificationBell'
 
 export function TaskList() {
   const { groupId } = useParams()
@@ -212,6 +213,7 @@ export function TaskList() {
               <h1 className="text-2xl font-bold text-gray-900">Tasks</h1>
             </div>
             <div className="flex items-center space-x-4">
+              <NotificationBell />
               <span className="text-sm text-gray-700">
                 Logged in as <strong>{user?.displayName || user?.username}</strong>
               </span>

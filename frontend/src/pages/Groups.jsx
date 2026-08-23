@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { useAuth } from '../contexts/AuthContext'
 import { groupApi } from '../services/api'
+import { NotificationBell } from '../components/NotificationBell'
 
 export function Groups() {
   const { isAuthenticated, checkAuth, user } = useAuth()
@@ -83,6 +84,7 @@ export function Groups() {
               <h1 className="text-xl font-bold text-gray-900">Team Task Management</h1>
             </div>
             <div className="flex items-center space-x-4">
+              <NotificationBell />
               <span className="text-sm text-gray-700">
                 Logged in as <strong>{user?.displayName || user?.username}</strong>
               </span>

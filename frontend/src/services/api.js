@@ -86,4 +86,14 @@ export const messageApi = {
   deleteMessage: (id) => api.delete(`/messages/${id}`),
 }
 
+export const notificationApi = {
+  list: (params) => api.get('/notifications', { params }),
+  unreadCount: () => api.get('/notifications/unread-count'),
+  markAsRead: (id) => api.put(`/notifications/${id}/read`),
+  markAllAsRead: () => api.put('/notifications/read-all'),
+  delete: (id) => api.delete(`/notifications/${id}`),
+  getPreferences: () => api.get('/notifications/preferences'),
+  updatePreferences: (data) => api.put('/notifications/preferences', data),
+}
+
 export default api

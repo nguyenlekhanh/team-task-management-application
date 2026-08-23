@@ -10,6 +10,7 @@ import { Checklist } from '../components/Checklist'
 import { CommentSection } from '../components/CommentSection'
 import { format } from 'date-fns'
 import { getRoleColor } from '../utils/permissions'
+import { NotificationBell } from '../components/NotificationBell'
 
 export function TaskDetail() {
   const { id } = useParams()
@@ -208,6 +209,7 @@ export function TaskDetail() {
               <h1 className="text-2xl font-bold text-gray-900 ml-4">{task.title}</h1>
             </div>
             <div className="flex items-center space-x-4">
+              <NotificationBell />
               <span className="text-sm text-gray-700">
                 Logged in as <strong>{user?.displayName || user?.username}</strong>
               </span>
