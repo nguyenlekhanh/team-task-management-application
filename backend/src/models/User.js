@@ -75,6 +75,16 @@ User.associate = (models) => {
     as: 'sentMessages',
     foreignKey: 'senderId'
   });
+  User.hasMany(models.Notification, {
+    as: 'notifications',
+    foreignKey: 'recipientId',
+    onDelete: 'CASCADE'
+  });
+  User.hasMany(models.Notification, {
+    as: 'sentNotifications',
+    foreignKey: 'senderId',
+    onDelete: 'SET NULL'
+  });
 };
 
 module.exports = User;

@@ -118,6 +118,11 @@ Task.associate = (models) => {
     foreignKey: 'taskId',
     onDelete: 'CASCADE'
   });
+  Task.hasMany(models.Notification, {
+    as: 'notifications',
+    foreignKey: 'taskId',
+    onDelete: 'SET NULL'
+  });
   Task.belongsToMany(models.User, {
     as: 'assignees',
     through: models.TaskMember,

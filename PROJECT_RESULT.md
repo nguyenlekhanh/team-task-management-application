@@ -491,7 +491,7 @@
 ### PROJECT_PLAN.md vs Reality:
 | Planned | Status |
 |---------|--------|
-| 8 database tables | ❌ Only 6 implemented (Users, Groups, GroupMembers, Tasks, Checklists, TaskMembers); 2 pending (Messages, Notifications) |
+| 8 database tables | ✅ 8 implemented (Users, Groups, GroupMembers, Tasks, Checklists, TaskMembers, Messages, Notifications) |
 | Frontend React + Vite + TailwindCSS | ✅ IMPLEMENTED |
 | Socket.IO for realtime | ❌ Not installed |
 | React Context API for state | ✅ IMPLEMENTED |
@@ -512,13 +512,15 @@
 **Phase 5B.4: Group Chat Frontend UI** - **COMPLETED** (ChatPanel, MessageItem, CommentSection, CommentItem components created and integrated)
 **Phase 5B.5: Group Chat Testing & Integration** - **COMPLETED** (20+ tests passed, all functionality verified)
 **Phase 5C.1: Notifications Design & Implementation Plan** - **COMPLETED** (Plan document created: 5C.1.txt)
+**Phase 5C.2: Notifications Database / Model Layer** - **COMPLETED** (Notifications table, Notification model, 10 associations, migration + rollback verified)
 
 ## Recommended Next Steps
 
-1. **Begin Phase 5C.2 Notifications Database / Model Layer:**
-   - Create Notifications table migration
-   - Create Notification model with associations
-   - Update User, Task, Group, Message models
-   - Verify database schema and indexes
+1. **Begin Phase 5C.3 Notifications Backend API + Trigger Logic:**
+   - notificationController.js with 7 REST endpoints
+   - routes/notifications.js mounted in routes/index.js
+   - Triggers in taskController (TASK_ASSIGNED, TASK_COMPLETED) and messageController (NEW_MESSAGE, MENTION)
+   - utils/notificationService.js shared creation logic
+   - jobs/deadlineNotificationJob.js daily cron
 
 (End of file)

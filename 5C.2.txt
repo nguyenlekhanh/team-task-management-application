@@ -1,0 +1,252 @@
+# Phase 5C.2 - Notifications Database / Model Layer
+
+## STATUS
+COMPLETED
+
+## OBJECTIVE
+Create the Notifications database table, Notification Sequelize model, and all associations with User, Task, Group, and Message models per the 5C.1.txt design.
+
+---
+
+## WHAT WAS PLANNED (from 5C.1.txt section 18)
+- Migration: `backend/migrations/20240821190007-create-notifications.js`
+- Model: `backend/src/models/Notification.js`
+- Update `User.js`, `Task.js`, `Group.js`, `Message.js` with hasMany associations
+- Update `backend/src/models/index.js` (turned out unnecessary - auto-loads all model files)
+- Deliverables: migration runs, model loads with all 5 belongsTo associations, indexes created, FKs with correct cascade behavior
+
+---
+
+## WHAT WAS IMPLEMENTED
+
+### Files Created
+1. **`backend/migrations/20240821190007-create-notifications.js`**
+   - Creates Notifications table with 14 columns
+   - Adds 6 indexes (including DESC composite index)
+   - Down migration drops the table
+
+2. **`backend/src/models/Notification.js`**
+   - Sequelize model following existing patterns (Message.js style)
+   - Exports static `Notification.NOTIFICATION_TYPES` constant:
+     - TASK_ASSIGNED, TASK_COMPLETED, NEW_MESSAGE, DEADLINE_APPROACHING, MENTION
+   - Application-layer enum validation on `type` field (validate.isIn)
+   - Field-level validations: title (1-200), message (1-5000)
+   - Defines 5 belongsTo associations via associate() function
+
+### Files Modified
+3. **`backend/src/models/User.js`** - Added:
+   - `User.hasMany(Notification, { as: 'notifications', foreignKey: 'recipientId', onDelete: 'CASCADE' })`
+   - `User.hasMany(Notification, { as: 'sentNotifications', foreignKey: 'senderId', onDelete: 'SET NULL' })`
+
+4. **`backend/src/models/Task.js`** - Added:
+   - `Task.hasMany(Notification, { as: 'notifications', foreignKey: 'taskId', onDelete: 'SET NULL' })`
+
+5. **`backend/src/models/Group.js`** - Added:
+   - `Group.hasMany(Notification, { as: 'notifications', foreignKey: 'groupId', onDelete: 'CASCADE' })`
+
+6. **`backend/src/models/Message.js`** - Added:
+   - `Message.hasMany(Notification, { as: 'notifications', foreignKey: 'messageId', onDelete: 'SET NULL' })`
+
+### NOT Modified
+- `backend/src/models/index.js` - auto-loads all .js files in models directory; Notification.js is picked up automatically (same as all other models)
+
+---
+
+## DATABASE SCHEMA (as implemented)
+
+### Notifications Table (14 columns)
+
+| Column | Type | Null | Default | Notes |
+|--------|------|------|---------|-------|
+| id | INTEGER | NO | autoincrement | Primary key |
+| recipientId | INTEGER | NO | - | FK -> Users.id |
+| senderId | INTEGER | YES | - | FK -> Users.id |
+| taskId | INTEGER | YES | - | FK -> Tasks.id |
+| groupId | INTEGER | YES | - | FK -> Groups.id |
+| messageId | INTEGER | YES | - | FK -> Messages.id |
+| type | VARCHAR(50) | NO | - | App-layer enum (NOTIFICATION_TYPES) |
+| title | VARCHAR(200) | NO | - | |
+| message | TEXT | NO | - | |
+| isRead | TINYINT(1) / BOOLEAN | NO | 0 (false) | Read/unread state |
+| readAt | DATETIME | YES | - | Timestamp when marked read |
+| metadata | JSON | YES | - | Flexible payload (serialized as TEXT in SQLite) |
+| createdAt | DATETIME | NO | NOW | |
+| updatedAt | DATETIME | NO | NOW | |
+
+Note: SQLite stores BOOLEAN as TINYINT(1); Sequelize maps both directions transparently.
+
+### Indexes (6 total, verified via PRAGMA index_list)
+
+| Index Name | Columns | Purpose |
+|------------|---------|---------|
+| notifications_recipient_id_is_read | recipientId, isRead | Unread count query |
+| notifications_recipient_id_created_at | recipientId, createdAt DESC | Paginated list (newest first) |
+| notifications_created_at | createdAt | Cleanup/retention queries |
+| notifications_task_id | taskId | Task-linked lookups |
+| notifications_group_id | groupId | Group-linked lookups |
+| notifications_type | type | Type filtering |
+
+### Foreign Keys (5 total, verified via PRAGMA foreign_key_list)
+
+| Column | References | On Update | On Delete |
+|--------|-----------|-----------|-----------|
+| recipientId | Users.id | CASCADE | CASCADE |
+| senderId | Users.id | CASCADE | SET NULL |
+| taskId | Tasks.id | CASCADE | SET NULL |
+| groupId | Groups.id | CASCADE | CASCADE |
+| messageId | Messages.id | CASCADE | SET NULL |
+
+All match 5C.1.txt section 2 exactly.
+
+---
+
+## ASSOCIATIONS (10 total, all verified loading)
+
+### From Notification model (belongsTo):
+- `Notification.recipient` -> User (FK: recipientId)
+- `Notification.sender` -> User (FK: senderId)
+- `Notification.task` -> Task (FK: taskId)
+- `Notification.group` -> Group (FK: groupId)
+- `Notification.sourceMessage` -> Message (FK: messageId) ⚠️ see deviation below
+
+### To Notification model (hasMany):
+- `User.notifications` -> Notification (FK: recipientId)
+- `User.sentNotifications` -> Notification (FK: senderId)
+- `Task.notifications` -> Notification (FK: taskId)
+- `Group.notifications` -> Notification (FK: groupId)
+- `Message.notifications` -> Notification (FK: messageId)
+
+---
+
+## DOCUMENTED DEVIATION FROM 5C.1.txt
+
+**Issue**: Sequelize naming collision between attribute and association alias.
+The 5C.1.txt design specifies BOTH:
+- a column named `message` (TEXT NOT NULL) on the Notifications table, AND
+- an association `Notification.belongsTo(Message, { as: 'message', foreignKey: 'messageId' })`
+
+Sequelize throws a fatal error at model-load time:
+```
+Error: Naming collision between attribute 'message' and association 'message' on model Notification.
+```
+This is a concrete inconsistency in the design document (the DB schema itself is fine; only the
+Sequelize association alias conflicts).
+
+**Resolution (minimal deviation)**:
+- Database schema kept EXACTLY as designed (all 14 columns unchanged, FK names unchanged)
+- Only the association alias renamed from `'message'` to `'sourceMessage'`
+- All other aliases (`recipient`, `sender`, `task`, `group`) are exactly as designed
+
+Impact: application code in 5C.3 must use `include: [{ model: Message, as: 'sourceMessage' }]`.
+No other architectural change.
+
+---
+
+## MIGRATION RESULT
+
+```
+== 20240821190007-create-notifications: migrated (0.617s)
+```
+- Recorded in SequelizeMeta ✅
+- Rollback tested: `sequelize db:migrate:undo` drops table + removes meta record ✅
+- Re-applied: `sequelize db:migrate` recreates identical schema ✅
+
+---
+
+## TESTS PERFORMED & RESULTS (all passed)
+
+### Schema Verification
+| # | Test | Result |
+|---|------|--------|
+| 1 | Table exists after migrate | ✅ PASS |
+| 2 | 14 columns with correct types/nullability/defaults | ✅ PASS |
+| 3 | 6 indexes created (incl. composite DESC index) | ✅ PASS |
+| 4 | 5 FKs with correct ON DELETE behavior | ✅ PASS |
+| 5 | Migration recorded in SequelizeMeta | ✅ PASS |
+| 6 | Undo removes table + meta record | ✅ PASS |
+| 7 | Re-migrate recreates schema | ✅ PASS |
+
+### Model Loading
+| # | Test | Result |
+|---|------|--------|
+| 8 | All 8 models load (incl. Notification) | ✅ PASS |
+| 9 | NOTIFICATION_TYPES exported with 5 types | ✅ PASS |
+| 10 | 14 raw attributes present | ✅ PASS |
+| 11 | 10 associations registered (5 belongsTo + 5 hasMany) | ✅ PASS |
+
+### CRUD at Database Level
+| # | Test | Result |
+|---|------|--------|
+| 12 | Create full notification (all fields incl. metadata JSON round-trip) | ✅ PASS |
+| 13 | Create system notification (senderId NULL) | ✅ PASS |
+| 14 | Defaults applied (isRead=false, readAt=null) | ✅ PASS |
+| 15 | Read with all 5 eager-loaded associations | ✅ PASS |
+| 16 | Eager load returns real linked entities | ✅ PASS |
+| 17 | Update mark-read (isRead=true, readAt=timestamp) | ✅ PASS |
+| 18 | Update mark-unread (isRead=false, readAt=null) | ✅ PASS |
+| 19 | Query patterns: unread count + total count | ✅ PASS |
+
+### Validation Rules
+| # | Test | Expected | Result |
+|---|------|----------|--------|
+| 20 | Invalid type ('INVALID_TYPE') | Rejected | ✅ PASS |
+| 21 | Missing recipientId | Rejected | ✅ PASS |
+| 22 | Empty title | Rejected | ✅ PASS |
+| 23 | Title > 200 chars | Rejected | ✅ PASS |
+| 24 | Message > 5000 chars | Rejected | ✅ PASS |
+| 25 | Missing type (DB NOT NULL) | Rejected | ✅ PASS |
+
+### Foreign Key Behavior (verified against real rows)
+| # | Test | Expected | Result |
+|---|------|----------|--------|
+| 26 | Delete source Message | notification kept, messageId SET NULL | ✅ PASS |
+| 27 | Delete Task | notification kept, taskId SET NULL | ✅ PASS |
+| 28 | Delete Group | notifications CASCADE deleted | ✅ PASS |
+| 29 | Delete sender User | notification kept, senderId SET NULL | ✅ PASS |
+| 30 | Delete recipient User | notification CASCADE deleted | ✅ PASS |
+
+### Existing Functionality Not Broken
+| # | Test | Result |
+|---|------|--------|
+| 31 | Backend starts, connects to DB | ✅ PASS |
+| 32 | GET /api/health returns ok | ✅ PASS |
+| 33 | POST /api/auth/login works | ✅ PASS |
+| 34 | GET /api/groups works | ✅ PASS |
+| 35 | GET /api/tasks/:id works | ✅ PASS |
+| 36 | GET /api/groups/:id/messages works | ✅ PASS |
+| 37 | Frontend `npm run build` succeeds | ✅ PASS |
+
+All test artifacts (fixture users, test notifications) were cleaned up afterwards;
+Notifications table left empty for 5C.3.
+
+---
+
+## KNOWN ISSUES
+1. **Association alias deviation**: `sourceMessage` instead of `message` (see Deviation section). Documented; no functional impact.
+2. **SQLite stores JSON as TEXT**: transparent serialization handled by Sequelize; no queryable JSON functions inside metadata (acceptable for MVP).
+3. **No unique/dedup constraint**: DEADLINE_APPROACHING deduplication is deferred to trigger logic in 5C.3 (per 5C.1 design decision).
+4. **Pre-existing environment notes** (not caused by this phase): JWT expiry of 15 min; server process management requires nohup/process manager in production.
+
+---
+
+## FILES SUMMARY
+- Created: `backend/migrations/20240821190007-create-notifications.js`
+- Created: `backend/src/models/Notification.js`
+- Modified: `backend/src/models/User.js`
+- Modified: `backend/src/models/Task.js`
+- Modified: `backend/src/models/Group.js`
+- Modified: `backend/src/models/Message.js`
+- Created: `5C.2.txt` (this file)
+
+---
+
+## NEXT SUB-PHASE
+
+**5C.3 - Backend API + Trigger Logic**
+
+Scope (per 5C.1.txt section 18):
+- Create `notificationController.js` (7 REST endpoints)
+- Create `routes/notifications.js`, mount in routes/index.js
+- Add triggers to taskController.js (TASK_ASSIGNED, TASK_COMPLETED) and messageController.js (NEW_MESSAGE, MENTION)
+- Create `utils/notificationService.js` (shared creation logic + sanitize helper)
+- Create `jobs/deadlineNotificationJob.js` (daily cron)

@@ -911,4 +911,47 @@ Begin **5C.1** (Notifications Design & Implementation Plan)
 ### Next Phase
 Begin **5C.2** (Notifications Database / Model Layer)
 
+## Phase Status: PHASE 5C.2 - COMPLETED (Notifications Database / Model Layer)
+
+### What Was Implemented
+- Created Notifications table migration: `20240821190007-create-notifications.js`
+- Created Notification model: `backend/src/models/Notification.js` with NOTIFICATION_TYPES constant and app-layer enum validation
+- Added associations in User, Task, Group, Message models
+- models/index.js required no change (auto-loads model files)
+
+### Database Changes
+- New Notifications table with 14 columns, 6 indexes, 5 foreign keys
+- FK cascade behavior: recipientId->Users CASCADE, senderId->Users SET NULL, taskId->Tasks SET NULL, groupId->Groups CASCADE, messageId->Messages SET NULL
+- Migration recorded in SequelizeMeta; rollback (undo) and re-migrate both verified
+
+### Documented Deviation from 5C.1.txt
+- Design specified both a `message` TEXT column AND a belongsTo(Message) alias `'message'` — Sequelize fatal naming collision at load time
+- Resolution: DB schema unchanged; association alias renamed to `sourceMessage` (minimal deviation, documented in 5C.2.txt)
+
+### Files Created
+- `backend/migrations/20240821190007-create-notifications.js`
+- `backend/src/models/Notification.js`
+- `5C.2.txt` - Complete implementation documentation
+
+### Files Modified
+- `backend/src/models/User.js` - Added notifications (recipientId), sentNotifications (senderId)
+- `backend/src/models/Task.js` - Added notifications (taskId)
+- `backend/src/models/Group.js` - Added notifications (groupId)
+- `backend/src/models/Message.js` - Added notifications (messageId)
+
+### Test Results (All Passed - 37 tests)
+- ✅ Migration runs, recorded in SequelizeMeta, undo/re-migrate verified
+- ✅ 14 columns with correct types/nullability/defaults
+- ✅ 6 indexes created (incl. composite recipientId+createdAt DESC)
+- ✅ 5 FKs with correct ON DELETE behavior
+- ✅ All 8 models load; 10 Notification associations registered
+- ✅ CRUD verified: create (full + system senderId NULL + JSON metadata round-trip), eager-load with all 5 includes, mark-read/mark-unread state transitions, unread count queries
+- ✅ Validation: invalid type, missing recipientId, empty title, title >200, message >5000, missing type all rejected
+- ✅ FK behavior: message delete SET NULL, task delete SET NULL, group delete CASCADE, sender user delete SET NULL, recipient user delete CASCADE
+- ✅ Existing features unbroken: health, login, groups, tasks, messages endpoints all work
+- ✅ Frontend production build succeeds
+
+### Next Phase
+Begin **5C.3** (Notifications Backend API + Trigger Logic)
+
 (End of file)

@@ -87,6 +87,11 @@ Message.associate = (models) => {
     foreignKey: 'taskId',
     onDelete: 'CASCADE'
   });
+  Message.hasMany(models.Notification, {
+    as: 'notifications',
+    foreignKey: 'messageId',
+    onDelete: 'SET NULL'
+  });
 };
 
 module.exports = Message;

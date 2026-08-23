@@ -23,7 +23,7 @@ A collaboration platform combining task management, group communication, and tea
 ### Components - IMPLEMENTATION STATUS
 1. **Frontend**: React + Vite with TailwindCSS - **IMPLEMENTED (Phase 1 complete)**
 2. **Backend**: Node.js + Express API server - **IMPLEMENTED (Phase 1 complete)**
-3. **Database**: SQLite with ORM (Sequelize) - **IMPLEMENTED (Users, Groups, GroupMembers, Tasks, Checklists, TaskMembers tables)**
+3. **Database**: SQLite with ORM (Sequelize) - **IMPLEMENTED (Users, Groups, GroupMembers, Tasks, Checklists, TaskMembers, Messages, Notifications tables)**
 4. **Realtime**: Socket.IO for chat functionality - **NOT IMPLEMENTED**
 
 ## Folder Structure - ACTUAL vs PLANNED
@@ -176,15 +176,20 @@ project-root/
 - `content`
 - `createdAt`
 
-#### 8. Notifications ❌ NOT IMPLEMENTED (Phase 7)
-- `id` (PK, auto-increment)
-- `recipientId` (FK to Users)
-- `senderId` (FK to Users)
-- `taskId` (FK to Tasks, nullable)
-- `type` (task_assigned, deadline_approaching, new_message, task_completed)
-- `message`
-- `isRead` (DEFAULT false)
-- `createdAt`
+### 7. Notifications ✅ IMPLEMENTED (Database layer - Phase 5C.2)
+- `id` (PK, auto-increment) ✅
+- `recipientId` (FK to Users, NOT NULL, CASCADE on delete) ✅
+- `senderId` (FK to Users, nullable, SET NULL on delete) ✅
+- `taskId` (FK to Tasks, nullable, SET NULL on delete) ✅
+- `groupId` (FK to Groups, nullable, CASCADE on delete) ✅
+- `messageId` (FK to Messages, nullable, SET NULL on delete) ✅
+- `type` (STRING 50, NOT NULL; app-layer enum: TASK_ASSIGNED, TASK_COMPLETED, NEW_MESSAGE, DEADLINE_APPROACHING, MENTION) ✅
+- `title` (STRING 200, NOT NULL) ✅
+- `message` (TEXT, NOT NULL) ✅
+- `isRead` (BOOLEAN, DEFAULT false) ✅
+- `readAt` (DATE, nullable) ✅
+- `metadata` (JSON, nullable) ✅
+- `createdAt`, `updatedAt` ✅
 
 ## Development Roadmap - ACTUAL STATUS
 
@@ -377,14 +382,15 @@ project-root/
 
 ## Current Phase
 
-**Phase 5C.1: Notifications Design & Implementation Plan** - **COMPLETED** (Plan document created: 5C.1.txt)
+**Phase 5C.2: Notifications Database / Model Layer** - **COMPLETED** (Notifications table, Notification model, all associations created and verified)
 
 ## Recommended Next Steps
 
-1. **Begin Phase 5C.2 Notifications Database / Model Layer:**
-   - Create Notifications table migration
-   - Create Notification model with associations
-   - Update User, Task, Group, Message models
-   - Verify database schema and indexes
+1. **Begin Phase 5C.3 Notifications Backend API + Trigger Logic:**
+   - notificationController.js with 7 REST endpoints
+   - routes/notifications.js mounted in routes/index.js
+   - Triggers in taskController (TASK_ASSIGNED, TASK_COMPLETED) and messageController (NEW_MESSAGE, MENTION)
+   - utils/notificationService.js shared creation logic
+   - jobs/deadlineNotificationJob.js daily cron
 
 (End of file)
