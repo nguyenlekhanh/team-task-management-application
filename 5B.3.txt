@@ -1,0 +1,151 @@
+# Phase 5B.3 - Group Chat Backend API
+
+## STATUS
+COMPLETED
+
+## OBJECTIVE
+Implement 6 REST endpoints for group chat messages and task comments with proper authentication, authorization, and validation.
+
+## IMPLEMENTATION
+
+### Files Created
+
+**Backend Controller (New):**
+- `backend/src/controllers/messageController.js` - Contains 6 controller functions:
+  1. `getGroupMessages` - GET /api/groups/:groupId/messages
+  2. `addGroupMessage` - POST /api/groups/:groupId/messages
+  3. `getTaskComments` - GET /api/tasks/:taskId/comments
+  4. `addTaskComment` - POST /api/tasks/:taskId/comments
+  5. `updateMessage` - PUT /api/messages/:id
+  6. `deleteMessage` - DELETE /api/messages/:id
+  7. `sanitizeMessage` - Helper for response formatting
+
+**Backend Routes (New):**
+- `backend/src/routes/messages.js` - 6 REST routes with authentication middleware
+
+### Files Modified
+
+**Backend Routes (Modified):**
+- `backend/src/routes/index.js` - Mounted message routes at root path
+
+### API Endpoints Implemented
+
+| Method | Endpoint | Purpose |
+|--------|----------|---------|
+| GET | /api/groups/:groupId/messages | List group messages (paginated) |
+| POST | /api/groups/:groupId/messages | Send group message |
+| GET | /api/tasks/:taskId/comments | List task comments (paginated) |
+| POST | /api/tasks/:taskId/comments | Add task comment |
+| PUT | /api/messages/:id | Edit message (sender only) |
+| DELETE | /api/messages/:id | Delete message (sender or owner/admin) |
+
+### Authorization Rules Implemented
+
+| Endpoint | Authorization |
+|----------|---------------|
+| GET /api/groups/:groupId/messages | Group member only (404 if not member) |
+| POST /api/groups/:groupId/messages | Group member only |
+| GET /api/tasks/:taskId/comments | Task's group member only |
+| POST /api/tasks/:taskId/comments | Task's group member only |
+| PUT /api/messages/:id | Message sender only |
+| DELETE /api/messages/:id | Sender OR group owner/admin |
+
+### Validation Implemented
+
+- **Content**: Required, max 5000 characters (both messages and comments)
+- **Group/Task ID**: Valid integer required
+- **Message ID**: Valid integer required
+- **Pagination**: page (default 1), limit (default 50, max 100)
+- **Timestamp filtering**: `before` parameter for cursor-based pagination
+
+### Response Format
+
+```json
+// Single message
+{
+  "message": "Message sent successfully",
+  "item": {
+    "id": 1,
+    "senderId": 2,
+    "groupId": 5,
+    "taskId": null,
+    "content": "Hello team!",
+    "messageType": "message",
+    "createdAt": "2024-08-22T10:30:00Z",
+    "updatedAt": "2024-08-22T10:30:00Z",
+    "sender": { "id": 2, "username": "john", "displayName": "John Doe", "avatarUrl": null }
+  }
+}
+
+// Paginated list
+{
+  "items": [...],
+  "pagination": {
+    "total": 100,
+    "page": 1,
+    "limit": 50,
+    "totalPages": 2,
+    "hasMore": true
+  }
+}
+```
+
+### Error Responses
+
+| Code | Scenario |
+|------|----------|
+| 400 | Validation error (empty content, >5000 chars, invalid IDs) |
+| 401 | No/invalid token |
+| 403 | Not sender (for PUT/DELETE), not owner/admin (for DELETE) |
+| 404 | Not member, invalid group/task/message ID |
+| 500 | Server error |
+
+## FILES CREATED
+- `backend/src/controllers/messageController.js`
+- `backend/src/routes/messages.js`
+- `5B.3.txt` (this file)
+
+## FILES MODIFIED
+- `backend/src/routes/index.js` - Added message routes
+
+## TESTS PERFORMED
+
+### API Endpoint Tests (All Passed)
+
+| # | Test | Expected | Result |
+|---|------|----------|--------|
+| 1 | GET /api/groups/:groupId/messages | 200, paginated messages | ✅ PASS |
+| 2 | POST /api/groups/:groupId/messages | 201, message with sender | ✅ PASS |
+| 3 | GET /api/tasks/:taskId/comments | 200, paginated comments | ✅ PASS |
+| 4 | POST /api/tasks/:taskId/comments | 201, comment with sender | ✅ PASS |
+| 5 | PUT /api/messages/:id (sender) | 200, updated message | ✅ PASS |
+| 6 | DELETE /api/messages/:id (sender) | 200, deleted | ✅ PASS |
+
+### Validation Tests (All Passed)
+
+| Test | Expected | Result |
+|------|----------|--------|
+| Empty content | 400 | ✅ PASS |
+| Content > 5000 chars | 400 | ✅ PASS |
+| Invalid group ID | 404 | ✅ PASS |
+| Non-member access | 404 | ✅ PASS |
+
+### Authorization Tests
+
+| Test | Expected | Result |
+|------|----------|--------|
+| Sender can update own message | 200 | ✅ PASS |
+| Sender can delete own message | 200 | ✅ PASS |
+| Non-sender cannot update | 403 | (Not tested directly but logic implemented) |
+| Non-sender/non-admin cannot delete | 403 | (Not tested directly but logic implemented) |
+| Group owner/admin can delete any | 200 | ✅ PASS (testuser is owner) |
+
+## KNOWN ISSUES
+
+1. **Server Process Management**: Background server processes terminate when shell exits (infrastructure limitation, not code issue)
+2. **JWT Token Expiry**: Tokens expire after 15 minutes (expected behavior)
+3. **Owner/Admin Delete Test**: Not fully tested with separate admin user, but logic implemented
+
+## NEXT STEP
+
+Begin **5B.4** - Frontend Chat UI (ChatPanel, MessageItem, CommentSection, CommentItem components)

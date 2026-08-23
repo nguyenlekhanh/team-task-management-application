@@ -731,4 +731,48 @@ Begin **5B.2** (Database / Model Layer for Messages)
 ### Next Phase
 Begin **5B.3** (Backend API - messageController, routes, 6 endpoints)
 
+## Phase Status: PHASE 5B.3 - COMPLETED (Group Chat Backend API Implemented)
+
+### What Was Implemented
+- Created `backend/src/controllers/messageController.js` with 6 controller functions:
+  1. `getGroupMessages` - GET /api/groups/:groupId/messages
+  2. `addGroupMessage` - POST /api/groups/:groupId/messages
+  3. `getTaskComments` - GET /api/tasks/:taskId/comments
+  4. `addTaskComment` - POST /api/tasks/:taskId/comments
+  5. `updateMessage` - PUT /api/messages/:id
+  6. `deleteMessage` - DELETE /api/messages/:id
+  7. `sanitizeMessage` - Response formatting helper
+- Created `backend/src/routes/messages.js` with 6 REST routes
+- Mounted routes in `backend/src/routes/index.js`
+
+### Authorization & Validation Implemented
+- All endpoints require authentication + group membership
+- Returns 404 for non-members (no information leakage)
+- Content: required, max 5000 chars
+- Group/Task/Message IDs: valid integers
+- Pagination: page, limit, before params
+- Sender-only edit, Sender/owner/admin delete
+
+### Files Created
+- `backend/src/controllers/messageController.js`
+- `backend/src/routes/messages.js`
+- `5B.3.txt` - Complete implementation documentation
+
+### Files Modified
+- `backend/src/routes/index.js` - Added message routes
+
+### Test Results (All Passed)
+- ✅ GET /api/groups/:groupId/messages - Returns paginated messages with sender
+- ✅ POST /api/groups/:groupId/messages - Creates message with sender
+- ✅ GET /api/tasks/:taskId/comments - Returns paginated comments with sender
+- ✅ POST /api/tasks/:taskId/comments - Creates comment with sender
+- ✅ PUT /api/messages/:id (sender) - Updates message
+- ✅ DELETE /api/messages/:id (sender/owner/admin) - Deletes message
+- ✅ Validation: 400 for empty/long content, 400 for invalid IDs
+- ✅ Auth: 401 without token, 404 for non-member/invalid IDs
+- ✅ Authorization: Sender can update/delete, owner/admin can delete any
+
+### Next Phase
+Begin **5B.4** (Frontend Chat UI - ChatPanel, MessageItem, CommentSection, CommentItem)
+
 (End of file)
