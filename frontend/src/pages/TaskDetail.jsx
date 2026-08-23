@@ -6,7 +6,9 @@ import { TaskStatusBadge } from '../components/TaskStatusBadge'
 import { PriorityBadge } from '../components/PriorityBadge'
 import { CreateTaskModal } from '../components/CreateTaskModal'
 import { EditTaskModal } from '../components/EditTaskModal'
+import { Checklist } from '../components/Checklist'
 import { format } from 'date-fns'
+import { getRoleColor } from '../utils/permissions'
 
 export function TaskDetail() {
   const { id } = useParams()
@@ -20,6 +22,7 @@ export function TaskDetail() {
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false)
   const [groupMembers, setGroupMembers] = useState([])
   const [loadingMembers, setLoadingMembers] = useState(false)
+  const [checklistItems, setChecklistItems] = useState([])
 
   useEffect(() => {
     if (!isAuthenticated) {
@@ -29,6 +32,12 @@ export function TaskDetail() {
     fetchTask()
     fetchGroupMembers()
   }, [isAuthenticated, id])
+
+  useEffect(() => {
+    if (task) {
+      fetchChecklist()
+    }
+  }, [task, id])
 
   const fetchTask = async () => {
     setLoading(true)
@@ -59,6 +68,55 @@ export function TaskDetail() {
       setGroupMembers(response.data.members)
     } catch (err) {
       console.error('Failed to fetch group members:', err)
+    }
+  }
+
+  const fetchChecklist = async () => {
+    try {
+      const response = await taskApi.getChecklist(id)
+      setChecklistItems(response.data.items)
+    } catch (err) {
+      console.error('Failed to fetch checklist:', err)
+    }
+  }
+
+  const handleAddChecklistItem = async (data) => {
+    try {
+      const response = await taskApi.addChecklistItem(id, data)
+      setChecklistItems(prev => [...prev, response.data.item])
+    } catch (err) {
+      console.error('Failed to add checklist item:', err)
+      throw err
+    }
+  }
+
+  const handleToggleChecklistItem = async (itemId, isCompleted) => {
+    try {
+      const response = await taskApi.toggleChecklistItem(id, itemId, { isCompleted })
+      setChecklistItems(prev => prev.map(item => item.id === itemId ? response.data.item : item))
+    } catch (err) {
+      console.error('Failed to toggle checklist item:', err)
+      throw err
+    }
+  }
+
+  const handleUpdateChecklistItem = async (itemId, data) => {
+    try {
+      const response = await taskApi.updateChecklistItem(id, itemId, data)
+      setChecklistItems(prev => prev.map(item => item.id === itemId ? response.data.item : item))
+    } catch (err) {
+      console.error('Failed to update checklist item:', err)
+      throw err
+    }
+  }
+
+  const handleDeleteChecklistItem = async (itemId) => {
+    try {
+      await taskApi.deleteChecklistItem(id, itemId)
+      setChecklistItems(prev => prev.filter(item => item.id !== itemId))
+    } catch (err) {
+      console.error('Failed to delete checklist item:', err)
+      throw err
     }
   }
 
@@ -256,19 +314,15 @@ export function TaskDetail() {
           </div>
 
           {/* Checklist */}
-          <div className="bg-white shadow rounded-lg p-6">
-            <div className="flex justify-between items-center mb-4">
-              <h3 className="text-lg font-semibold text-gray-900">Checklist</h3>
-              <button
-                className="px-3 py-1 bg-blue-600 text-white rounded-md hover:bg-blue-700 text-sm"
-              >
-                Add Item
-              </button>
-            </div>
-            <div className="space-y-2">
-              <p className="text-gray-500 text-center py-8">No checklist items yet</p>
-            </div>
-          </div>
+          <Checklist
+            taskId={id}
+            items={checklistItems}
+            onAdd={handleAddChecklistItem}
+            onToggle={handleToggleChecklistItem}
+            onUpdate={handleUpdateChecklistItem}
+            onDelete={handleDeleteChecklistItem}
+            canManage={true}
+          />
 
           {/* Activity Log - Placeholder */}
           <div className="bg-white shadow rounded-lg p-6">

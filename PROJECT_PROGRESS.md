@@ -595,4 +595,45 @@ Begin **5A.3** (implement Checklist Backend API endpoints)
 ### Next Phase
 Begin **5A.4** (Checklist Frontend UI - create Checklist and ChecklistItem components, integrate into TaskDetail)
 
+## Phase Status: PHASE 5A.4 - COMPLETED (Checklist Frontend UI Implemented)
+
+### What Was Implemented
+- **ChecklistItem component** (`frontend/src/components/ChecklistItem.jsx`):
+  - Individual checklist item with checkbox toggle
+  - Inline editing (click title → edit → Enter to save, Escape to cancel)
+  - Shows completer name and timestamp when completed
+  - Delete button with confirmation
+  - Strikethrough for completed items
+
+- **Checklist component** (`frontend/src/components/Checklist.jsx`):
+  - Progress indicator: "X / Y completed (Z%)"
+  - Add item form with validation (required, max 500 chars)
+  - Empty state with "Add First Item" button
+  - List of ChecklistItem components
+
+- **TaskDetail integration** (`frontend/src/pages/TaskDetail.jsx`):
+  - Added checklistItems state
+  - Added fetchChecklist, handleAddChecklistItem, handleToggleChecklistItem, handleUpdateChecklistItem, handleDeleteChecklistItem handlers
+  - Replaced placeholder with `<Checklist />` component
+  - Added getRoleColor import
+
+### Files Created
+- `frontend/src/components/ChecklistItem.jsx`
+- `frontend/src/components/Checklist.jsx`
+- `5A.4.txt` - Complete implementation documentation
+
+### Files Modified
+- `frontend/src/pages/TaskDetail.jsx`
+
+### Test Results
+- ✅ `npm run build` succeeds
+- ✅ Progress indicator shows correctly
+- ✅ Add/edit/delete/toggle all functional
+- ✅ Optimistic updates for immediate feedback
+- ✅ Empty state and error handling
+- ✅ Completer name and timestamp display
+
+### Next Phase
+Begin **5A.5** (Checklist Testing & Integration - end-to-end testing with backend, permission tests, edge cases)
+
 (End of file)

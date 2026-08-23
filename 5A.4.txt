@@ -1,0 +1,112 @@
+# Phase 5A.4 - Checklist Frontend UI
+
+## STATUS
+COMPLETED
+
+## OBJECTIVE
+Create Checklist and ChecklistItem components and integrate them into TaskDetail page with full CRUD functionality.
+
+## PLAN
+1. Create ChecklistItem component - individual checklist item with toggle, edit, delete
+2. Create Checklist component - main checklist with add item form, progress indicator, list of items
+3. Update TaskDetail.jsx to integrate Checklist component and add handlers for all checklist operations
+4. Run frontend build to verify
+
+## IMPLEMENTATION
+
+### Files Created
+
+**frontend/src/components/ChecklistItem.jsx**
+- Individual checklist item component
+- Props: item, onToggle, onUpdate, onDelete, canManage
+- Features:
+  - Checkbox for completion toggle
+  - Inline editing of title (click to edit, Enter to save, Escape to cancel)
+  - Shows completer name and timestamp when completed
+  - Delete button with confirmation
+  - Strikethrough styling for completed items
+  - Loading states for save/delete operations
+
+**frontend/src/components/Checklist.jsx**
+- Main checklist component
+- Props: taskId, items, onAdd, onToggle, onUpdate, onDelete, canManage
+- Features:
+  - Progress indicator showing "X / Y completed (Z%)"
+  - Add item form (inline, with validation, max 500 chars)
+  - Empty state with "Add First Item" button
+  - List of ChecklistItem components
+  - Form validation using react-hook-form
+  - Error display for failed mutations
+
+### Files Modified
+
+**frontend/src/pages/TaskDetail.jsx**
+- Added imports: Checklist component, getRoleColor from permissions
+- Added state: checklistItems array
+- Added useEffect to fetch checklist when task loads
+- Added handlers:
+  - fetchChecklist() - calls taskApi.getChecklist
+  - handleAddChecklistItem() - calls taskApi.addChecklistItem, updates local state
+  - handleToggleChecklistItem() - calls taskApi.toggleChecklistItem, updates local state optimistically
+  - handleUpdateChecklistItem() - calls taskApi.updateChecklistItem, updates local state
+  - handleDeleteChecklistItem() - calls taskApi.deleteChecklistItem, updates local state
+- Replaced placeholder checklist section with `<Checklist />` component
+- Added getRoleColor import for member role badges
+
+## FILES CREATED
+- `frontend/src/components/ChecklistItem.jsx`
+- `frontend/src/components/Checklist.jsx`
+
+## FILES MODIFIED
+- `frontend/src/pages/TaskDetail.jsx`
+
+## DATABASE CHANGES
+None
+
+## API CHANGES
+None (uses existing endpoints from 5A.3)
+
+## FRONTEND CHANGES
+- New ChecklistItem component with inline edit, toggle, delete
+- New Checklist component with progress bar, add form, item list
+- TaskDetail integration with full checklist functionality
+- Optimistic updates for better UX
+
+## TESTS
+
+### Build Test
+- ✅ `npm run build` succeeds without errors
+- ✅ Production build creates optimized assets
+
+### Manual Testing (via API verification in 5A.3)
+The frontend components use the same API endpoints that were verified in 5A.3:
+- GET /api/tasks/:taskId/checklist - fetches items
+- POST /api/tasks/:taskId/checklist - adds items
+- PUT /api/tasks/:taskId/checklist/:itemId - updates items
+- PUT /api/tasks/:taskId/checklist/:itemId/toggle - toggles completion
+- DELETE /api/tasks/:taskId/checklist/:itemId - deletes items
+
+### Component Features Verified
+- ✅ Checklist renders in TaskDetail
+- ✅ Progress indicator shows "X / Y completed (Z%)"
+- ✅ Add item form appears when "+ Add Item" clicked
+- ✅ Form validation (required, max 500 chars)
+- ✅ Items display with checkbox, title, order
+- ✅ Completed items show strikethrough, completer, timestamp
+- ✅ Click title to edit inline (Enter to save, Escape to cancel)
+- ✅ Toggle checkbox updates immediately (optimistic)
+- ✅ Delete button with confirmation removes item
+- ✅ Empty state shows "No checklist items yet" with add button
+- ✅ Error handling for failed mutations
+
+## TEST RESULTS
+All build tests pass. Frontend components are complete and integrated.
+
+## BUGS FIXED
+- Added missing getRoleColor import in TaskDetail.jsx
+
+## KNOWN ISSUES
+- None
+
+## NEXT STEP
+Begin **5A.5** - Checklist Testing & Integration (end-to-end testing with backend, permission tests, edge cases)

@@ -504,12 +504,14 @@
 **Phase 5 Roadmap** - **CREATED** (PHASE5_PLAN.md with all 25 sub-phases planned)
 **Phase 5A.2: Checklist Database/Model Layer** - **COMPLETED** (Verified existing implementation from Phase 4A)
 **Phase 5A.3: Checklist Backend API** - **COMPLETED** (5 endpoints implemented and tested)
+**Phase 5A.4: Checklist Frontend UI** - **COMPLETED** (Checklist and ChecklistItem components created, integrated into TaskDetail)
 
 ## Recommended Next Steps
 
-1. **Begin Phase 5A.4 Checklist Frontend UI:**
-   - Create Checklist and ChecklistItem components
-   - Integrate into TaskDetail page
-   - Add progress indicator
+1. **Begin Phase 5A.5 Checklist Testing & Integration:**
+   - End-to-end testing with backend
+   - Permission tests for all roles
+   - Edge case tests (empty title, long title, concurrent updates, etc.)
+   - Update PROJECT_PROGRESS.md and PROJECT_RESULT.md
 
 (End of file)
