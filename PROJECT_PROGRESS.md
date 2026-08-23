@@ -954,4 +954,64 @@ Begin **5C.2** (Notifications Database / Model Layer)
 ### Next Phase
 Begin **5C.3** (Notifications Backend API + Trigger Logic)
 
+## Phase Status: PHASE 5C.3 - COMPLETED (Notifications Backend API + Trigger Logic)
+
+### What Was Implemented
+**API (7 endpoints, mounted at /api/notifications):**
+1. GET /api/notifications - paginated list with page/limit/isRead/type/before-cursor filters, sender+task+group includes
+2. GET /api/notifications/unread-count - badge count for current user
+3. PUT /api/notifications/:id/read - mark read (ownership enforced, sets readAt)
+4. PUT /api/notifications/read-all - bulk mark read for current user, returns updatedCount
+5. DELETE /api/notifications/:id - delete own notification
+6. GET /api/notifications/preferences - merged over defaults
+7. PUT /api/notifications/preferences - validated merge + persist
+
+**Shared service (utils/notificationService.js):**
+- notifyUsers(): dedupe recipients, exclude sender, respect per-user preferences, never throws
+- extractMentions(): @username regex extraction
+- sanitizeNotification(): response formatting per design
+
+**Triggers integrated into existing controllers:**
+- taskController.assignTask -> TASK_ASSIGNED to new assignee (no self-notify)
+- taskController.updateTaskStatus -> TASK_COMPLETED to creator + assignee + TaskMembers(followers) on completion transition
+- messageController.addGroupMessage -> NEW_MESSAGE to members except sender; MENTION for group-member @mentions (mention takes precedence)
+- messageController.addTaskComment -> NEW_MESSAGE to creator/assignee/followers; MENTION for mentions
+- All triggers isolated in try/catch so notification failures never break main flows
+
+**Deadline job (jobs/deadlineNotificationJob.js):**
+- runDeadlineCheck(): tasks due within 24h (not completed/overdue) -> DEADLINE_APPROACHING to assignee+creator, system senderId=null, 24h deduplication per task
+- startDeadlineNotificationJob(): zero-dependency scheduler, daily at 09:00 UTC, started from server.js
+
+**Preferences storage (additive):**
+- Migration 20240821190008 adds nullable notificationPreferences JSON column to Users (required by the designed preferences endpoints; Notifications table unchanged from 5C.2)
+
+### Files Created
+- `backend/src/utils/notificationService.js`
+- `backend/src/controllers/notificationController.js`
+- `backend/src/routes/notifications.js`
+- `backend/src/jobs/deadlineNotificationJob.js`
+- `backend/migrations/20240821190008-add-notification-preferences-to-users.js`
+- `5C.3.txt` - Complete implementation documentation
+
+### Files Modified
+- `backend/src/routes/index.js` - mounted /notifications routes
+- `backend/src/controllers/taskController.js` - TASK_ASSIGNED + TASK_COMPLETED triggers
+- `backend/src/controllers/messageController.js` - NEW_MESSAGE + MENTION triggers
+- `backend/src/server.js` - starts deadline job
+- `backend/src/models/User.js` - notificationPreferences field
+
+### Test Results (All Passed - 53 assertions total)
+- ✅ Auth: no/invalid token -> 401 on notification endpoints
+- ✅ Triggers verified end-to-end via API: assign->TASK_ASSIGNED, complete->TASK_COMPLETED, group msg->NEW_MESSAGE, comment->NEW_MESSAGE/MENTION
+- ✅ Self-actions produce no notifications; mentioned users get MENTION instead of NEW_MESSAGE
+- ✅ Read state: single mark-read (+readAt), read-all with updatedCount, ownership enforced (cross-user -> 404), delete own only
+- ✅ Filters/validation: bad type/isRead -> 400, limit clamped 100, combined filters, cursor pagination (?before=)
+- ✅ Preferences: defaults all true, persist across requests, suppress disabled types (verified live), invalid input -> 400
+- ✅ Deadline job: creates exactly 1 per due-soon task, dedupes second run, skips completed tasks
+- ✅ Regression: 14 existing endpoints still pass (health, auth, groups, members, tasks, checklist, messages, comments)
+- ✅ Frontend production build succeeds
+
+### Next Phase
+Begin **5C.4** (Frontend Notification UI)
+
 (End of file)

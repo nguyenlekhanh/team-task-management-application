@@ -6,11 +6,13 @@ const userRoutes = require('./users');
 const groupRoutes = require('./groups');
 const taskRoutes = require('./tasks');
 const messageRoutes = require('./messages');
+const notificationRoutes = require('./notifications');
 
 router.get('/health', healthCheck);
 router.use('/auth', authRoutes);
 router.use('/users', userRoutes);
 router.use('/groups', groupRoutes);
+router.use('/notifications', notificationRoutes);
 router.use('/', taskRoutes);
 router.use('/', messageRoutes);
 

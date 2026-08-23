@@ -382,15 +382,14 @@ project-root/
 
 ## Current Phase
 
-**Phase 5C.2: Notifications Database / Model Layer** - **COMPLETED** (Notifications table, Notification model, all associations created and verified)
+**Phase 5C.3: Notifications Backend API + Trigger Logic** - **COMPLETED** (7 REST endpoints, TASK_ASSIGNED/TASK_COMPLETED/NEW_MESSAGE/MENTION triggers, deadline cron job, notification preferences)
 
 ## Recommended Next Steps
 
-1. **Begin Phase 5C.3 Notifications Backend API + Trigger Logic:**
-   - notificationController.js with 7 REST endpoints
-   - routes/notifications.js mounted in routes/index.js
-   - Triggers in taskController (TASK_ASSIGNED, TASK_COMPLETED) and messageController (NEW_MESSAGE, MENTION)
-   - utils/notificationService.js shared creation logic
-   - jobs/deadlineNotificationJob.js daily cron
+1. **Begin Phase 5C.4 Notifications Frontend UI:**
+   - NotificationBell, NotificationDropdown, NotificationItem, NotificationSettings components
+   - useNotifications hook + notificationApi in services/api.js
+   - Bell in header with unread badge; Notifications tab in Profile
+   - Production build verification
 
 (End of file)

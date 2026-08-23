@@ -1,5 +1,6 @@
-const { Task, Group, GroupMember, User, Checklist } = require('../models');
+const { Task, Group, GroupMember, User, Checklist, TaskMember } = require('../models');
 const { Op } = require('sequelize');
+const { notifyUsers } = require('../utils/notificationService');
 
 function sanitizeTask(task) {
   return {
@@ -503,6 +504,26 @@ async function assignTask(req, res) {
     const updates = { assigneeId: assigneeId || null };
     await task.update(updates);
 
+    // Notification trigger: TASK_ASSIGNED to the new assignee
+    if (assigneeId && assigneeId !== req.user.id) {
+      await notifyUsers({
+        recipientIds: [assigneeId],
+        senderId: req.user.id,
+        type: 'TASK_ASSIGNED',
+        title: 'New task assigned',
+        message: `You have been assigned to task '${task.title}' in group '${task.group.name}'`,
+        taskId: task.id,
+        groupId: task.groupId,
+        metadata: {
+          taskId: task.id,
+          taskTitle: task.title,
+          groupId: task.groupId,
+          groupName: task.group.name,
+          assignedBy: req.user.id
+        }
+      });
+    }
+
     const updatedTask = await Task.findByPk(taskId, {
       include: [
         { model: User, as: 'creator', attributes: ['id', 'username', 'displayName', 'avatarUrl'] },
@@ -562,6 +583,7 @@ async function updateTaskStatus(req, res) {
       return res.status(403).json({ error: 'Only owner, admin, creator, or assignee can update task status' });
     }
 
+    const wasCompleted = task.status === 'completed';
     const updates = { status };
     if (status === 'completed' && task.status !== 'completed') {
       updates.completedAt = new Date();
@@ -570,6 +592,34 @@ async function updateTaskStatus(req, res) {
     }
 
     await task.update(updates);
+
+    // Notification trigger: TASK_COMPLETED to creator, assignee and task followers
+    if (status === 'completed' && !wasCompleted) {
+      const followers = await TaskMember.findAll({
+        where: { taskId: task.id, role: 'follower' },
+        attributes: ['userId']
+      });
+      await notifyUsers({
+        recipientIds: [
+          task.creatorId,
+          task.assigneeId,
+          ...followers.map(f => f.userId)
+        ],
+        senderId: req.user.id,
+        type: 'TASK_COMPLETED',
+        title: 'Task completed',
+        message: `'${task.title}' has been marked as completed by ${req.user.displayName}`,
+        taskId: task.id,
+        groupId: task.groupId,
+        metadata: {
+          taskId: task.id,
+          taskTitle: task.title,
+          groupId: task.groupId,
+          groupName: task.group.name,
+          completedBy: req.user.id
+        }
+      });
+    }
 
     const updatedTask = await Task.findByPk(taskId, {
       include: [

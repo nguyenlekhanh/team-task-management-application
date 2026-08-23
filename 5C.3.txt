@@ -1,0 +1,185 @@
+# Phase 5C.3 - Notifications Backend API + Trigger Logic
+
+## STATUS
+COMPLETED
+
+## OBJECTIVE
+Implement the notifications REST API (7 endpoints), trigger logic in existing task/message controllers, notification preferences, and the daily deadline-approaching job, per the 5C.1.txt design and the 5C.2.txt database layer.
+
+---
+
+## WHAT WAS IMPLEMENTED
+
+### 1. Shared Notification Service (`backend/src/utils/notificationService.js`)
+- `NOTIFICATION_TYPES` - re-exported from Notification model
+- `PREFERENCE_KEYS` / `DEFAULT_PREFERENCES` - mapping of notification type to preference key (taskAssigned, taskCompleted, newMessage, deadlineApproaching, mention), all default true
+- `extractMentions(content)` - regex `/@([a-zA-Z0-9_]+)/g`, returns unique usernames
+- `createNotification(data)` - wrapped create; logs and returns null on failure (never throws)
+- `notifyUsers({ recipientIds, senderId, type, title, message, taskId, groupId, messageId, metadata })`:
+  - deduplicates recipient IDs, excludes the sender (system notifications use senderId=null)
+  - bulk-loads recipients' preferences; skips users who disabled that notification type
+  - creates one notification per recipient; failures logged, never thrown
+- `sanitizeNotification(notification)` - response shape per 5C.1 section 6 (includes sender/task/group objects + metadata)
+
+### 2. Notification Controller (`backend/src/controllers/notificationController.js`) - 7 endpoints
+| Endpoint | Handler | Notes |
+|----------|---------|-------|
+| GET /api/notifications | getNotifications | page/limit (1-100, clamped)/isRead/type/before cursor filters; ordered createdAt DESC; returns `{ items, pagination }` with hasMore |
+| GET /api/notifications/unread-count | getUnreadCount | `{ unreadCount }` |
+| PUT /api/notifications/:id/read | markAsRead | ownership enforced via recipientId=me; sets isRead=true, readAt=now; returns sanitized item |
+| PUT /api/notifications/read-all | markAllAsRead | bulk update for current user only; returns updatedCount |
+| DELETE /api/notifications/:id | deleteNotification | ownership enforced; hard delete |
+| GET /api/notifications/preferences | getPreferences | merges stored prefs over defaults |
+| PUT /api/notifications/preferences | updatePreferences | validates keys (unknown -> 400) and boolean values; merges and persists |
+
+### 3. Routes (`backend/src/routes/notifications.js`, mounted in routes/index.js)
+- Mounted at `/notifications` BEFORE the `/` mounted routers so paths resolve correctly
+- Static routes defined before parameterized ones (unread-count, read-all, preferences)
+- `router.use(authenticate)` on all routes
+
+### 4. Triggers in taskController.js
+- **assignTask** → after successful assignment: TASK_ASSIGNED to new assignee (skipped when self-assign). Title "New task assigned", message includes task title + group name, metadata per design.
+- **updateTaskStatus** → on transition to 'completed' (captured BEFORE update to avoid in-instance mutation bug): TASK_COMPLETED to creator + assignee + TaskMembers(role='follower'), excluding actor.
+
+### 5. Triggers in messageController.js
+- **addGroupMessage** → NEW_MESSAGE to all group members except sender ("{senderName}: {first 100 chars}"); @username mentions resolved against group members get MENTION instead of NEW_MESSAGE (precedence rule, documented below).
+- **addTaskComment** → NEW_MESSAGE to creator + assignee + TaskMembers(followers) except sender ("New comment on {taskTitle}"); mentions scoped to group members get MENTION.
+- All trigger code is inside try/catch: a notification failure never fails the primary message/comment action.
+
+### 6. Deadline Job (`backend/src/jobs/deadlineNotificationJob.js`)
+- `runDeadlineCheck()` - finds tasks with dueDate within next 24h and status NOT IN ('completed','overdue'); creates DEADLINE_APPROACHING for assignee+creator (senderId=null = system); dedupes via existing DEADLINE_APPROACHING notification for same taskId within last 24h; respects recipient preferences.
+- `startDeadlineNotificationJob()` - zero-dependency scheduler (setTimeout + setInterval, no new npm dependency): runs daily at 09:00 UTC. Started from server.js after DB connect.
+- `msUntilNextRun()` helper computes delay to next 09:00 UTC.
+
+### 7. Preferences storage (additive schema change)
+The 5C.1 design specifies GET/PUT preferences endpoints whose settings must filter triggers (5C.1 sections 6, 15, 17), but its schema defines no storage for them. To make the designed endpoints functional, added:
+- Migration `20240821190008-add-notification-preferences-to-users.js`: nullable JSON column `notificationPreferences` on Users
+- `User.notificationPreferences` field (JSON, allowNull, default null = all defaults enabled)
+This is additive and does not alter the Notifications table implemented in 5C.2.
+
+---
+
+## DESIGN DECISIONS & NOTES
+
+1. **MENTION precedence**: A user mentioned in a message/comment receives MENTION only, not also NEW_MESSAGE, avoiding duplicate pings for the same content. (Design lists both types but does not define overlap behavior.)
+2. **Trigger isolation**: notifyUsers/createNotification swallow+log errors so notification problems can never break task assignment, completion, or messaging.
+3. **Follower scope**: Per 5C.1 ("TaskMembers role: follower"), only TaskMember rows with role='follower' are notified on completion/comments (assignee/reviewer roles excluded as they are covered by creator/assignee rules or not specified).
+4. **No cron dependency**: scheduling uses plain timers; swapping to node-cron later is isolated to startDeadlineNotificationJob().
+5. **updateTask direct assignee change** intentionally does NOT fire TASK_ASSIGNED (design specifies the trigger on PUT /api/tasks/:id/assign only).
+6. **Pre-existing quirk documented, untouched**: taskController.updateTask contains a stray duplicated `module.exports = {...}` statement mid-function (harmless expression statement; final exports at file end are authoritative). Left unmodified per "do not modify unrelated features".
+
+---
+
+## FILES CREATED
+- `backend/src/utils/notificationService.js`
+- `backend/src/controllers/notificationController.js`
+- `backend/src/routes/notifications.js`
+- `backend/src/jobs/deadlineNotificationJob.js`
+- `backend/migrations/20240821190008-add-notification-preferences-to-users.js`
+- `5C.3.txt` (this file)
+
+## FILES MODIFIED
+- `backend/src/routes/index.js` - mount /notifications routes
+- `backend/src/controllers/taskController.js` - TaskMember import; TASK_ASSIGNED + TASK_COMPLETED triggers
+- `backend/src/controllers/messageController.js` - TaskMember import; NEW_MESSAGE + MENTION triggers (group messages and task comments)
+- `backend/src/server.js` - start deadline job after listen
+- `backend/src/models/User.js` - notificationPreferences field
+
+---
+
+## MIGRATION RESULT
+```
+== 20240821190008-add-notification-preferences-to-users: migrated (0.167s)
+```
+Users table now has nullable notificationPreferences JSON column.
+
+---
+
+## TESTS PERFORMED & RESULTS
+
+### API endpoint + trigger integration tests (script: 39 assertions, ALL PASSED)
+Auth:
+- ✅ No token -> 401; invalid token -> 401 (list and unread-count)
+
+Empty state:
+- ✅ unread-count starts at 0; empty list with pagination {total:0, hasMore:false}
+
+TASK_ASSIGNED trigger:
+- ✅ Owner assigns task -> assignee gets TASK_ASSIGNED with correct title/sender/taskId/isRead=false
+- ✅ Response includes sender, task ({id,title}), group ({id,name}) objects
+- ✅ Self-assign does NOT notify self
+
+NEW_MESSAGE trigger:
+- ✅ Group message -> other member receives NEW_MESSAGE "{displayName}: preview", groupId set
+- ✅ Sender receives nothing for own message
+
+MENTION trigger (group message):
+- ✅ "@testuser" in group message -> owner receives MENTION
+- ✅ Mentioned user does NOT also receive NEW_MESSAGE (precedence)
+
+Task comment triggers:
+- ✅ Comment "@testuser Working on it" -> creator receives MENTION with taskId metadata
+
+TASK_COMPLETED trigger:
+- ✅ Assignee completes task -> creator receives TASK_COMPLETED "marked as completed by {name}"
+
+Read/unread/delete:
+- ✅ Mark single read -> isRead=true + readAt timestamp returned
+- ✅ read-all returns correct updatedCount; unread count drops to 0
+- ✅ Other user cannot mark-read my notification -> 404
+- ✅ Other user cannot delete my notification -> 404
+- ✅ Delete own notification -> 200; nonexistent id -> 404
+
+Filters/validation/pagination:
+- ✅ Invalid type filter -> 400; invalid isRead -> 400
+- ✅ limit clamped to 100
+- ✅ Combined type+isRead filters return only matching rows
+- ✅ Cursor pagination (?before=timestamp) returns strictly older rows
+
+Preferences:
+- ✅ GET defaults: all five keys true
+- ✅ PUT persists (taskAssigned:false survives)
+- ✅ Unknown key -> 400; non-boolean value -> 400; empty body -> 400
+- ✅ Disabled taskAssigned suppresses subsequent TASK_ASSIGNED notifications; re-enabled works
+
+### Deadline job tests (direct runDeadlineCheck invocation, ALL PASSED)
+- ✅ Task due in 12h -> exactly 1 DEADLINE_APPROACHING created for creator (senderId null)
+- ✅ Immediate second run -> 0 created (24h deduplication works)
+- ✅ Completed tasks excluded from later runs
+- ✅ Message text matches design: "Task 'X' is due in 24 hours"
+- ✅ Server startup schedules job correctly (logged first-run delay to 09:00 UTC)
+
+### Regression tests (14 assertions, ALL PASSED)
+- ✅ health, login, /users/me, groups list/detail/members
+- ✅ group tasks list, task detail, checklist
+- ✅ group messages POST/GET, task comments GET
+- ✅ task status update
+- ✅ GET /api/notifications co-exists with all legacy endpoints
+
+### Build verification
+- ✅ Frontend `npm run build` succeeds (no frontend changes required this phase)
+- ✅ All modified backend files pass `node --check`
+
+Test data cleaned up afterwards: test notifications deleted, task 16 restored (assigneeId null, status in_progress), notifu1 removed from group 11.
+
+---
+
+## KNOWN ISSUES
+1. **Server process lifetime in dev shell**: background server processes die when their parent shell exits (pre-existing environment issue, unrelated to this phase); production should use a process manager.
+2. **JWT expiry 15 min**: pre-existing; long-lived sessions need refresh tokens (Phase 9 candidate).
+3. **updateTask assignee changes don't notify**: by design scope (trigger specified only for /assign endpoint).
+4. **Stray module.exports statement inside updateTask**: pre-existing harmless artifact in taskController; left untouched.
+5. **Real-time delivery**: polling-based until Phase 5D Socket.IO integration.
+
+---
+
+## NEXT SUB-PHASE
+
+**5C.4 - Frontend Notification UI**
+
+Scope (per 5C.1.txt section 18):
+- Create NotificationBell.jsx, NotificationDropdown.jsx, NotificationItem.jsx, NotificationSettings.jsx, hooks/useNotifications.js
+- Add notificationApi to services/api.js
+- Integrate bell into header layout; Notifications tab in Profile
+- Fetch unread count on auth (AuthContext or hook polling)
+- `npm run build` must pass

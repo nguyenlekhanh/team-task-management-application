@@ -1,5 +1,6 @@
-const { Message, Group, GroupMember, User, Task } = require('../models');
+const { Message, Group, GroupMember, User, Task, TaskMember } = require('../models');
 const { Op } = require('sequelize');
+const { notifyUsers, extractMentions } = require('../utils/notificationService');
 
 function sanitizeMessage(message) {
   return {
@@ -115,6 +116,65 @@ async function addGroupMessage(req, res) {
         { model: User, as: 'sender', attributes: ['id', 'username', 'displayName', 'avatarUrl'] }
       ]
     });
+
+    // Notification triggers for group messages (failures are logged, not thrown)
+    try {
+      const group = await Group.findByPk(groupId, { attributes: ['id', 'name'] });
+      if (!group) {
+        throw new Error('Group not found for notification trigger');
+      }
+      const members = await GroupMember.findAll({
+        where: { groupId },
+        attributes: ['userId']
+      });
+      const memberIds = members.map(m => m.userId);
+      const mentionedUsernames = extractMentions(content.trim());
+      let mentionedIds = [];
+      if (mentionedUsernames.length > 0) {
+        const mentionedUsers = await User.findAll({
+          where: { username: { [Op.in]: mentionedUsernames } },
+          attributes: ['id']
+        });
+        const memberSet = new Set(memberIds);
+        mentionedIds = mentionedUsers.map(u => u.id).filter(id => memberSet.has(id));
+        await notifyUsers({
+          recipientIds: mentionedIds,
+          senderId: req.user.id,
+          type: 'MENTION',
+          title: 'You were mentioned',
+          message: `${req.user.displayName} mentioned you in ${group.name}`,
+          groupId,
+          messageId: message.id,
+          metadata: {
+            groupId,
+            groupName: group.name,
+            messageId: message.id,
+            senderId: req.user.id,
+            senderName: req.user.displayName
+          }
+        });
+      }
+      // NEW_MESSAGE to remaining members (mentioned users get MENTION instead)
+      const newMessageRecipients = memberIds.filter(id => !mentionedIds.includes(id));
+      await notifyUsers({
+        recipientIds: newMessageRecipients,
+        senderId: req.user.id,
+        type: 'NEW_MESSAGE',
+        title: `New message in ${group.name}`,
+        message: `${req.user.displayName}: ${content.trim().substring(0, 100)}`,
+        groupId,
+        messageId: message.id,
+        metadata: {
+          groupId,
+          groupName: group.name,
+          messageId: message.id,
+          senderId: req.user.id,
+          senderName: req.user.displayName
+        }
+      });
+    } catch (notifyErr) {
+      console.error('[ERROR] addGroupMessage notification trigger:', notifyErr.message);
+    }
 
     res.status(201).json({
       message: 'Message sent successfully',
@@ -233,6 +293,79 @@ async function addTaskComment(req, res) {
         { model: User, as: 'sender', attributes: ['id', 'username', 'displayName', 'avatarUrl'] }
       ]
     });
+
+    // Notification triggers for task comments (failures are logged, not thrown)
+    try {
+      const group = await Group.findByPk(task.groupId, { attributes: ['id', 'name'] });
+      if (!group) {
+        throw new Error('Group not found for notification trigger');
+      }
+      const followers = await TaskMember.findAll({
+        where: { taskId: task.id, role: 'follower' },
+        attributes: ['userId']
+      });
+      const stakeholderIds = [
+        task.creatorId,
+        task.assigneeId,
+        ...followers.map(f => f.userId)
+      ].filter(id => Number.isInteger(id));
+
+      const mentionedUsernames = extractMentions(content.trim());
+      let mentionedIds = [];
+      if (mentionedUsernames.length > 0) {
+        const mentionedUsers = await User.findAll({
+          where: { username: { [Op.in]: mentionedUsernames } },
+          attributes: ['id']
+        });
+        const memberCheck = await GroupMember.findAll({
+          where: { groupId: task.groupId, userId: { [Op.in]: mentionedUsers.map(u => u.id) } },
+          attributes: ['userId']
+        });
+        const memberSet = new Set(memberCheck.map(m => m.userId));
+        mentionedIds = mentionedUsers.map(u => u.id).filter(id => memberSet.has(id));
+        await notifyUsers({
+          recipientIds: mentionedIds,
+          senderId: req.user.id,
+          type: 'MENTION',
+          title: 'You were mentioned',
+          message: `${req.user.displayName} mentioned you in ${group.name}`,
+          taskId: task.id,
+          groupId: task.groupId,
+          messageId: message.id,
+          metadata: {
+            taskId: task.id,
+            groupId: task.groupId,
+            groupName: group.name,
+            messageId: message.id,
+            senderId: req.user.id,
+            senderName: req.user.displayName
+          }
+        });
+      }
+      // NEW_MESSAGE with task context to remaining stakeholders (mentioned users get MENTION instead)
+      const newMessageRecipients = stakeholderIds.filter(id => !mentionedIds.includes(id));
+      await notifyUsers({
+        recipientIds: newMessageRecipients,
+        senderId: req.user.id,
+        type: 'NEW_MESSAGE',
+        title: `New comment on ${task.title}`,
+        message: `${req.user.displayName} commented: ${content.trim().substring(0, 100)}`,
+        taskId: task.id,
+        groupId: task.groupId,
+        messageId: message.id,
+        metadata: {
+          taskId: task.id,
+          taskTitle: task.title,
+          groupId: task.groupId,
+          groupName: group.name,
+          messageId: message.id,
+          senderId: req.user.id,
+          senderName: req.user.displayName
+        }
+      });
+    } catch (notifyErr) {
+      console.error('[ERROR] addTaskComment notification trigger:', notifyErr.message);
+    }
 
     res.status(201).json({
       message: 'Comment added successfully',

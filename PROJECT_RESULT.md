@@ -224,9 +224,14 @@
 - No Socket.IO setup
 - No real-time messaging
 
-### Phase 7: Notification System - NOT IMPLEMENTED
-- No Notification model
-- No notification endpoints
+### Phase 7: Notification System - BACKEND IMPLEMENTED (Phase 5C.2-5C.3)
+- Notifications table + model with 5 FKs and 6 indexes ✅
+- 7 REST endpoints (list, unread-count, mark read, read-all, delete, preferences GET/PUT) ✅
+- Triggers: TASK_ASSIGNED, TASK_COMPLETED, NEW_MESSAGE, MENTION ✅
+- DEADLINE_APPROACHING daily job (09:00 UTC, deduplicated) ✅
+- Per-user notification preferences (persisted on Users table) ✅
+- Frontend notification UI ❌ (Phase 5C.4)
+- Real-time delivery ❌ (Phase 5D Socket.IO)
 
 ### Phase 8: UI Improvement - PARTIALLY IMPLEMENTED
 - Basic responsive layout with TailwindCSS ✅
@@ -513,14 +518,14 @@
 **Phase 5B.5: Group Chat Testing & Integration** - **COMPLETED** (20+ tests passed, all functionality verified)
 **Phase 5C.1: Notifications Design & Implementation Plan** - **COMPLETED** (Plan document created: 5C.1.txt)
 **Phase 5C.2: Notifications Database / Model Layer** - **COMPLETED** (Notifications table, Notification model, 10 associations, migration + rollback verified)
+**Phase 5C.3: Notifications Backend API + Trigger Logic** - **COMPLETED** (7 REST endpoints, 4 trigger types in task/message controllers, deadline cron job, preferences storage; 53 test assertions passed)
 
 ## Recommended Next Steps
 
-1. **Begin Phase 5C.3 Notifications Backend API + Trigger Logic:**
-   - notificationController.js with 7 REST endpoints
-   - routes/notifications.js mounted in routes/index.js
-   - Triggers in taskController (TASK_ASSIGNED, TASK_COMPLETED) and messageController (NEW_MESSAGE, MENTION)
-   - utils/notificationService.js shared creation logic
-   - jobs/deadlineNotificationJob.js daily cron
+1. **Begin Phase 5C.4 Notifications Frontend UI:**
+   - NotificationBell, NotificationDropdown, NotificationItem, NotificationSettings components
+   - useNotifications hook + notificationApi in services/api.js
+   - Bell with unread badge in header; Notifications tab in Profile
+   - Production build verification
 
 (End of file)
