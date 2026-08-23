@@ -71,6 +71,10 @@ User.associate = (models) => {
     foreignKey: 'userId',
     otherKey: 'taskId'
   });
+  User.hasMany(models.Message, {
+    as: 'sentMessages',
+    foreignKey: 'senderId'
+  });
 };
 
 module.exports = User;

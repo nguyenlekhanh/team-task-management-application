@@ -507,12 +507,14 @@
 **Phase 5A.4: Checklist Frontend UI** - **COMPLETED** (Checklist and ChecklistItem components created, integrated into TaskDetail)
 **Phase 5A.5: Checklist Testing & Integration** - **COMPLETED** (21 tests passed, all functionality verified)
 **Phase 5B.1: Group Chat Design & Implementation Plan** - **COMPLETED** (Plan document created: 5B.1.txt)
+**Phase 5B.2: Group Chat Database/Model Layer** - **COMPLETED** (Messages table, model, associations created)
 
 ## Recommended Next Steps
 
-1. **Begin Phase 5B.2 Group Chat Database/Model Layer:**
-   - Create Messages migration and model
-   - Add associations to User, Group, Task models
-   - Run migration and verify
+1. **Begin Phase 5B.3 Group Chat Backend API:**
+   - Create messageController.js with 6 endpoints
+   - Create routes/messages.js
+   - Mount routes in routes/index.js
+   - Test all endpoints
 
 (End of file)

@@ -1,0 +1,115 @@
+# Phase 5B.2 - Group Chat Database / Model Layer
+
+## STATUS
+COMPLETED
+
+## OBJECTIVE
+Create Messages database table, Message model, and update associations for group chat and task comments.
+
+## PLAN
+1. Create migration: `20240821190006-create-messages.js`
+2. Create model: `backend/src/models/Message.js`
+3. Update associations in User.js, Group.js, Task.js
+4. Verify migration runs and models load correctly
+
+## IMPLEMENTATION
+
+### Files Created
+
+**Backend Migration (New):**
+- `backend/migrations/20240821190006-create-messages.js` - Creates Messages table with:
+  - id (PK, auto-increment)
+  - senderId (FK → Users.id, NOT NULL, CASCADE)
+  - groupId (FK → Groups.id, NULLABLE, CASCADE) - for group chat
+  - taskId (FK → Tasks.id, NULLABLE, CASCADE) - for task comments
+  - content (TEXT, NOT NULL, max 5000 chars)
+  - messageType (ENUM: 'message', 'comment', 'system', DEFAULT 'message')
+  - createdAt, updatedAt (DATE, DEFAULT NOW)
+  - Indexes: groupId, taskId, (groupId, createdAt), (taskId, createdAt), senderId
+  - FK: senderId → Users (CASCADE), groupId → Groups (CASCADE), taskId → Tasks (CASCADE)
+
+**Backend Model (New):**
+- `backend/src/models/Message.js` - Message Sequelize model with all fields, indexes, and associations:
+  - Message.belongsTo(User, { as: 'sender', foreignKey: 'senderId', onDelete: 'CASCADE' })
+  - Message.belongsTo(Group, { as: 'group', foreignKey: 'groupId', onDelete: 'CASCADE' })
+  - Message.belongsTo(Task, { as: 'task', foreignKey: 'taskId', onDelete: 'CASCADE' })
+
+### Files Modified
+
+**Backend Models (Modified):**
+- `backend/src/models/User.js` - Added: `User.hasMany(Message, { as: 'sentMessages', foreignKey: 'senderId' })`
+- `backend/src/models/Group.js` - Added: `Group.hasMany(Message, { as: 'messages', foreignKey: 'groupId', onDelete: 'CASCADE' })`
+- `backend/src/models/Task.js` - Added: `Task.hasMany(Message, { as: 'comments', foreignKey: 'taskId', onDelete: 'CASCADE' })`
+- `backend/src/models/index.js` - Auto-loads Message model (no changes needed)
+
+### Database Changes
+- New table: `Messages` with 10 columns, 5 indexes, 3 foreign keys
+- Migration recorded in SequelizeMeta: `20240821190006-create-messages.js`
+
+## TESTS
+
+### Migration Test
+- ✅ Migration runs successfully
+- ✅ Messages table created with all columns
+- ✅ All 5 indexes created (groupId, taskId, groupId+createdAt, taskId+createdAt, senderId)
+- ✅ All 3 foreign keys with CASCADE on delete
+- ✅ Migration recorded in SequelizeMeta
+
+### Model Verification Tests
+- ✅ Message model loads correctly
+- ✅ User → sentMessages association works
+- ✅ Group → messages association works
+- ✅ Task → comments association works
+
+### CRUD Operation Tests
+- ✅ Message creation (group message) works
+- ✅ Message with sender inclusion works
+- ✅ Task comment creation works
+- ✅ Task with comments query works
+- ✅ Group messages query works
+- ✅ Task comments query works
+- ✅ Message count query works
+
+### Association Tests
+- ✅ User.hasMany(Message, { as: 'sentMessages', foreignKey: 'senderId' })
+- ✅ Group.hasMany(Message, { as: 'messages', foreignKey: 'groupId', onDelete: 'CASCADE' })
+- ✅ Task.hasMany(Message, { as: 'comments', foreignKey: 'taskId', onDelete: 'CASCADE' })
+- ✅ Message.belongsTo(User, { as: 'sender', foreignKey: 'senderId', onDelete: 'CASCADE' })
+- ✅ Message.belongsTo(Group, { as: 'group', foreignKey: 'groupId', onDelete: 'CASCADE' })
+- ✅ Message.belongsTo(Task, { as: 'task', foreignKey: 'taskId', onDelete: 'CASCADE' })
+- ✅ Model index auto-loads Message with 3 associations (sender, group, task)
+
+## FILES CREATED
+- `backend/migrations/20240821190006-create-messages.js`
+- `backend/src/models/Message.js`
+
+## FILES MODIFIED
+- `backend/src/models/User.js` - Added sentMessages association
+- `backend/src/models/Group.js` - Added messages association
+- `backend/src/models/Task.js` - Added comments association
+
+## DATABASE CHANGES
+- New table: `Messages` (10 columns, 5 indexes, 3 FKs)
+- Migration recorded in SequelizeMeta
+
+## API CHANGES
+None (this is database/model layer only)
+
+## FRONTEND CHANGES
+None
+
+## TEST RESULTS
+All tests passed. The Messages table is created with:
+- 10 columns: id, senderId, groupId, taskId, content, messageType, createdAt, updatedAt
+- 5 indexes: groupId, taskId, (groupId, createdAt), (taskId, createdAt), senderId
+- 3 foreign keys with CASCADE on delete
+- Migration recorded in SequelizeMeta
+
+## BUGS FIXED
+None
+
+## KNOWN ISSUES
+None
+
+## NEXT STEP
+Begin **5B.3** - Backend API (create messageController.js, routes/messages.js, 6 endpoints)

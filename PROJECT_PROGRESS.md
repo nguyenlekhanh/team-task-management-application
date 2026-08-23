@@ -697,4 +697,38 @@ Begin **5B.1** (Group Chat Design & Implementation Plan)
 ### Next Phase
 Begin **5B.2** (Database / Model Layer for Messages)
 
+## Phase Status: PHASE 5B.2 - COMPLETED (Database / Model Layer for Messages)
+
+### What Was Implemented
+- Created Messages table migration: `20240821190006-create-messages.js`
+- Created Message model: `backend/src/models/Message.js`
+- Updated associations in User, Group, Task models
+- Migration recorded in SequelizeMeta
+
+### Database Changes
+- New Messages table with 10 columns, 5 indexes, 3 foreign keys (CASCADE on delete)
+- Migration recorded in SequelizeMeta
+
+### Files Created
+- `backend/migrations/20240821190006-create-messages.js`
+- `backend/src/models/Message.js`
+
+### Files Modified
+- `backend/src/models/User.js` - Added sentMessages association
+- `backend/src/models/Group.js` - Added messages association
+- `backend/src/models/Task.js` - Added comments association
+
+### Test Results (All Passed)
+- ✅ Migration runs successfully
+- ✅ Messages table created with 10 columns, 5 indexes, 3 FKs
+- ✅ Migration recorded in SequelizeMeta
+- ✅ Message model loads with 3 associations (sender, group, task)
+- ✅ User → sentMessages association works
+- ✅ Group → messages association works
+- ✅ Task → comments association works
+- ✅ CRUD operations verified (create, read with associations)
+
+### Next Phase
+Begin **5B.3** (Backend API - messageController, routes, 6 endpoints)
+
 (End of file)
