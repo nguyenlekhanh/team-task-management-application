@@ -1,0 +1,914 @@
+# Phase 5C.1 - Notifications Design & Implementation Plan
+
+## STATUS
+DESIGN COMPLETE (Planning phase only - no implementation yet)
+
+## OBJECTIVE
+Design a comprehensive notification system for the Team Task Management Application that covers in-app notifications triggered by user actions, with future compatibility for real-time delivery via Socket.IO (Phase 5D).
+
+---
+
+## 1. NOTIFICATION USE CASES
+
+### Core Triggers (MVP - Phase 5C)
+| Trigger | Event | Recipients | Type |
+|---------|-------|------------|------|
+| Task Assigned | User assigned to task (via PUT /api/tasks/:id/assign) | Assignee | TASK_ASSIGNED |
+| Task Status Changed | Task marked completed (via PUT /api/tasks/:id/status) | Creator, Assignee, Task followers (TaskMembers) | TASK_COMPLETED |
+| New Group Message | Message sent to group (POST /api/groups/:groupId/messages) | All group members EXCEPT sender | NEW_MESSAGE |
+| New Task Comment | Comment added to task (POST /api/tasks/:taskId/comments) | Task creator, assignee, followers EXCEPT sender | NEW_MESSAGE (with task context) |
+| Deadline Approaching | Daily cron job checks tasks due in 24h | Assignee, Creator | DEADLINE_APPROACHING |
+| @Mention in Comment | Comment contains @username | Mentioned user (if group member) | MENTION |
+
+### Future Enhancements (Post-MVP)
+- Task overdue notification
+- Task priority changed
+- New member added to group
+- Role changed in group
+- Checklist item completed by another user
+- Comment reply (threading)
+- Email/push notification preferences
+
+---
+
+## 2. DATABASE SCHEMA
+
+### Notifications Table
+```sql
+CREATE TABLE Notifications (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  recipientId INTEGER NOT NULL,
+  senderId INTEGER NULL,
+  taskId INTEGER NULL,
+  groupId INTEGER NULL,
+  messageId INTEGER NULL,
+  type VARCHAR(50) NOT NULL,
+  title VARCHAR(200) NOT NULL,
+  message TEXT NOT NULL,
+  isRead BOOLEAN DEFAULT FALSE,
+  readAt DATETIME NULL,
+  metadata JSON NULL,  -- Flexible payload: { taskTitle, groupName, mentionText, etc }
+  createdAt DATETIME DEFAULT CURRENT_TIMESTAMP,
+  updatedAt DATETIME DEFAULT CURRENT_TIMESTAMP,
+  
+  FOREIGN KEY (recipientId) REFERENCES Users(id) ON DELETE CASCADE,
+  FOREIGN KEY (senderId) REFERENCES Users(id) ON DELETE SET NULL,
+  FOREIGN KEY (taskId) REFERENCES Tasks(id) ON DELETE SET NULL,
+  FOREIGN KEY (groupId) REFERENCES Groups(id) ON DELETE CASCADE,
+  FOREIGN KEY (messageId) REFERENCES Messages(id) ON DELETE SET NULL
+);
+```
+
+### Indexes
+```sql
+-- Primary query: unread notifications for user
+CREATE INDEX idx_notifications_recipient_read ON Notifications(recipientId, isRead);
+
+-- Primary query: paginated notifications for user (newest first)
+CREATE INDEX idx_notifications_recipient_created ON Notifications(recipientId, createdAt DESC);
+
+-- Cleanup queries
+CREATE INDEX idx_notifications_created ON Notifications(createdAt);
+
+-- Trigger queries (bulk operations)
+CREATE INDEX idx_notifications_task ON Notifications(taskId);
+CREATE INDEX idx_notifications_group ON Notifications(groupId);
+CREATE INDEX idx_notifications_type ON Notifications(type);
+```
+
+### Notification Types (ENUM in application layer)
+```javascript
+const NOTIFICATION_TYPES = {
+  TASK_ASSIGNED: 'TASK_ASSIGNED',
+  TASK_COMPLETED: 'TASK_COMPLETED',
+  NEW_MESSAGE: 'NEW_MESSAGE',       // Group message or task comment
+  DEADLINE_APPROACHING: 'DEADLINE_APPROACHING',
+  MENTION: 'MENTION',
+};
+```
+
+---
+
+## 3. RELATIONSHIPS WITH EXISTING MODELS
+
+### User Model
+```javascript
+// In User.js
+User.hasMany(Notification, { 
+  as: 'notifications', 
+  foreignKey: 'recipientId',
+  onDelete: 'CASCADE'
+});
+User.hasMany(Notification, { 
+  as: 'sentNotifications', 
+  foreignKey: 'senderId',
+  onDelete: 'SET NULL'
+});
+```
+
+### Task Model
+```javascript
+// In Task.js
+Task.hasMany(Notification, { 
+  as: 'notifications', 
+  foreignKey: 'taskId',
+  onDelete: 'SET NULL'
+});
+```
+
+### Group Model
+```javascript
+// In Group.js
+Group.hasMany(Notification, { 
+  as: 'notifications', 
+  foreignKey: 'groupId',
+  onDelete: 'CASCADE'
+});
+```
+
+### Message Model (Phase 5B)
+```javascript
+// In Message.js
+Message.hasMany(Notification, { 
+  as: 'notifications', 
+  foreignKey: 'messageId',
+  onDelete: 'SET NULL'
+});
+```
+
+### Notification Model
+```javascript
+// In Notification.js
+Notification.belongsTo(User, { as: 'recipient', foreignKey: 'recipientId' });
+Notification.belongsTo(User, { as: 'sender', foreignKey: 'senderId' });
+Notification.belongsTo(Task, { as: 'task', foreignKey: 'taskId' });
+Notification.belongsTo(Group, { as: 'group', foreignKey: 'groupId' });
+Notification.belongsTo(Message, { as: 'message', foreignKey: 'messageId' });
+```
+
+---
+
+## 4. NOTIFICATION TYPES - DETAILED SPECIFICATIONS
+
+### TASK_ASSIGNED
+- **Trigger**: PUT /api/tasks/:id/assign (owner/admin only)
+- **Recipient**: New assignee (single user)
+- **Sender**: User who performed assignment
+- **Title**: "New task assigned"
+- **Message**: "You have been assigned to task '{taskTitle}' in group '{groupName}'"
+- **Metadata**: `{ taskId, taskTitle, groupId, groupName, assignedBy }`
+- **Navigation**: Link to `/groups/:groupId/tasks/:taskId`
+
+### TASK_COMPLETED
+- **Trigger**: PUT /api/tasks/:id/status with status='completed'
+- **Recipients**: Task creator, assignee, all TaskMembers (role: follower)
+- **Sender**: User who marked task complete
+- **Title**: "Task completed"
+- **Message**: "'{taskTitle}' has been marked as completed by {senderName}"
+- **Metadata**: `{ taskId, taskTitle, groupId, groupName, completedBy }`
+- **Navigation**: Link to `/groups/:groupId/tasks/:taskId`
+
+### NEW_MESSAGE (Group Chat)
+- **Trigger**: POST /api/groups/:groupId/messages
+- **Recipients**: All GroupMembers EXCEPT sender
+- **Sender**: Message author
+- **Title**: "New message in {groupName}"
+- **Message**: "{senderName}: {messagePreview}" (first 100 chars)
+- **Metadata**: `{ groupId, groupName, messageId, senderId, senderName }`
+- **Navigation**: Link to `/groups/:groupId` (scroll to message)
+
+### NEW_MESSAGE (Task Comment)
+- **Trigger**: POST /api/tasks/:taskId/comments
+- **Recipients**: Task creator, assignee, TaskMembers (followers) EXCEPT sender
+- **Sender**: Comment author
+- **Title**: "New comment on {taskTitle}"
+- **Message**: "{senderName} commented: {commentPreview}"
+- **Metadata**: `{ taskId, taskTitle, groupId, groupName, messageId, senderId, senderName }`
+- **Navigation**: Link to `/groups/:groupId/tasks/:taskId`
+
+### DEADLINE_APPROACHING
+- **Trigger**: Daily cron job (runs at 09:00 UTC)
+- **Recipients**: Task assignee, creator
+- **Sender**: NULL (system)
+- **Title**: "Deadline approaching"
+- **Message**: "Task '{taskTitle}' is due in 24 hours"
+- **Metadata**: `{ taskId, taskTitle, groupId, groupName, dueDate }`
+- **Navigation**: Link to `/groups/:groupId/tasks/:taskId`
+- **Deduplication**: Only create if not already notified for this task (track in metadata or separate table)
+
+### MENTION
+- **Trigger**: POST /api/tasks/:taskId/comments OR POST /api/groups/:groupId/messages with @username pattern
+- **Recipients**: Mentioned users who are group members
+- **Sender**: Message/comment author
+- **Title**: "You were mentioned"
+- **Message**: "{senderName} mentioned you in {groupName}"
+- **Metadata**: `{ taskId?, groupId, groupName, messageId, senderId, senderName, mentionedText }`
+- **Navigation**: Link to message/comment context
+
+---
+
+## 5. READ/UNREAD STATE MANAGEMENT
+
+### State Transitions
+```
+CREATED (isRead=false, readAt=null)
+    │
+    ▼ User opens notification dropdown / clicks notification
+MARKED_READ (isRead=true, readAt=timestamp)
+    │
+    ▼ User can mark as unread (optional future feature)
+MARKED_UNREAD (isRead=false, readAt=null)
+```
+
+### Marking Read
+- **Individual**: PUT /api/notifications/:id/read
+- **Bulk**: PUT /api/notifications/read-all (marks all unread → read)
+- **Auto-read**: When user navigates to related entity (optional UX enhancement)
+
+### Query Patterns
+- Unread count: `SELECT COUNT(*) FROM Notifications WHERE recipientId=? AND isRead=FALSE`
+- Paginated list: `SELECT * FROM Notifications WHERE recipientId=? ORDER BY createdAt DESC LIMIT ? OFFSET ?`
+- Filter unread: `... WHERE recipientId=? AND isRead=FALSE ...`
+
+---
+
+## 6. API ENDPOINT DESIGN
+
+### Base Path
+`/api/notifications`
+
+### Endpoints
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| GET | `/api/notifications` | List notifications (paginated, filterable) |
+| GET | `/api/notifications/unread-count` | Get unread count for badge |
+| PUT | `/api/notifications/:id/read` | Mark single notification as read |
+| PUT | `/api/notifications/read-all` | Mark all notifications as read |
+| DELETE | `/api/notifications/:id` | Delete notification (soft or hard) |
+| GET | `/api/notifications/preferences` | Get user notification preferences |
+| PUT | `/api/notifications/preferences` | Update notification preferences |
+
+### Request/Response Formats
+
+#### GET /api/notifications
+**Query Parameters:**
+- `page` (default: 1)
+- `limit` (default: 20, max: 100)
+- `isRead` (boolean, optional filter)
+- `type` (string, optional filter)
+- `before` (timestamp, cursor-based pagination)
+
+**Response:**
+```json
+{
+  "items": [
+    {
+      "id": 1,
+      "type": "TASK_ASSIGNED",
+      "title": "New task assigned",
+      "message": "You have been assigned to task 'Design homepage' in group 'Marketing Team'",
+      "isRead": false,
+      "readAt": null,
+      "metadata": { "taskId": 5, "taskTitle": "Design homepage", "groupId": 2, "groupName": "Marketing Team", "assignedBy": 3 },
+      "sender": { "id": 3, "username": "john", "displayName": "John Doe", "avatarUrl": null },
+      "task": { "id": 5, "title": "Design homepage" },
+      "group": { "id": 2, "name": "Marketing Team" },
+      "createdAt": "2026-01-15T10:30:00.000Z"
+    }
+  ],
+  "pagination": {
+    "total": 45,
+    "page": 1,
+    "limit": 20,
+    "totalPages": 3,
+    "hasMore": true
+  }
+}
+```
+
+#### GET /api/notifications/unread-count
+**Response:**
+```json
+{ "unreadCount": 7 }
+```
+
+#### PUT /api/notifications/:id/read
+**Response:**
+```json
+{ "message": "Notification marked as read", "item": { ... } }
+```
+
+#### PUT /api/notifications/read-all
+**Response:**
+```json
+{ "message": "All notifications marked as read", "updatedCount": 7 }
+```
+
+#### DELETE /api/notifications/:id
+**Response:**
+```json
+{ "message": "Notification deleted" }
+```
+
+#### GET /api/notifications/preferences
+**Response:**
+```json
+{
+  "preferences": {
+    "taskAssigned": true,
+    "taskCompleted": true,
+    "newMessage": true,
+    "deadlineApproaching": true,
+    "mention": true
+  }
+}
+```
+
+#### PUT /api/notifications/preferences
+**Request:**
+```json
+{ "taskAssigned": true, "newMessage": false, "deadlineApproaching": true }
+```
+**Response:** Same as GET
+
+---
+
+## 7. AUTHORIZATION RULES
+
+| Endpoint | Permission | Notes |
+|----------|------------|-------|
+| GET /api/notifications | Authenticated user, owns notifications | 401 if no token, 404 if notification not found |
+| GET /api/notifications/unread-count | Authenticated user | Returns count for current user only |
+| PUT /api/notifications/:id/read | Authenticated user, owns notification | 404 if not owner |
+| PUT /api/notifications/read-all | Authenticated user | Only affects current user's notifications |
+| DELETE /api/notifications/:id | Authenticated user, owns notification | 404 if not owner |
+| GET /api/notifications/preferences | Authenticated user | Returns current user's preferences |
+| PUT /api/notifications/preferences | Authenticated user | Updates current user's preferences |
+
+### Key Principles
+- **Ownership**: Users can only access/modify their own notifications (recipientId = currentUserId)
+- **No cross-user access**: Cannot read other users' notifications
+- **Group membership not required for reading**: Notifications are personal, not group-scoped
+- **Trigger authorization**: Handled in source controllers (taskController, messageController)
+
+---
+
+## 8. FRONTEND NOTIFICATION UI DESIGN
+
+### Components
+
+#### 1. NotificationBell (`frontend/src/components/NotificationBell.jsx`)
+- **Location**: Header/Navbar (top-right, next to user avatar)
+- **Features**:
+  - Bell icon with unread count badge (red circle with number)
+  - Click opens NotificationDropdown
+  - Shows "0" or hides badge when count = 0
+  - Max display: "99+"
+
+#### 2. NotificationDropdown (`frontend/src/components/NotificationDropdown.jsx`)
+- **Position**: Absolute, below bell, right-aligned
+- **Width**: 380px (desktop), full-width (mobile)
+- **Features**:
+  - Header: "Notifications" + "Mark all read" button
+  - List of NotificationItem components
+  - "Load more" button for pagination
+  - Empty state: "No notifications yet"
+  - Click outside to close
+  - Keyboard accessible (ESC to close)
+
+#### 3. NotificationItem (`frontend/src/components/NotificationItem.jsx`)
+- **Layout**:
+  - Icon based on type (task, message, clock, mention)
+  - Title (bold)
+  - Message (truncated to 2 lines)
+  - Relative timestamp (e.g., "2h ago")
+  - Unread indicator (blue dot) for unread
+  - Click action: mark read + navigate to related entity
+- **Types & Icons**:
+  - TASK_ASSIGNED: 📋 (clipboard)
+  - TASK_COMPLETED: ✅ (check)
+  - NEW_MESSAGE: 💬 (chat)
+  - DEADLINE_APPROACHING: ⏰ (clock)
+  - MENTION: @ (at symbol)
+
+#### 4. NotificationSettings (`frontend/src/components/NotificationSettings.jsx`)
+- **Location**: Profile page → Notifications tab
+- **Features**:
+  - Toggle switches for each notification type
+  - Save button (calls PUT /api/notifications/preferences)
+  - Descriptions for each type
+  - Real-time preview of enabled/disabled
+
+### Integration Points
+- **App.jsx**: Add NotificationBell to header layout
+- **AuthContext**: Fetch unread count on login, expose in context
+- **Socket.IO (Phase 5D)**: Real-time updates to unread count and dropdown
+
+---
+
+## 9. NOTIFICATION INTEGRATION POINTS (TRIGGERS)
+
+### In Existing Controllers
+
+#### taskController.js
+```javascript
+// In assignTask (PUT /api/tasks/:id/assign)
+// After successful assignment, create notification for new assignee
+await Notification.create({
+  recipientId: newAssigneeId,
+  senderId: req.user.id,
+  taskId: task.id,
+  groupId: task.groupId,
+  type: 'TASK_ASSIGNED',
+  title: 'New task assigned',
+  message: `You have been assigned to task '${task.title}' in group '${group.name}'`,
+  metadata: { taskId: task.id, taskTitle: task.title, groupId: task.groupId, groupName: group.name, assignedBy: req.user.id }
+});
+
+// In updateTaskStatus (PUT /api/tasks/:id/status)
+// When status changes to 'completed'
+if (newStatus === 'completed') {
+  const recipients = await getTaskFollowers(task.id); // creator, assignee, TaskMembers
+  for (const userId of recipients) {
+    if (userId !== req.user.id) {
+      await Notification.create({ ... });
+    }
+  }
+}
+```
+
+#### messageController.js
+```javascript
+// In addGroupMessage (POST /api/groups/:groupId/messages)
+// After creating message
+const members = await GroupMember.findAll({ where: { groupId } });
+for (const member of members) {
+  if (member.userId !== req.user.id) {
+    await Notification.create({
+      recipientId: member.userId,
+      senderId: req.user.id,
+      groupId: groupId,
+      messageId: message.id,
+      type: 'NEW_MESSAGE',
+      title: `New message in ${group.name}`,
+      message: `${req.user.displayName}: ${message.content.substring(0, 100)}`,
+      metadata: { groupId, groupName: group.name, messageId: message.id, senderId: req.user.id }
+    });
+  }
+}
+
+// In addTaskComment (POST /api/tasks/:taskId/comments)
+// Similar logic, but recipients = task creator + assignee + TaskMembers (followers)
+// Check for @mentions in content
+const mentions = extractMentions(content); // regex @username
+for (const username of mentions) {
+  const mentionedUser = await User.findOne({ where: { username } });
+  if (mentionedUser && isGroupMember(mentionedUser.id, task.groupId)) {
+    await Notification.create({
+      recipientId: mentionedUser.id,
+      senderId: req.user.id,
+      taskId: task.id,
+      groupId: task.groupId,
+      messageId: comment.id,
+      type: 'MENTION',
+      title: 'You were mentioned',
+      message: `${req.user.displayName} mentioned you in ${group.name}`,
+      metadata: { taskId: task.id, groupId: task.groupId, groupName: group.name, messageId: comment.id, mentionedText: `@${username}` }
+    });
+  }
+}
+```
+
+### Cron Job (Deadline Approaching)
+- **Schedule**: Daily at 09:00 UTC
+- **Query**: Tasks where `dueDate` = tomorrow AND `status` != 'completed' AND `status` != 'overdue'
+- **For each task**: Create DEADLINE_APPROACHING for assignee and creator (if different)
+- **Deduplication**: Check if notification already exists for this task+type in last 24h
+
+---
+
+## 10. FUTURE REALTIME / SOCKET.IO COMPATIBILITY (PHASE 5D)
+
+### Socket Events (Planned)
+```javascript
+// Server emits to user's personal room
+socket.to(`user:${userId}`).emit('notification:new', notification);
+socket.to(`user:${userId}`).emit('notification:unread-count', { count: 7 });
+
+// Client listens
+socket.on('notification:new', (notification) => {
+  // Update badge count
+  // Prepend to dropdown if open
+  // Show toast (optional)
+});
+socket.on('notification:unread-count', ({ count }) => {
+  // Update bell badge
+});
+```
+
+### Database Design for Realtime
+- `createdAt` timestamp for ordering
+- `isRead` boolean for filtering
+- No additional fields needed for realtime
+- User room pattern: `user:${userId}` for direct notification delivery
+
+---
+
+## 11. INDEXING AND PERFORMANCE CONSIDERATIONS
+
+### Critical Indexes
+```sql
+-- Most frequent query: user's notifications paginated
+CREATE INDEX idx_notifications_user_paginated ON Notifications(recipientId, createdAt DESC);
+
+-- Unread count query
+CREATE INDEX idx_notifications_user_unread ON Notifications(recipientId, isRead);
+
+-- Bulk operations (mark all read)
+-- Uses recipientId index
+
+-- Trigger queries (finding recipients)
+-- GroupMembers: (groupId, userId) already indexed
+-- TaskMembers: (taskId, userId) already indexed
+```
+
+### Query Optimization
+- Always filter by `recipientId` first (highest cardinality)
+- Use cursor-based pagination (`WHERE createdAt < ?`) for deep pagination
+- Limit max page size to 100
+- Consider partitioning by date for very large datasets (future)
+
+### Estimated Volume
+- Per user: ~100-1000 notifications typical
+- Per group: ~1000-10000 messages → notifications per member
+- Total: < 1M rows expected for small-medium teams
+- SQLite handles this easily with proper indexes
+
+---
+
+## 12. PAGINATION STRATEGY
+
+### Cursor-Based Pagination (Recommended)
+```javascript
+// First page
+GET /api/notifications?limit=20
+
+// Subsequent pages
+GET /api/notifications?limit=20&before=2026-01-15T10:30:00.000Z
+```
+
+**Benefits:**
+- Consistent performance regardless of page depth
+- Works well with real-time inserts (no offset shift)
+- Compatible with infinite scroll
+
+### Alternative: Offset-Based (Simple)
+```javascript
+GET /api/notifications?page=2&limit=20
+```
+- Simpler to implement
+- Acceptable for < 10k notifications per user
+- Use for MVP, migrate to cursor if needed
+
+### Decision
+**Use cursor-based pagination** for consistency with Messages API (Phase 5B) and better UX with real-time.
+
+---
+
+## 13. CLEANUP / RETENTION CONSIDERATIONS
+
+### Retention Policy
+| Notification Type | Retention | Reason |
+|-------------------|-----------|--------|
+| TASK_ASSIGNED | 1 year | Reference for assignments |
+| TASK_COMPLETED | 1 year | Audit trail |
+| NEW_MESSAGE | 90 days | High volume, less reference value |
+| DEADLINE_APPROACHING | 30 days | Time-sensitive, auto-expires |
+| MENTION | 1 year | Important for collaboration |
+
+### Cleanup Strategy
+- **Soft delete**: Add `deletedAt` column, filter in queries
+- **Hard delete cron**: Monthly job deletes notifications older than retention period
+- **User-initiated**: DELETE endpoint for manual cleanup
+- **Cascade**: When User deleted → notifications CASCADE deleted (FK)
+- **Task/Group deleted**: SET NULL on taskId/groupId, keep notification for context
+
+### Storage Estimate
+- Avg notification: ~500 bytes
+- 1000 users × 500 notifications = 500K rows = ~250 MB
+- Well within SQLite limits
+
+---
+
+## 14. SECURITY CONSIDERATIONS
+
+### Data Protection
+- **No sensitive data** in notification message/metadata (no passwords, tokens)
+- **User IDs only** in metadata, not emails/PII
+- **Sanitize** user-generated content in message preview (XSS prevention)
+
+### Access Control
+- **Row-level security**: All queries filter by `recipientId = currentUserId`
+- **No mass assignment**: Only allow `isRead` and `preferences` updates
+- **Rate limiting**: Consider on notification endpoints (prevent spam marking)
+
+### Validation
+- **Type whitelist**: Only allow defined NOTIFICATION_TYPES
+- **Recipient validation**: Must be valid user ID
+- **Sender validation**: Must be valid user ID or NULL (system)
+- **Reference validation**: taskId/groupId/messageId must exist if provided
+
+---
+
+## 15. VALIDATION RULES
+
+### Notification Creation (Internal/Service Layer)
+| Field | Rules |
+|-------|-------|
+| recipientId | Required, valid User ID, NOT senderId (no self-notify for most types) |
+| senderId | Optional, valid User ID or NULL (system) |
+| taskId | Optional, valid Task ID if provided |
+| groupId | Optional, valid Group ID if provided |
+| messageId | Optional, valid Message ID if provided |
+| type | Required, must be in NOTIFICATION_TYPES enum |
+| title | Required, 1-200 chars |
+| message | Required, 1-5000 chars |
+| metadata | Optional, valid JSON, max 2KB |
+| isRead | Default: FALSE |
+
+### API Validation (External)
+| Endpoint | Validation |
+|----------|------------|
+| GET /api/notifications | page ≥ 1, limit 1-100, isRead boolean, type enum |
+| PUT /api/notifications/:id/read | id valid integer, owns notification |
+| PUT /api/notifications/read-all | No body required |
+| DELETE /api/notifications/:id | id valid integer, owns notification |
+| PUT /api/notifications/preferences | Body: object with boolean fields for each type |
+
+---
+
+## 16. ERROR HANDLING
+
+### Standard Error Responses
+```json
+// 401 Unauthorized
+{ "error": "Authentication required" }
+
+// 403 Forbidden (not owner)
+{ "error": "Access denied" }
+
+// 404 Not Found
+{ "error": "Notification not found" }
+
+// 400 Bad Request
+{ "error": "Validation failed", "details": [...] }
+
+// 500 Internal Server Error
+{ "error": "Internal server error" }
+```
+
+### Specific Scenarios
+- **Notification not found**: Return 404 (not 403) to avoid information leakage
+- **Invalid type in preferences**: Ignore unknown fields, validate known ones
+- **Database errors**: Log error, return 500 with generic message
+- **Cron job failures**: Log, retry with exponential backoff, alert monitoring
+
+---
+
+## 17. TESTING STRATEGY
+
+### Unit Tests (Backend)
+- Notification model: CRUD, associations, indexes
+- Trigger functions: createNotification for each type
+- Preferences: get/set, validation
+- Authorization: ownership checks
+
+### Integration Tests (Backend)
+- Task assignment → notification created for assignee
+- Task completion → notifications for creator/assignee/followers
+- Group message → notifications for all members except sender
+- Task comment → notifications for task followers except sender
+- @mention → notification for mentioned user
+- Deadline cron → notifications created correctly
+- Mark read/unread → state changes correctly
+- Pagination → correct ordering, limits
+- Preferences → persist and filter triggers
+
+### Frontend Tests
+- NotificationBell renders with correct count
+- Dropdown opens/closes
+- NotificationItem displays correctly for each type
+- Click notification → marks read + navigates
+- Mark all read → clears badge
+- Settings toggles persist
+- Responsive design (mobile/desktop)
+
+### Edge Cases
+- High volume: 1000+ notifications pagination
+- Deleted task/group: notification still shows (with null references)
+- Deleted sender: notification shows "Unknown user"
+- Concurrent marks read: no race conditions
+- Expired tokens: 401 handled gracefully
+- Network errors: retry, offline queue (future)
+
+---
+
+## 18. IMPLEMENTATION ORDER FOR 5C.2 ONWARD
+
+### 5C.2 - Database / Model Layer
+**Files to Create:**
+- `backend/migrations/20240821190007-create-notifications.js`
+- `backend/src/models/Notification.js`
+- Update `backend/src/models/User.js` (add associations)
+- Update `backend/src/models/Task.js` (add associations)
+- Update `backend/src/models/Group.js` (add associations)
+- Update `backend/src/models/Message.js` (add associations)
+- Update `backend/src/models/index.js` (load model)
+
+**Deliverables:**
+- Migration runs successfully
+- Notification model loads with all 5 associations
+- Indexes created
+- Foreign keys with correct cascade behavior
+
+### 5C.3 - Backend API + Trigger Logic
+**Files to Create/Modify:**
+- `backend/src/controllers/notificationController.js` (new)
+- `backend/src/routes/notifications.js` (new)
+- Update `backend/src/routes/index.js` (mount routes)
+- Modify `backend/src/controllers/taskController.js` (add triggers)
+- Modify `backend/src/controllers/messageController.js` (add triggers)
+- Create `backend/src/utils/notificationService.js` (shared logic)
+- Create `backend/src/jobs/deadlineNotificationJob.js` (cron)
+
+**Deliverables:**
+- 7 REST endpoints implemented
+- Trigger logic integrated into task/message controllers
+- Daily cron job for deadline notifications
+- Mention extraction utility
+- All endpoints tested with auth/validation/authorization
+
+### 5C.4 - Frontend Notification UI
+**Files to Create:**
+- `frontend/src/components/NotificationBell.jsx`
+- `frontend/src/components/NotificationDropdown.jsx`
+- `frontend/src/components/NotificationItem.jsx`
+- `frontend/src/components/NotificationSettings.jsx`
+- `frontend/src/hooks/useNotifications.js` (state management)
+
+**Files to Modify:**
+- `frontend/src/services/api.js` (add notificationApi)
+- `frontend/src/pages/Profile.jsx` (add Notifications tab)
+- `frontend/src/App.jsx` or layout component (add NotificationBell to header)
+- `frontend/src/contexts/AuthContext.jsx` (fetch unread count on auth)
+
+**Deliverables:**
+- Bell icon with unread badge in header
+- Dropdown with notification list
+- Mark read / mark all read / delete actions
+- Notification settings in Profile
+- Build succeeds
+
+### 5C.5 - Testing & Integration
+**Tests to Perform:**
+- End-to-end: assign task → notification appears → click → marks read → navigates
+- Task completion → notifications for all followers
+- Group message → notifications for all members
+- Task comment → notifications + mentions
+- Deadline cron → notifications created
+- Preferences filter notifications correctly
+- Unread count updates in real-time (polling for now)
+- Cross-browser, mobile responsive
+- Load test: 100 users, 10k notifications
+
+**Deliverables:**
+- All tests pass
+- `5C.5.txt` documentation
+- PROJECT_PROGRESS.md, PROJECT_RESULT.md updated
+- Ready for 5D.1
+
+---
+
+## 19. FILES TO CREATE SUMMARY
+
+| Phase | Files |
+|-------|-------|
+| 5C.1 | `5C.1.txt` (this document) |
+| 5C.2 | Migration, Notification model, model association updates |
+| 5C.3 | notificationController, notifications routes, trigger integrations, cron job |
+| 5C.4 | 4 React components, hook, api service updates, Profile/Header integration |
+| 5C.5 | Test results documentation |
+
+---
+
+## 20. ARCHITECTURE CONSISTENCY CHECK
+
+### Consistent with Existing Patterns
+- ✅ Sequelize models with associations (User, Group, Task, Message)
+- ✅ Controller + Routes separation
+- ✅ Sanitization helpers (sanitizeNotification)
+- ✅ Auth middleware on all endpoints
+- ✅ 404 for non-existent/non-owned resources
+- ✅ Validation middleware pattern
+- ✅ Cursor-based pagination (like Messages API)
+- ✅ Response format: `{ items: [], pagination: {} }`
+- ✅ TailwindCSS styling
+- ✅ React Context for state (AuthContext → NotificationContext)
+- ✅ Axios API service with interceptors
+
+### Future-Proofing
+- ✅ JSON metadata field for extensibility
+- ✅ Polymorphic references (taskId, groupId, messageId all nullable)
+- ✅ System notifications (senderId NULL)
+- ✅ Preferences table ready for email/push channels
+- ✅ Socket.IO room pattern compatible (`user:${userId}`)
+- ✅ Soft delete ready (can add deletedAt column later)
+
+---
+
+## 21. NEXT STEPS
+
+1. **Review this design** with team/stakeholders
+2. **Begin 5C.2**: Create migration and Notification model
+3. **Follow sub-phase order**: 5C.2 → 5C.3 → 5C.4 → 5C.5
+4. **Integration testing** with existing Task, Group, Message features
+5. **Prepare for 5D**: Design Socket.IO architecture for realtime delivery
+
+---
+
+## APPENDIX: EXAMPLE NOTIFICATION OBJECTS
+
+### TASK_ASSIGNED
+```json
+{
+  "id": 1,
+  "recipientId": 5,
+  "senderId": 1,
+  "taskId": 10,
+  "groupId": 2,
+  "type": "TASK_ASSIGNED",
+  "title": "New task assigned",
+  "message": "You have been assigned to task 'Design homepage' in group 'Marketing Team'",
+  "isRead": false,
+  "metadata": {
+    "taskId": 10,
+    "taskTitle": "Design homepage",
+    "groupId": 2,
+    "groupName": "Marketing Team",
+    "assignedBy": 1
+  },
+  "createdAt": "2026-01-15T10:30:00.000Z"
+}
+```
+
+### MENTION
+```json
+{
+  "id": 2,
+  "recipientId": 8,
+  "senderId": 3,
+  "taskId": 10,
+  "groupId": 2,
+  "messageId": 45,
+  "type": "MENTION",
+  "title": "You were mentioned",
+  "message": "Sarah mentioned you in Marketing Team",
+  "isRead": false,
+  "metadata": {
+    "taskId": 10,
+    "groupId": 2,
+    "groupName": "Marketing Team",
+    "messageId": 45,
+    "mentionedText": "@john"
+  },
+  "createdAt": "2026-01-15T11:00:00.000Z"
+}
+```
+
+### DEADLINE_APPROACHING
+```json
+{
+  "id": 3,
+  "recipientId": 5,
+  "senderId": null,
+  "taskId": 10,
+  "groupId": 2,
+  "type": "DEADLINE_APPROACHING",
+  "title": "Deadline approaching",
+  "message": "Task 'Design homepage' is due in 24 hours",
+  "isRead": false,
+  "metadata": {
+    "taskId": 10,
+    "taskTitle": "Design homepage",
+    "groupId": 2,
+    "groupName": "Marketing Team",
+    "dueDate": "2026-01-16T23:59:59.000Z"
+  },
+  "createdAt": "2026-01-15T09:00:00.000Z"
+}
+```
+
+---
+
+**END OF 5C.1 DESIGN DOCUMENT**

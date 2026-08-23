@@ -511,12 +511,14 @@
 **Phase 5B.3: Group Chat Backend API** - **COMPLETED** (6 endpoints implemented and tested)
 **Phase 5B.4: Group Chat Frontend UI** - **COMPLETED** (ChatPanel, MessageItem, CommentSection, CommentItem components created and integrated)
 **Phase 5B.5: Group Chat Testing & Integration** - **COMPLETED** (20+ tests passed, all functionality verified)
+**Phase 5C.1: Notifications Design & Implementation Plan** - **COMPLETED** (Plan document created: 5C.1.txt)
 
 ## Recommended Next Steps
 
-1. **Begin Phase 5C.1 Notifications Design & Implementation Plan:**
-   - Design Notifications table
-   - Plan REST API for notifications
-   - Plan realtime integration (Socket.IO in 5D)
+1. **Begin Phase 5C.2 Notifications Database / Model Layer:**
+   - Create Notifications table migration
+   - Create Notification model with associations
+   - Update User, Task, Group, Message models
+   - Verify database schema and indexes
 
 (End of file)

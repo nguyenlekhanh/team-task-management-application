@@ -232,20 +232,20 @@ project-root/
 - Task filtering UI ❌
 - Integration with Group pages ❌
 
-### Phase 5: Task Checklist ❌ NOT STARTED
-- Add checklist items ❌
-- Complete/delete items ❌
-- Progress calculation ❌
+### Phase 5: Task Checklist ✅ COMPLETED
+- Add checklist items ✅
+- Complete/delete items ✅
+- Progress calculation ✅
 
-### Phase 6: Group Chat ❌ NOT STARTED
-- Group messaging ❌
-- Task comments ❌
-- Real-time communication ❌
+### Phase 6: Group Chat ✅ COMPLETED
+- Group messaging ✅
+- Task comments ✅
+- Real-time communication ❌ (planned for Phase 5D)
 
-### Phase 7: Notification System ❌ NOT STARTED
-- Task assignment notifications ❌
-- Deadline alerts ❌
-- Message notifications ❌
+### Phase 7: Notification System - PHASE 5C.1 DESIGN COMPLETED
+- Task assignment notifications 📋 PLANNED
+- Deadline alerts 📋 PLANNED
+- Message notifications 📋 PLANNED
 
 ### Phase 8: UI Improvement ❌ NOT STARTED
 - Responsive design ❌
@@ -377,22 +377,14 @@ project-root/
 
 ## Current Phase
 
-**Phase 4C: Task Management Frontend** - Ready to begin (Backend API complete)
+**Phase 5C.1: Notifications Design & Implementation Plan** - **COMPLETED** (Plan document created: 5C.1.txt)
 
 ## Recommended Next Steps
 
-1. **Begin Phase 4C Task Management (Frontend):**
-   - Task list page (/groups/:groupId/tasks)
-   - Task detail page (/groups/:groupId/tasks/:taskId)
-   - Task creation/edit form (modal)
-   - Task filtering UI (status, priority, assignee, search, date range)
-   - Pagination UI
-   - Sorting UI
-   - Integration with Group pages
-
-2. **Begin Phase 5 Task Checklist (Backend):**
-   - Implement checklist CRUD endpoints
-   - Add checklist item completion toggle
-   - Add checklist item ordering
+1. **Begin Phase 5C.2 Notifications Database / Model Layer:**
+   - Create Notifications table migration
+   - Create Notification model with associations
+   - Update User, Task, Group, Message models
+   - Verify database schema and indexes
 
 (End of file)
