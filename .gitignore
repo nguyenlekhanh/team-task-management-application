@@ -108,6 +108,8 @@ jest.config.*
 playwright.config.*
 test/
 tests/
+!backend/tests/
+!backend/tests/**
 
 # Debug
 debugger

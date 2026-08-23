@@ -382,15 +382,14 @@ project-root/
 
 ## Current Phase
 
-**Phase 5C.4: Notifications Frontend UI** - **COMPLETED** (NotificationBell/Dropdown/Item/Settings components, useNotifications hook, notificationApi, Profile Notifications tab, bell integrated in all authenticated pages)
+**Phase 5C.5: Notifications Testing & Integration** - **COMPLETED** (68-assertion automated integration suite added, 1 real bug found+fixed in notificationService, all triggers/preferences/deadline-job/authorization paths verified, regression green)
 
 ## Recommended Next Steps
 
-1. **Begin Phase 5C.5 Notifications Testing & Integration:**
-   - End-to-end flows: trigger each type -> badge/list -> interact -> navigate
-   - Multi-user recipient/exclusion verification
-   - Preference filtering across all types
-   - Responsive/cross-browser checks
-   - Update docs; ready for 5D.1
+1. **Begin Phase 5D.1 Realtime / Socket.IO Design & Architecture Plan:**
+   - Plan Socket.IO server alongside Express
+   - Events: connection, join-room, message, task-update, notification
+   - Rooms: group/task/user; JWT auth on handshake
+   - Frontend socket context + reconnection strategy
 
 (End of file)

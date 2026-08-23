@@ -1061,3 +1061,34 @@ Begin **5C.4** (Frontend Notification UI)
 Begin **5C.5** (Notifications Testing & Integration)
 
 (End of file)
+
+
+## Phase Status: PHASE 5C.5 - COMPLETED (Notifications Testing & Integration)
+
+### What Was Done
+- Created automated integration suite `backend/tests/notification-integration.js` (68 assertions) + `npm run test:notifications` runner; self-contained with timestamp-suffixed fixtures and full cascade cleanup
+- Verified backend API: 401s, cross-user read/modify/delete isolation (404), validation (invalid ids/filters), pagination boundaries (clamp, page 0, far page, cursor), unread-count accuracy through the full lifecycle
+- Verified triggers: TASK_ASSIGNED (assignee-only, reassignment, self-assign exclusion), TASK_COMPLETED (creator+follower recipients, actor excluded, transition-based dedupe), NEW_MESSAGE (membership boundary, sender excluded), MENTION (precedence over NEW_MESSAGE, member scoping, non-member/nonexistent/self-mention safety)
+- Verified preferences: all five types disable->suppress / persist / re-enable->deliver cycles + input rejections
+- Verified deadline job: 24h window, outside-window and completed-task exclusion, unassigned-task safety, dedupe on repeat runs, invalid-date tolerance, preference suppression, scheduler startup log
+- Frontend: production build green; bundle contains all notification wiring strings/endpoints
+- Regression: 17/17 pre-existing endpoint checks pass
+
+### Bug Found & Fixed
+- **notificationService.notifyUsers dropped string-typed recipient IDs** (e.g. `"17"` from JSON body passed controller validation via SQLite affinity but was filtered by Number.isInteger -> assignee got no notification). Fixed with minimal `.map(Number)` coercion before filtering. Covered by new regression assertion.
+
+### Files Created
+- `backend/tests/notification-integration.js`
+- `5C.5.txt` - Complete test documentation
+
+### Files Modified
+- `backend/src/utils/notificationService.js` - recipient ID coercion fix
+- `backend/package.json` - test:notifications script
+
+### Test Results
+- ✅ 68/68 notification integration assertions
+- ✅ 17/17 regression checks
+- ✅ Frontend production build succeeds; bundle wiring verified
+
+### Next Phase
+Phase 5C COMPLETE. Begin **5D.1** (Realtime / Socket.IO Design & Architecture Plan)

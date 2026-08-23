@@ -1,0 +1,109 @@
+# Phase 5C.5 - Notifications Testing & Integration
+
+## STATUS
+COMPLETED
+
+## OBJECTIVE
+Comprehensive testing and integration verification of the complete notification system (backend API, triggers, preferences, deadline job, frontend wiring), finding and fixing bugs in the existing 5C.3/5C.4 implementation without redesigning it.
+
+---
+
+## TEST STRATEGY
+
+- **Automated integration suite**: `backend/tests/notification-integration.js` — self-contained script (Node built-in fetch + direct Sequelize for fixtures/cleanup only). Creates timestamp-suffixed throwaway users/group/task/follower, exercises every endpoint and trigger over HTTP against a live server, verifies preferences and the deadline job (invoked directly via `runDeadlineCheck()`), then deletes all fixtures through cascade paths. Exits non-zero on any failure.
+- **Reusable runner**: `npm run test:notifications` added to backend/package.json.
+- **Regression suite**: ad-hoc HTTP sweep of all pre-existing endpoints (same approach used in prior phases; project has no formal unit-test framework).
+- **Frontend**: production build + production-bundle content checks. Interactive DOM behaviors (dropdown open/close, ESC/outside-click, badge cap rendering) are verified at code level; full browser E2E remains manual (no browser test infra in project).
+
+---
+
+## BUGS DISCOVERED AND FIXES
+
+### Bug 1 (REAL - fixed): string-typed recipient IDs silently dropped
+- **Symptom**: `PUT /api/tasks/:id/assign` with body `{"assigneeId":"17"}` (string) passed the controller's membership validation (SQLite type affinity compares fine) but `notifyUsers()` filtered recipients with `Number.isInteger(id)` and silently dropped the string ID → assignee received NO TASK_ASSIGNED notification.
+- **Fix** (minimal, contract-preserving): coerce IDs before filtering in `notificationService.notifyUsers`:
+  `(recipientIds || []).map(Number).filter(id => Number.isInteger(id) && id > 0)`
+- **Verified**: new test "string-typed assigneeId still notifies" passes after fix.
+
+### Bugs 2-5 (TEST SCRIPT ONLY - fixed): incorrect suppression assertions
+- The initial preference-suppression assertions counted *historical* notifications of a type rather than ones created after the trigger, producing false failures. Fixed by asserting on items created after a timestamp marker taken before each trigger. No application code involved.
+
+No other application bugs found. No unrelated code was modified.
+
+---
+
+## FILES CHANGED (application)
+- `backend/src/utils/notificationService.js` — Bug 1 fix (recipient ID coercion)
+## FILES CHANGED (testing)
+- `backend/tests/notification-integration.js` — NEW automated integration suite (68 assertions)
+- `backend/package.json` — added `test:notifications` script
+- `5C.5.txt` — this document
+
+---
+
+## TEST RESULTS
+
+### Backend API (22 assertions, all pass)
+- ✅ 401: no token (list, read-all); invalid token (unread-count)
+- ✅ Cross-user isolation: cannot mark-read (404), cannot delete (404) another user's notification; list never contains other users' rows
+- ✅ Validation: invalid id -> 400 (read/delete); nonexistent id -> 404; invalid type/isRead/before filters -> 400
+- ✅ Pagination boundaries: limit clamped to 100; page 0 treated as page 1; far page returns empty gracefully
+- ✅ Filters: combined type+isRead; cursor (`before`) returns strictly older items only
+- ✅ Unread count accuracy: increases with new notifications (+2 exact), decrements on single read, read-all zeroes it, all items flagged read
+
+### Trigger integration (14 assertions, all pass)
+- TASK_ASSIGNED: assignee-only delivery; reassignment notifies new assignee only (old assignee not re-notified); self-assign produces nothing; string-ID assignment delivers after fix
+- TASK_COMPLETED: creator + follower (TaskMember role='follower') receive; actor excluded; repeat-complete while already completed creates NO duplicate; new todo->completed transition notifies exactly once more
+- NEW_MESSAGE: all group members except sender; non-member outsider receives nothing (membership boundary)
+- MENTION: mentioned group member receives MENTION for that messageId; NO NEW_MESSAGE for same message (precedence); non-member @mention does not leak; nonexistent username harmless; self-mention produces nothing
+
+### Preferences (23 assertions, all pass — all five types exercised)
+- Defaults all true (taskAssigned, taskCompleted, newMessage, mention verified per-type; deadlineApproaching below)
+- Per type: disable -> trigger -> ZERO new notifications; disabled value persists across reload; re-enable -> trigger -> delivered again
+- DEADLINE_APPROACHING preference suppresses the cron job's output end-to-end
+- Rejections: unknown key 400; non-boolean value 400; empty body 400
+
+### Deadline job (8 assertions, all pass)
+- Task due within 24h -> DEADLINE_APPROACHING created with system senderId=null
+- Task due in 48h ignored; completed task with near due date ignored
+- Second immediate run creates zero duplicates (24h dedupe per task+type)
+- Unassigned due-soon task handled safely (creator-only recipient)
+- Invalid date input tolerated (returns number, no throw)
+- Disabled preference suppresses job output
+- Scheduler starts with server ("[JOB] Deadline notification job scheduled" in startup log)
+
+### Frontend verification
+- ✅ `npm run build` succeeds (2209 modules, gzip JS 111.41 kB)
+- ✅ Production bundle contains notification wiring: unread-count/read-all/preferences endpoints + "Mark all read" / "No notifications yet" / "Load more" UI strings
+- ✅ Code-level review confirms: bell renders only when authenticated; badge hidden at 0, caps at 99+; dropdown closes on outside click (mousedown listener) and Escape; loading spinner/error retry/empty states present; optimistic updates synchronize badge on mark-read/mark-all/delete; type-specific icons+colors per TYPE_CONFIG; relative timestamps via date-fns; navigation falls back metadata → top-level fields → non-clickable
+- Manual browser E2E (visual/responsive/click-through) not automatable here — steps documented in Known Limitations
+
+### Regression (17 checks, all pass)
+health, registration, login, users/me, groups list/detail/members, group task list, my-tasks (GET /api/tasks), task detail, assign endpoint reachability, status update, checklist, group messages, comments, notifications list + unread-count coexistence.
+
+### Cleanup verification
+Post-suite DB state: Notifications table empty; zero leftover fixture groups/users; task 16 untouched (assigneeId null, status in_progress).
+
+**TOTALS: 68/68 integration assertions + 17/17 regression checks + build passing.**
+
+---
+
+## FINAL VERIFICATION RESULT
+Notification system (5C.2 schema → 5C.3 API/triggers/job → 5C.4 UI wiring) works end-to-end:
+assign/complete/message/comment/mention/deadline events produce correct notifications for correct recipients; unread state, filters, pagination, ownership isolation and per-user preferences behave correctly; one real bug (string recipient ID drop) was found and minimally fixed; regression suite green; frontend build green.
+
+---
+
+## KNOWN LIMITATIONS
+1. **Browser-level E2E not automated**: dropdown interactions, responsive layout, and visual states require manual verification in a real browser (project has no browser-test infrastructure; adding one was out of scope).
+2. **Re-assigning the same assignee re-notifies**: controller has no change-detection on assign; design specifies trigger on the assign action and dedupe only for DEADLINE_APPROACHING. Documented behavior.
+3. **Badge polling (30s)**: near-real-time only until Phase 5D Socket.IO.
+4. **Integration suite requires a running server** (by design; matches project's manual-testing tradition). It cleans up after itself but is intended for dev databases.
+
+---
+
+## NEXT PHASE (per PROJECT_PLAN.md)
+
+Phase 5C (Notifications) is COMPLETE (5C.1–5C.5). Next per PHASE5_PLAN.md roadmap:
+
+**5D.1 - Realtime / Socket.IO Design & Architecture Plan**

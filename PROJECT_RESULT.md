@@ -231,6 +231,7 @@
 - DEADLINE_APPROACHING daily job (09:00 UTC, deduplicated) ✅
 - Per-user notification preferences (persisted on Users table) ✅
 - Frontend notification UI ✅ (Phase 5C.4: bell + badge, dropdown panel, preferences tab)
+- Testing & integration ✅ (Phase 5C.5: 68-assertion automated suite, 1 bug found+fixed)
 - Real-time delivery ❌ (Phase 5D Socket.IO)
 
 ### Phase 8: UI Improvement - PARTIALLY IMPLEMENTED
@@ -520,14 +521,14 @@
 **Phase 5C.2: Notifications Database / Model Layer** - **COMPLETED** (Notifications table, Notification model, 10 associations, migration + rollback verified)
 **Phase 5C.3: Notifications Backend API + Trigger Logic** - **COMPLETED** (7 REST endpoints, 4 trigger types in task/message controllers, deadline cron job, preferences storage; 53 test assertions passed)
 **Phase 5C.4: Notifications Frontend UI** - **COMPLETED** (NotificationBell/Dropdown/Item/Settings components, useNotifications hook, notificationApi, Profile Notifications tab, bell in all authenticated page navs; build + 16 integration assertions + regression passed)
+**Phase 5C.5: Notifications Testing & Integration** - **COMPLETED** (68-assertion automated integration suite `backend/tests/notification-integration.js` + npm runner; 1 real bug found and fixed — string recipient IDs dropped in notifyUsers; all triggers/preferences/deadline-job/isolation verified; 17/17 regression checks pass)
 
 ## Recommended Next Steps
 
-1. **Begin Phase 5C.5 Notifications Testing & Integration:**
-   - End-to-end flows: trigger each type -> badge/list -> interact -> navigate
-   - Multi-user recipient/exclusion verification
-   - Preference filtering across all types
-   - Responsive/cross-browser checks
-   - Update docs; ready for 5D.1
+1. **Begin Phase 5D.1 Realtime / Socket.IO Design & Architecture Plan:**
+   - Plan Socket.IO server alongside Express
+   - Events: connection, join-room, message, task-update, notification
+   - Rooms: group/task/user; JWT auth on handshake
+   - Frontend socket context + reconnection strategy
 
 (End of file)

@@ -55,8 +55,11 @@ async function createNotification(data) {
 // - excludes the sender
 // - skips recipients who disabled this notification type in their preferences
 async function notifyUsers({ recipientIds, senderId = null, type, title, message, taskId = null, groupId = null, messageId = null, metadata = null }) {
-  const uniqueIds = [...new Set(recipientIds.filter(id => Number.isInteger(id) && id > 0))]
-    .filter(id => senderId === null || id !== senderId);
+  const uniqueIds = [...new Set(
+    (recipientIds || [])
+      .map(Number)
+      .filter(id => Number.isInteger(id) && id > 0)
+  )].filter(id => senderId === null || id !== senderId);
 
   if (uniqueIds.length === 0) {
     return [];
