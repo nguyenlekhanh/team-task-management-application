@@ -1,13 +1,17 @@
 const app = require('./app');
+const http = require('http');
 const { connectDB } = require('./config/database');
 const { startDeadlineNotificationJob } = require('./jobs/deadlineNotificationJob');
+const realtimeSocket = require('./socket');
 
 const PORT = process.env.PORT || 3000;
 
 const startServer = async () => {
   try {
     await connectDB();
-    app.listen(PORT, '0.0.0.0', () => {
+    const httpServer = http.createServer(app);
+    realtimeSocket.init(httpServer);
+    httpServer.listen(PORT, '0.0.0.0', () => {
       console.log(`Server running on http://localhost:${PORT}`);
     });
     startDeadlineNotificationJob();

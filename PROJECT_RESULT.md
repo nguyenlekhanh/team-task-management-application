@@ -523,13 +523,13 @@
 **Phase 5C.4: Notifications Frontend UI** - **COMPLETED** (NotificationBell/Dropdown/Item/Settings components, useNotifications hook, notificationApi, Profile Notifications tab, bell in all authenticated page navs; build + 16 integration assertions + regression passed)
 **Phase 5C.5: Notifications Testing & Integration** - **COMPLETED** (68-assertion automated integration suite `backend/tests/notification-integration.js` + npm runner; 1 real bug found and fixed — string recipient IDs dropped in notifyUsers; all triggers/preferences/deadline-job/isolation verified; 17/17 regression checks pass)
 **Phase 5D.1: Realtime / Socket.IO Design & Architecture Plan** - **COMPLETED** (design document 5D.1.txt created; no realtime code installed — REST-authoritative socket design, handshake JWT auth, user/group/task rooms, event catalog, presence/reconnection/delivery semantics, staged 5D.2–5D.5 roadmap)
+**Phase 5D.2: Socket.IO Foundation (Backend)** - **COMPLETED** (socket.io 4.8.3 on shared http.Server; shared tokenAuth extraction; handshake auth with cookie fallback; user:{id} room; no-op-safe realtimeEmitter; 22/22 foundation tests + 68/68 notifications + regression green)
 
 ## Recommended Next Steps
 
-1. **Begin Phase 5D.2 Socket.IO Foundation (backend):**
-   - Install socket.io; http.createServer swap in server.js
-   - Handshake JWT auth mirroring middleware/auth.js
-   - Authorized group/task room join/leave
-   - realtimeEmitter abstraction + CLIENT_ORIGIN CORS tightening
+1. **Begin Phase 5D.3 Realtime Chat + Comments:**
+   - Emit message:new / comment:new from messageController post-commit
+   - Authorized group:join / task:join commands
+   - Frontend SocketContext + useSocketEvent; ChatPanel/CommentSection live updates with dedupe-by-id
 
 (End of file)

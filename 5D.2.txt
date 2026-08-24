@@ -1,0 +1,119 @@
+# Phase 5D.2 - Socket.IO Foundation (Backend)
+
+## STATUS
+COMPLETED
+
+## OBJECTIVE
+Establish a secure, minimal, testable Socket.IO foundation per the 5D.1 architecture: HTTP server integration, handshake authentication, user private room, no-op-safe emitter abstraction — with NO domain realtime events yet.
+
+---
+
+## IMPLEMENTATION SUMMARY
+
+### 1. HTTP server integration (`backend/src/server.js`)
+- Minimal safe change: `app.listen(PORT)` → `const httpServer = http.createServer(app)` → `realtimeSocket.init(httpServer)` → `httpServer.listen(PORT, '0.0.0.0', ...)`.
+- Startup order/log preserved exactly (DB connect → listen log → deadline job). REST API untouched; Express `app` unchanged in its role.
+- Initialization errors still hit the existing catch → `process.exit(1)` path.
+
+### 2. Dependency
+- `socket.io@4.8.3` installed in **backend** only. No socket.io-client anywhere; no Redis/adapter; no other new dependencies.
+- Lockfiles are gitignored in this repo (verified), so none are committed.
+
+### 3. Socket module structure (follows existing backend conventions)
+| File | Responsibility |
+|---|---|
+| `src/socket/index.js` | `init(httpServer)`: creates `Server({ path:'/socket.io', cors })`, registers handshake auth middleware + connection handler, wires the emitter, exposes `getIo()` |
+| `src/socket/auth.js` | `authenticateSocket(socket,next)` handshake middleware; `extractCookieToken(cookieHeader)` minimal cookie parse |
+| `src/socket/rooms.js` | room name helpers: `userRoom/groupRoom/taskRoom` → `user:{id}` / `group:{id}` / `task:{id}` |
+| `src/services/realtimeEmitter.js` | no-op-safe emitter: `init/isInitialized/reset/emitToUser/emitToRoom` |
+| `src/utils/tokenAuth.js` | NEW shared JWT verification used by BOTH REST middleware and socket auth |
+
+### 4. CORS
+- Socket.IO CORS: `origin` = comma-separated `CLIENT_ORIGIN` env (default `http://localhost:5173`, the actual Vite dev origin), `credentials:true` (cookie fallback needs it).
+- `CLIENT_ORIGIN=http://localhost:5173` added to `backend/.env` (untracked) and root `.env.example` (tracked, documents the variable).
+- REST CORS left as-is this phase (still `cors()` wildcard); tightening REST to CLIENT_ORIGIN is planned with the Phase 9 security pass so no existing dev flow breaks mid-phase. Documented as a deliberate sequencing decision, not an omission.
+
+### 5. Authentication (single source of truth)
+- Extracted `utils/tokenAuth.js#getUserFromToken(token)` returning `{user}` or `{error, code}` with codes TOKEN_EXPIRED / TOKEN_INVALID / USER_NOT_FOUND / AUTH_ERROR and the exact same client-facing messages the REST middleware already returned.
+- `middleware/auth.js` now delegates to it while preserving byte-for-byte response behavior: 401 'Authentication required' (no token), 401 'Token expired'/'Invalid token', 404 'User not found', 500 fallback. Verified by regression suite including new explicit expired/garbage-token checks.
+- Socket auth (`socket/auth.js`): token precedence `handshake.auth.token` → httpOnly cookie from handshake headers (matches 5D.1 dual-transport design); missing → reject 'Authentication required'; all failures reject via `next(new Error(safeReason))`; success attaches minimal identity `socket.userId` + `{id, username, displayName}` snapshot (never the full model — password hash cannot leak into logs).
+
+### 6. User identity & rooms
+- Authenticated sockets implicitly join `user:{userId}` ONLY. Clients cannot name or join any room: no join commands exist in this phase, and the diagnostic below proves assignment is server-controlled.
+- Foundation diagnostic event `foundation:whoami` (ack): returns own `{userId, username, rooms[]}` — self-scoped data only; permanently useful for debugging; not a domain event.
+- Unknown client events (`group:join`, `task:join`, anything else) are ignored silently per design; verified they do NOT alter room membership.
+
+### 7. Connection lifecycle & logging
+- `[SOCKET] user <name> (#<id>) connected (<socketId>)` on connection; `[SOCKET] ... disconnected (<reason>)` on disconnect — matches project's `[JOB]/[ERROR]` prefix style.
+- Presence persistence deliberately NOT implemented; `User.onlineStatus` untouched.
+
+### 8. Emitter foundation
+- `realtimeEmitter`: before `init()` every emit returns false (silent no-op) so REST-only paths/tests are unaffected; after init, `emitToUser(userId,...)` targets canonical `user:{Number(userId)}` room (string ids coerced — consistent with the 5C.5 hardening), `emitToRoom(room,...)` for future group/task rooms; `reset()` exists for tests.
+- NOT wired into notificationService/messageController/taskController yet — that is exactly 5D.3/5D.4 scope.
+
+---
+
+## DESIGN DEVIATIONS FROM 5D.1 (all minor, documented)
+1. Added `foundation:whoami` diagnostic ack event — not in the 5D.1 catalog. Needed to make "authenticated socket joins only its own user room" externally testable without a browser/client library; self-scoped data, zero security exposure.
+2. JWT verification extracted into `utils/tokenAuth.js` shared by REST middleware + socket auth (5D.1 said "reuse semantics"; extraction avoids duplicate logic and regression tests confirm identical REST behavior).
+3. Cookie parsing done via a tiny helper instead of reusing cookie-parser (middleware-shaped API doesn't fit handshake objects).
+No architecture-level changes.
+
+---
+
+## TESTS PERFORMED & RESULTS
+
+### New: `backend/tests/socket-foundation.test.js` — 22 assertions, ALL PASSED
+Pure-fetch Engine.IO v4 polling transport (no socket.io-client dependency added):
+- Missing token → rejected, reason 'Authentication required'
+- Invalid token → rejected ('Invalid token')
+- Expired token (signed with `-10s`) → rejected ('Token expired')
+- Valid signature but nonexistent userId → rejected ('User not found')
+- Valid token → namespace connack accepted
+- `foundation:whoami` ack returns correct identity
+- Socket joined exactly `user:{own id}`; no other user room present
+- Cookie fallback authenticates without auth payload
+- Client-sent `group:join`/`task:join` commands ignored; room set unchanged (no client-controlled rooms)
+- Emitter unit layer: no-op before init; initialized flag; emitToUser targets exact `user:{id}`; null/undefined userId ignored; emitToRoom targets given room; reset restores safety; string userId coerced to canonical room
+- Graceful close (`41`) handled; server healthy afterwards
+- REST endpoints unaffected while socket layer active
+
+### Existing suites re-run
+- ✅ Notification integration suite: **68/68** assertions pass (also covers the refactored auth middleware via 401 cases)
+- ✅ Backend regression sweep: **15/15** including new explicit checks that expired-token → 401 'Token expired' and garbage-token → 401 on REST (proves the middleware refactor preserved contract)
+- ✅ Server logs show `[SOCKET] connected/disconnected` lifecycle entries
+- ✅ Frontend production build succeeds (no frontend changes made)
+
+Test data cleaned up by suites; DB state verified clean.
+
+---
+
+## KNOWN LIMITATIONS / DEFERRALS (by design)
+1. No domain events yet: message/comment/notification push lands in 5D.3/5D.4 when controllers/services call the emitter.
+2. Group/task rooms defined (naming helpers) but joining not implemented until needed.
+3. Presence, onlineStatus persistence, room eviction on membership removal: deferred to 5D.5.
+4. REST CORS still wildcard; socket CORS already allowlisted. REST tightening scheduled alongside Phase 9 security work to avoid breaking current dev flows.
+5. Mid-session JWT expiry does not kill sockets (validated at (re)connect); documented posture from 5D.1 §4.
+6. In-memory rooms/presence registry: single-instance scope only (no adapter — per 5D.1 §18).
+
+---
+
+## FILES CREATED
+- `backend/src/socket/index.js`
+- `backend/src/socket/auth.js`
+- `backend/src/socket/rooms.js`
+- `backend/src/services/realtimeEmitter.js`
+- `backend/src/utils/tokenAuth.js`
+- `backend/tests/socket-foundation.test.js`
+- `5D.2.txt` (this file)
+
+## FILES MODIFIED
+- `backend/src/server.js` (http.createServer + socket init)
+- `backend/src/middleware/auth.js` (delegates to shared tokenAuth; behavior preserved)
+- `backend/package.json` (+ socket.io dependency; script `test:sockets` added)
+- `.env.example` (+ CLIENT_ORIGIN documentation)
+- `PROJECT_PLAN.md`, `PROJECT_PROGRESS.md`, `PROJECT_RESULT.md`
+
+## NEXT SUB-PHASE
+
+**5D.3 — Realtime Chat + Comments**: emit `message:new`/`comment:new` from messageController post-commit via realtimeEmitter; authorized `group:join`/`task:join` commands; frontend SocketContext + useSocketEvent; ChatPanel/CommentSection live updates with dedupe-by-id; end-to-end emission tests over real triggers.

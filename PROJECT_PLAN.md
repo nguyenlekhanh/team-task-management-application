@@ -382,14 +382,13 @@ project-root/
 
 ## Current Phase
 
-**Phase 5D.1: Realtime / Socket.IO Design & Architecture Plan** - **COMPLETED** (design document 5D.1.txt: REST-authoritative socket architecture, handshake JWT auth, user/group/task rooms, event catalog, presence/reconnection/delivery semantics, staged 5D.2–5D.5 roadmap; no realtime code installed)
+**Phase 5D.2: Socket.IO Foundation (Backend)** - **COMPLETED** (socket.io 4.8.3 on shared http.Server; handshake JWT auth with cookie fallback via shared tokenAuth util; user:{id} private room; no-op-safe realtimeEmitter; CLIENT_ORIGIN socket CORS; 22/22 foundation tests)
 
 ## Recommended Next Steps
 
-1. **Begin Phase 5D.2 Socket.IO Foundation (backend):**
-   - Install socket.io; switch server.js to http.createServer + attach Server
-   - Handshake JWT auth mirroring middleware/auth.js
-   - Authorized group/task room join/leave commands
-   - realtimeEmitter no-op-safe abstraction; CLIENT_ORIGIN CORS tightening
+1. **Begin Phase 5D.3 Realtime Chat + Comments:**
+   - Emit message:new / comment:new from messageController post-commit
+   - Authorized group:join / task:join commands
+   - Frontend SocketContext + useSocketEvent; ChatPanel/CommentSection live updates with dedupe-by-id
 
 (End of file)

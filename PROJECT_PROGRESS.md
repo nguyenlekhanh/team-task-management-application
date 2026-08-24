@@ -1121,3 +1121,38 @@ Created `5D.1.txt`, an implementation-ready architecture derived from the actual
 
 ### Next Phase
 Begin **5D.2** (Socket.IO Foundation - Backend)
+
+## Phase Status: PHASE 5D.2 - COMPLETED (Socket.IO Foundation - Backend)
+
+### What Was Implemented
+- **HTTP integration**: server.js now `http.createServer(app)` + `realtimeSocket.init(httpServer)`; startup behavior/logs preserved
+- **Dependency**: socket.io@4.8.3 (backend only; no client/Redis/adapter)
+- **Socket modules**: `src/socket/index.js` (init, cors, connection lifecycle, whoami diagnostic), `src/socket/auth.js` (handshake auth: auth.token → cookie fallback), `src/socket/rooms.js` (user/group/task room name helpers)
+- **Shared auth extraction**: new `utils/tokenAuth.js#getUserFromToken` used by BOTH `middleware/auth.js` and socket auth — single JWT verification source; REST response codes/messages byte-identical (401 expired/invalid, 404 user-not-found, 500 fallback)
+- **Emitter foundation**: `services/realtimeEmitter.js` — no-op-safe before init, emitToUser targets canonical `user:{id}` (string ids coerced), emitToRoom, reset for tests; NOT yet wired into any controller/service (5D.3/5D.4)
+- **CORS**: Socket.IO origin allowlist from CLIENT_ORIGIN env (default Vite dev origin http://localhost:5173), credentials enabled; CLIENT_ORIGIN documented in .env.example. REST CORS unchanged this phase (tightening deferred to Phase 9 security pass — documented decision)
+- **Identity**: minimal snapshot on socket ({id, username, displayName}); implicit private room join only; unknown client events ignored; no presence persistence
+
+### Documented Deviations from 5D.1
+- Added authenticated self-scoped `foundation:whoami` ack diagnostic (enables external testability of identity+rooms without a client library)
+- Extracted shared token verification util rather than duplicating logic in socket layer
+
+### Files Created
+- `backend/src/socket/index.js`, `backend/src/socket/auth.js`, `backend/src/socket/rooms.js`
+- `backend/src/services/realtimeEmitter.js`
+- `backend/src/utils/tokenAuth.js`
+- `backend/tests/socket-foundation.test.js`
+- `5D.2.txt`
+
+### Files Modified
+- `backend/src/server.js`, `backend/src/middleware/auth.js`, `backend/package.json` (+socket.io, +test:sockets), `.env.example` (+CLIENT_ORIGIN)
+
+### Test Results
+- ✅ New socket foundation suite: **22/22** (missing/invalid/expired/nonexistent-user token rejection; valid connect; own-room join proven via whoami ack; no client-controlled rooms; cookie fallback; emitter targeting/no-op/reset/coercion; disconnect safety; REST coexistence)
+- ✅ Notification integration suite: **68/68**
+- ✅ Backend regression sweep: **15/15** incl. explicit expired/garbage-token REST checks after middleware refactor
+- ✅ Frontend production build succeeds (no frontend changes)
+- ✅ `[SOCKET] connected/disconnected` lifecycle logging verified in server logs
+
+### Next Phase
+Begin **5D.3** (Realtime Chat + Comments)
