@@ -382,13 +382,13 @@ project-root/
 
 ## Current Phase
 
-**Phase 5D.3: Realtime Chat + Comments** - **COMPLETED** (authorized group/task room joins with DB verification; message:new / comment:new broadcasts post-persist via realtimeEmitter; frontend SocketContext + useSocketEvent + live ChatPanel/CommentSection with id-dedupe and reconnect resync; 35/35 new tests)
+**Phase 5D.4: Realtime Notifications** - **COMPLETED** (notification:new + authoritative unread-count frames emitted from notificationService after persistence to user:{recipientId} rooms; useNotifications consumes push with id-dedupe and reconnect resync; 20/20 realtime tests, all suites green)
 
 ## Recommended Next Steps
 
-1. **Begin Phase 5D.4 Realtime Notifications:**
-   - Wire notification:new + notification:unread-count through notificationService
-   - useNotifications consumes push; 30s polling demoted to fallback
-   - Multi-tab badge behavior verification
+1. **Begin Phase 5D.5 Presence + Testing & Integration:**
+   - Presence registry with multi-tab reference counting + grace period + broadcasts
+   - Membership-change room eviction; join rate-limit hardening
+   - Full reconnection/resync matrix; cross-feature integration tests; docs polish
 
 (End of file)

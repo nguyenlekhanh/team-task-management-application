@@ -1191,3 +1191,25 @@ Begin **5D.3** (Realtime Chat + Comments)
 
 ### Next Phase
 Begin **5D.4** (Realtime Notifications)
+
+## Phase Status: PHASE 5D.4 - COMPLETED (Realtime Notifications)
+
+### What Was Implemented
+- **Backend**: notificationService.notifyUsers (the single funnel for all 5 types incl. deadline cron) now emits `notification:new` with sanitizeNotification payload to `user:{recipientId}` immediately after each successful row insert, then an authoritative `notification:unread-count` frame per affected recipient computed from the DB. Preference filtering/sender exclusion/dedupe unchanged and happen BEFORE creation — suppressed types produce neither row nor event. Emitter stays no-op-safe; no circular deps.
+- **Frontend**: useNotifications subscribes on the shared SocketContext connection — notification:new dedupes by id (merge if exists else prepend), bumps total + unread count only when unread; notification:unread-count SETS the authoritative count; socket reconnect triggers silent REST resync. 30s polling retained as fallback; bell/dropdown/item/settings components untouched.
+
+### Files Created
+- `backend/tests/notification-realtime.test.js`
+- `5D.4.txt`
+
+### Files Modified
+- `backend/src/utils/notificationService.js`, `frontend/src/hooks/useNotifications.js`
+- `backend/package.json` (+test:notification-realtime)
+
+### Test Results
+- ✅ New realtime notification suite: **20/20** (TASK_ASSIGNED/NEW_MESSAGE/MENTION/TASK_COMPLETED push + payload shape + isolation + sender exclusion; suppression removes event AND row; re-enable restores; unread-count frame == REST value; deadline path emits via same notifyUsers + cross-process persistence safety)
+- ✅ Socket foundation: **22/22** · Chat realtime: **35/35** · Notification integration (5C.5): **68/68** · Regression sweep: **14/14**
+- ✅ Frontend production build succeeds
+
+### Next Phase
+Begin **5D.5** (Presence + Testing & Integration)

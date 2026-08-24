@@ -1,4 +1,5 @@
 const { Notification, User } = require('../models');
+const realtimeEmitter = require('../services/realtimeEmitter');
 
 const NOTIFICATION_TYPES = Notification.NOTIFICATION_TYPES;
 
@@ -41,6 +42,9 @@ function isTypeAllowedForUser(user, type) {
   return prefs[prefKey];
 }
 
+// NOTE: all notification creation must flow through notifyUsers() - it is the
+// single point that applies preference filtering, sender exclusion,
+// deduplication, persistence AND realtime delivery (5D.4).
 async function createNotification(data) {
   try {
     return await Notification.create(data);
@@ -96,6 +100,25 @@ async function notifyUsers({ recipientIds, senderId = null, type, title, message
     });
     if (notification) {
       created.push(notification);
+      // Realtime delivery (5D.4): emit only after successful persistence.
+      // Preference-suppressed notifications never reach this point (no row,
+      // no event). Best-effort: delivery failure cannot affect the DB row.
+      realtimeEmitter.emitToUser(recipient.id, 'notification:new', sanitizeNotification(notification));
+    }
+  }
+
+  // Authoritative unread-count correction frame per affected recipient.
+  if (created.length > 0) {
+    const affectedIds = [...new Set(created.map(n => n.recipientId))];
+    for (const rid of affectedIds) {
+      try {
+        const unreadCount = await Notification.count({
+          where: { recipientId: rid, isRead: false }
+        });
+        realtimeEmitter.emitToUser(rid, 'notification:unread-count', { unreadCount });
+      } catch (err) {
+        console.error('[ERROR] notifyUsers (unread-count):', err.message);
+      }
     }
   }
   return created;

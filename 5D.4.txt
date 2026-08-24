@@ -1,0 +1,109 @@
+# Phase 5D.4 - Realtime Notifications
+
+## STATUS
+COMPLETED
+
+## OBJECTIVE
+Deliver Phase 5C notifications in real time via the existing socket foundation: `notificationService` emits `notification:new` (plus an authoritative `notification:unread-count` correction frame) to `user:{recipientId}` after successful persistence; the frontend bell consumes push with dedupe, reconnect resync, and polling demoted to fallback. No notification redesign; REST + DB remain authoritative.
+
+---
+
+## IMPLEMENTATION SUMMARY
+
+### Backend (`backend/src/utils/notificationService.js`)
+- `notifyUsers()` — the single funnel ALL five notification types flow through (task/message triggers AND the deadline cron job) — now emits after each successful `Notification.create`:
+  - `realtimeEmitter.emitToUser(recipient.id, 'notification:new', sanitizeNotification(notification))`
+- After the batch, for each affected recipient: computes the authoritative unread count from the DB and emits `emitToUser(rid, 'notification:unread-count', { unreadCount })`.
+- Guarantees preserved structurally:
+  - preference filtering happens BEFORE creation → suppressed type = no row = no event (verified by test)
+  - sender exclusion / recipient dedupe unchanged
+  - emit strictly post-commit; emitter is no-op-safe → delivery failure can never affect persistence (5D.2 contract)
+  - no duplicate creation: emission is per created row inside the existing loop
+- `createNotification` documented as low-level; new creation paths must route through `notifyUsers` (single point for prefs/exclusion/dedupe/persistence/realtime).
+- No circular dependencies: notificationService → realtimeEmitter (+ rooms constants) only.
+
+### Event catalog (delta)
+| Event | Direction | Room | Payload | Timing |
+|---|---|---|---|---|
+| `notification:new` | S→C | `user:{recipientId}` | sanitizeNotification(row) — id, recipientId, senderId, taskId, groupId, messageId, type, title, message, isRead:false, readAt:null, metadata, sender{id,username,displayName,avatarUrl}\|null, task{id,title}\|null, group{id,name}\|null, createdAt | immediately after row insert |
+| `notification:unread-count` | S→C | `user:{recipientId}` | `{ unreadCount: int }` computed from DB | once per affected recipient after batch |
+
+Room determined server-side from the persisted row's recipientId; clients cannot influence it. Payload reuses the exact REST sanitizer — no sensitive fields.
+
+### Frontend (`frontend/src/hooks/useNotifications.js`)
+- Subscribes via existing `useSocketEvent` on the single shared SocketContext connection (no second connection):
+  - `notification:new` → dedupe by primary key (existing id → merge/update in place; new id → prepend), bump `pagination.total`, increment `unreadCount` only when `!item.isRead`
+  - `notification:unread-count` → SET count to the authoritative server value (corrects any optimistic drift)
+  - socket `connect` (incl. reconnects) → silent `fetchNotifications({silent:true})` resync; REST restores truth, no replay of missed frames; dedupe prevents flicker duplicates
+- 30 s polling retained as fallback; mark-read / mark-all-read / delete / load-more / navigation untouched.
+- NotificationBell/Dropdown/Item/Settings components unchanged.
+
+---
+
+## NOTIFICATION REALTIME FLOW
+```
+business action (REST assign/status/message/comment/cron)
+→ controller authorization (unchanged)
+→ notificationService.notifyUsers()
+   ├─ preference filter → suppressed ⇒ STOP (no row, no event)
+   ├─ Notification.create (DB)
+   ├─ emitToUser(recipient, 'notification:new', sanitized)
+   └─ per recipient: DB count → emitToUser('notification:unread-count')
+→ Socket.IO user:{recipientId} room
+→ useNotifications updates list + badge instantly
+```
+Deadline job shares this path verbatim: `runDeadlineCheck()` calls `notifyUsers(...)` — verified below.
+
+---
+
+## TESTS PERFORMED & RESULTS
+
+### New: `backend/tests/notification-realtime.test.js` — 20 assertions, ALL PASSED
+Test client mirrors a real socket.io-client: one continuously-open long-poll feeding a frame queue per socket (aborted polls kill sockets server-side, so negative windows drain the queue instead).
+- TASK_ASSIGNED: exactly one `notification:new`; payload matches sanitized shape (type/recipient/isRead/metadata.taskId/title, no password anywhere); authoritative unread-count frame received AND equal to REST value; actor/sender excluded.
+- NEW_MESSAGE: delivered to group-member recipient; isolated from non-member.
+- MENTION: delivered; precedence holds (no NEW_MESSAGE for the same message).
+- TASK_COMPLETED: delivered to creator on completion transition.
+- Preference suppression: disabled `taskAssigned` → NO realtime event, NO DB row, unread count unchanged; re-enabled → delivery restored.
+- DEADLINE_APPROACHING: service-level proof that `notifyUsers` emits to `user:{id}` with both frames (fake-io injection into the same function the cron calls); plus cross-process safety run of `runDeadlineCheck()` without io persists rows and never crashes (COUNT returned).
+- Cleanup: fixtures cascade-deleted; zero residue.
+
+### Existing suites re-run (all green)
+- ✅ Socket foundation: **22/22**
+- ✅ Chat realtime (5D.3): **35/35**
+- ✅ Notification integration (5C.5): **68/68**
+- ✅ Backend regression sweep: **14/14**
+- ✅ Frontend production build succeeds
+
+---
+
+## FRONTEND VERIFICATION
+- Build-level: production bundle includes the new subscriptions; no component redesigns.
+- Code-level review against requirements: appears-without-refresh ✓ (push handler prepends), badge accuracy ✓ (increment + authoritative correction frame), read items never increment ✓ (server always sends isRead:false rows; guard exists regardless), mark-read/mark-all/delete/load-more/navigation untouched ✓, reconnect non-duplicating ✓ (id merge + silent REST resync), polling compatible ✓ (interval retained; both paths converge on same state).
+- Interactive browser E2E remains manual (project has no browser automation) — same caveat as prior phases.
+
+---
+
+## KNOWN LIMITATIONS / DEFERRALS TO 5D.5+
+1. Read-side transitions (mark-read/read-all/delete in ONE tab) still do not broadcast to other tabs/devices; second tab corrects via 30 s poll. Pushing these is future work.
+2. Reconnect resync collapses the dropdown list back to page 1 (authoritative first page); loaded older pages are discarded until "Load more" again.
+3. Stale-room edge on membership removal unchanged (5D.5 eviction plan).
+4. Presence/online status: deferred to 5D.5.
+5. Cross-process invocations of the cron (test harness) persist notifications but cannot emit frames — runtime cron lives inside the server process where the emitter IS initialized (shared code path proven).
+
+---
+
+## FILES CHANGED
+**Modified**
+- `backend/src/utils/notificationService.js` — post-persist emissions (notification:new per row; unread-count per affected recipient)
+- `frontend/src/hooks/useNotifications.js` — push consumption, dedupe/merge, unread handling, reconnect resync
+- `backend/package.json` — script `test:notification-realtime`
+- `PROJECT_PLAN.md`, `PROJECT_PROGRESS.md`, `PROJECT_RESULT.md`
+
+**Created**
+- `backend/tests/notification-realtime.test.js`
+- `5D.4.txt` (this file)
+
+## NEXT SUB-PHASE
+
+**5D.5 — Presence + Testing & Integration** (per 5D.1 roadmap §22): presence registry/grace period/broadcasts, membership-change room eviction, join rate-limit hardening, full reconnection/resync matrix, cross-feature integration tests, documentation polish.

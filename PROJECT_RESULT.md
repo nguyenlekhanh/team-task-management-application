@@ -525,12 +525,13 @@
 **Phase 5D.1: Realtime / Socket.IO Design & Architecture Plan** - **COMPLETED** (design document 5D.1.txt created; no realtime code installed — REST-authoritative socket design, handshake JWT auth, user/group/task rooms, event catalog, presence/reconnection/delivery semantics, staged 5D.2–5D.5 roadmap)
 **Phase 5D.2: Socket.IO Foundation (Backend)** - **COMPLETED** (socket.io 4.8.3 on shared http.Server; shared tokenAuth extraction; handshake auth with cookie fallback; user:{id} room; no-op-safe realtimeEmitter; 22/22 foundation tests + 68/68 notifications + regression green)
 **Phase 5D.3: Realtime Chat + Comments** - **COMPLETED** (DB-verified group/task room joins; message:new / comment:new broadcasts post-persist via realtimeEmitter with REST-sanitized payloads; frontend SocketContext/useSocketEvent/ChatPanel/CommentSection live updates with id-dedupe + reconnect resync; 35/35 chat tests, all prior suites green)
+**Phase 5D.4: Realtime Notifications** - **COMPLETED** (notificationService emits notification:new + authoritative unread-count to user rooms post-persist for all 5 types; useNotifications push consumption with dedupe + reconnect resync; 20/20 realtime tests, all suites green)
 
 ## Recommended Next Steps
 
-1. **Begin Phase 5D.4 Realtime Notifications:**
-   - Wire notification:new + notification:unread-count through notificationService
-   - useNotifications consumes push; 30s polling demoted to fallback
-   - Multi-tab badge behavior verification
+1. **Begin Phase 5D.5 Presence + Testing & Integration:**
+   - Presence registry with multi-tab reference counting + grace period + broadcasts
+   - Membership-change room eviction; join rate-limit hardening
+   - Full reconnection/resync matrix; cross-feature integration tests; docs polish
 
 (End of file)

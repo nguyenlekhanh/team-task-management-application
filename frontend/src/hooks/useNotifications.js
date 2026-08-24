@@ -1,5 +1,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { notificationApi } from '../services/api'
+import { useSocket } from '../contexts/SocketContext'
+import { useSocketEvent } from './useSocketEvent'
 
 const POLL_INTERVAL_MS = 30000
 
@@ -10,6 +12,7 @@ export function useNotifications(isAuthenticated) {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
   const pollRef = useRef(null)
+  const socket = useSocket()
 
   const fetchUnreadCount = useCallback(async () => {
     try {
@@ -106,6 +109,38 @@ export function useNotifications(isAuthenticated) {
       if (pollRef.current) clearInterval(pollRef.current)
     }
   }, [isAuthenticated, fetchUnreadCount])
+
+  // Realtime (5D.4): push delivery into local state. Dedupe by primary key -
+  // if the id is already present (e.g. raced with a REST refresh), merge
+  // instead of appending. Unread count increments only for unread items;
+  // the server's authoritative notification:unread-count frame corrects drift.
+  const handleNewNotification = useCallback((item) => {
+    if (!item || item.id === undefined) return
+    setNotifications(prev => {
+      if (prev.some(n => n.id === item.id)) {
+        return prev.map(n => (n.id === item.id ? { ...n, ...item } : n))
+      }
+      return [item, ...prev]
+    })
+    setPagination(prev => ({ ...prev, total: prev.total + 1 }))
+    if (!item.isRead) {
+      setUnreadCount(count => count + 1)
+    }
+  }, [])
+  useSocketEvent('notification:new', handleNewNotification)
+
+  const handleUnreadCount = useCallback((payload) => {
+    if (payload && Number.isInteger(payload.unreadCount) && payload.unreadCount >= 0) {
+      setUnreadCount(payload.unreadCount)
+    }
+  }, [])
+  useSocketEvent('notification:unread-count', handleUnreadCount)
+
+  // Resync after reconnection: REST is authoritative; no replay of missed frames.
+  const handleSocketConnect = useCallback(() => {
+    fetchNotifications({ silent: true })
+  }, [fetchNotifications])
+  useSocketEvent('connect', handleSocketConnect)
 
   return {
     notifications,
