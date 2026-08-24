@@ -1,5 +1,6 @@
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect, useRef, useCallback } from 'react'
 import { messageApi } from '../services/api'
+import { useSocket } from '../contexts/SocketContext'
 import { CommentItem } from './CommentItem'
 
 export function CommentSection({ taskId, currentUserId }) {
@@ -10,17 +11,19 @@ export function CommentSection({ taskId, currentUserId }) {
   const [error, setError] = useState('')
   const [hasMore, setHasMore] = useState(true)
   const [page, setPage] = useState(1)
+  const socket = useSocket()
+  const everConnectedRef = useRef(false)
 
   const loadComments = async (pageNum = 1, append = false) => {
     try {
       setLoading(true)
-      const response = await messageApi.getTaskComments(taskId, { 
-        page: pageNum, 
-        limit: 50 
+      const response = await messageApi.getTaskComments(taskId, {
+        page: pageNum,
+        limit: 50
       })
       const newComments = response.data.items
       const pagination = response.data.pagination
-      
+
       if (append) {
         setComments(prev => [...prev, ...newComments])
       } else {
@@ -39,6 +42,40 @@ export function CommentSection({ taskId, currentUserId }) {
   useEffect(() => {
     loadComments(1, false)
   }, [taskId])
+
+  // Realtime: join the task room; live-append incoming comments (dedupe by id
+  // so the author's REST insert is not duplicated); resync via REST on reconnect.
+  const handleIncomingComment = useCallback((item) => {
+    if (!item || item.id === undefined) return
+    setComments(prev => prev.some(c => c.id === item.id) ? prev : [...prev, item])
+  }, [])
+
+  useEffect(() => {
+    if (!socket || !taskId) return undefined
+    const numericId = Number(taskId)
+
+    const onConnect = () => {
+      socket.emit('task:join', { taskId: numericId }, (res) => {
+        if (!res?.ok) console.warn('task:join rejected:', res?.error)
+      })
+      if (everConnectedRef.current) {
+        loadComments(1, false)
+      }
+      everConnectedRef.current = true
+    }
+
+    if (socket.connected) {
+      onConnect()
+    }
+    socket.on('connect', onConnect)
+    socket.on('comment:new', handleIncomingComment)
+
+    return () => {
+      socket.off('connect', onConnect)
+      socket.off('comment:new', handleIncomingComment)
+      socket.emit('task:leave', { taskId: numericId })
+    }
+  }, [socket, taskId, handleIncomingComment])
 
   const loadMore = () => {
     if (!loading && hasMore) {

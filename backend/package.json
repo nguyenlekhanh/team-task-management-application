@@ -8,7 +8,8 @@
     "dev": "nodemon src/server.js",
     "test": "echo \"Error: no test specified\" && exit 1",
     "test:notifications": "node tests/notification-integration.js",
-    "test:sockets": "node tests/socket-foundation.test.js"
+    "test:sockets": "node tests/socket-foundation.test.js",
+    "test:chat": "node tests/chat-realtime.test.js"
   },
   "keywords": [],
   "author": "",

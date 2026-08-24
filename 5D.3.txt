@@ -1,0 +1,126 @@
+# Phase 5D.3 - Realtime Chat + Comments
+
+## STATUS
+COMPLETED
+
+## OBJECTIVE
+Deliver realtime group-message and task-comment delivery per the 5D.1 architecture on the 5D.2 foundation: authorized group/task rooms, post-persist broadcasts from the existing REST controllers, minimal frontend consumption with dedupe-by-id and reconnect resync. REST + SQLite remain authoritative; notifications behavior untouched (realtime notification push is 5D.4).
+
+---
+
+## IMPLEMENTATION SUMMARY
+
+### Backend
+
+**Room authorization (`src/socket/index.js`)**
+Four client→server commands added, each database-verified at join time with ack responses `{ok:true}` / `{ok:false,error}`:
+| Command | Payload | Authorization | Failure reasons |
+|---|---|---|---|
+| `group:join` | `{groupId:int}` | GroupMember(groupId, me) exists | 'Invalid group ID' / 'Not a member of this group' / 'Unable to verify group access' |
+| `group:leave` | `{groupId:int}` | none needed (safe) | 'Invalid group ID' |
+| `task:join` | `{taskId:int}` | Task exists → GroupMember(task.groupId, me) | 'Invalid task ID' / 'Task not found' / 'Not authorized to access this task' / 'Unable to verify task access' |
+| `task:leave` | `{taskId:int}` | none needed (safe) | 'Invalid task ID' |
+
+Malformed payloads (non-integers, negatives, missing fields) rejected before any DB call; DB lookup failures caught and reported as generic verification errors; ack args parsed position-independently.
+
+**Broadcasts (`src/controllers/messageController.js`)**
+- `addGroupMessage`: after `Message.create` commit AND after existing 5C.3 notification triggers → `realtimeEmitter.emitToRoom(groupRoom(groupId), 'message:new', sanitizeMessage(createdMessage))`
+- `addTaskComment`: same pattern → `emitToRoom(taskRoom(taskId), 'comment:new', sanitizeMessage(createdMessage))`
+Payloads are byte-identical to the REST response `item` (same sanitizer) — no new exposure surface. Emissions are best-effort: emitter failures cannot fail or roll back REST persistence (5D.2 no-op-safe design).
+
+### Frontend (minimal chat/comment consumption only)
+| File | Purpose |
+|---|---|
+| `services/socket.js` | socket factory: `VITE_SOCKET_URL` override, else derived from `VITE_API_URL` origin (`http://localhost:3000/api` → `http://localhost:3000`); empty → same-origin; auth token from localStorage (same mechanism as axios) |
+| `contexts/SocketContext.jsx` | one socket per browser tab while authenticated; created from localStorage token, closed+cleared on logout/expiry; mounted in main.jsx inside AuthProvider; StrictMode-safe via ref guard |
+| `hooks/useSocketEvent.js` | `useSocketEvent(event, handler)` — subscribes on mount/connection, removes listener on cleanup (no duplicate listeners, no leaks) |
+| `components/ChatPanel.jsx` | joins `group:{id}` when connected; appends `message:new` items **dedup by message.id** (sender's own REST insert is never duplicated); on RE-connect re-joins + silent page-1 REST resync (first connect skipped — initial load is already REST); leaves room on unmount |
+| `components/CommentSection.jsx` | symmetric: `task:{id}` join / `comment:new` dedupe-append / resync / leave |
+
+UI remains fully functional without sockets: initial loads and sends are 100% REST; socket frames only enrich state.
+
+---
+
+## EVENT CATALOG (delta over 5D.2; naming per 5D.1 §7)
+| Event | Direction | Room | Payload | Authz | Emitted when |
+|---|---|---|---|---|---|
+| `group:join` | C→S | — | `{groupId}` | GroupMember verified | client viewing group |
+| `group:leave` | C→S | — | `{groupId}` | safe | unmount/navigation |
+| `task:join` | C→S | — | `{taskId}` | Task→group membership | client viewing task |
+| `task:leave` | C→S | — | `{taskId}` | safe | unmount/navigation |
+| `message:new` | S→C | `group:{groupId}` | sanitizeMessage(row) — id, senderId, groupId, content, messageType:'message', createdAt, updatedAt, sender{id,username,displayName,avatarUrl} | recipients = current room members (members-only by construction) | after successful REST POST /groups/:id/messages commit |
+| `comment:new` | S→C | `task:{taskId}` | sanitizeMessage(row) (messageType:'comment', taskId set) | task-room members only | after successful REST POST /tasks/:id/comments commit |
+
+No client→server write events exist; REST stays the only write path. Notification events intentionally NOT emitted yet (5D.4).
+
+---
+
+## NOTIFICATION INTERACTION
+Preserved exactly: both controllers still run the full 5C.3 trigger pipeline (`notifyUsers` NEW_MESSAGE/MENTION) before the broadcast. Tests confirm triggers fire exactly once per message/comment and the socket layer adds no duplicate creation. Realtime *delivery* of those notifications is explicitly deferred to 5D.4.
+
+---
+
+## SECURITY VERIFICATION (tested)
+- Unauthenticated sockets cannot connect (5D.2 suite re-run green).
+- Non-member cannot join group room; unauthorized user cannot join task room; rejected clients hold no rooms (whoami-verified structurally AND runtime absence of frames).
+- Client cannot spoof authorization: rooms assigned only after server-side DB checks; unknown/bogus events ignored.
+- Malformed IDs (string/negative/missing) and nonexistent group/task handled with safe ack errors.
+- Payloads reuse REST sanitizers — no passwords/JWTs/private fields (asserted).
+
+---
+
+## ERROR HANDLING (tested/design)
+- Unauthorized/nonexistent/malformed joins → per-case safe ack errors.
+- Disconnected sockets simply miss frames (best-effort); reconnect path re-joins + REST-resyncs (no replay, no duplicates thanks to id-dedupe).
+- Emitter unavailable → emits are no-ops; REST creation unaffected (unit-verified; burst of 5 concurrent POSTs all persisted and retrievable).
+- Socket delivery failure never invalidates REST success (emission occurs strictly after commit, outside the response path's error contract).
+
+---
+
+## TESTS PERFORMED & RESULTS
+
+### New: `backend/tests/chat-realtime.test.js` — 35 assertions, ALL PASSED
+Group rooms: member join ok (+room in whoami); non-member rejected (error + no room); malformed/negative/missing/nonexistent ids rejected safely; leave works (+room removed).
+Message flow: REST create 201 → member gets `message:new` whose payload matches persisted row id, sanitized shape, no private fields; disposable outsider observer receives nothing (runtime) and holds no rooms (structural); REST list shows exactly one copy; 5C.3 NEW_MESSAGE trigger fires exactly once for the recipient.
+Task comments: member joins task room; outsider rejected ('Not authorized…'); malformed/nonexistent ids safe; comment broadcast received with matching row; outsider silence; single copy via REST; creator-notification trigger fires (+1 exact).
+Persistence robustness: emitter-without-init returns false; burst of 5 concurrent messages all 201 and all retrievable.
+Cleanup: fixtures cascade-deleted, users removed, zero residue.
+
+### Existing suites re-run
+- ✅ Socket foundation suite: **22/22**
+- ✅ Notification integration suite: **68/68**
+- ✅ Backend regression sweep: **14/14** (health, login, users/me, groups/detail/members, tasks/my-tasks/detail/checklist, messages/comments, notifications endpoints)
+- ✅ Frontend production build succeeds (bundle includes socket.io-client; gzip JS 126 kB)
+
+Test data cleaned up afterwards (fixtures deleted via cascade paths; verified zero residue).
+
+---
+
+## KNOWN LIMITATIONS / DEFERRALS TO 5D.4+
+1. **Notification push not implemented**: bell still updates via 30 s polling until 5D.4 wires `notification:new` / `notification:unread-count`.
+2. **Read-side events**: mark-read/read-all/delete/edit do not broadcast; other tabs refresh via polling/manual reload.
+3. **Stale-room edge**: a member removed mid-session may keep receiving frames for that room until eviction logic lands (planned 5D.5); exposure limited to previously-visible data since all reads stay REST-authorized.
+4. **Presence/online status**: deferred to 5D.5.
+5. **Chat history ordering**: pre-existing DESC-first-page UI quirk from 5B left untouched (out of scope).
+6. **Auth-expiry mid-session**: existing socket persists until disconnect/reconnect; expired tokens rejected at reconnect (documented 5D.1 posture).
+
+---
+
+## FILES CREATED
+- `frontend/src/services/socket.js`
+- `frontend/src/contexts/SocketContext.jsx`
+- `frontend/src/hooks/useSocketEvent.js`
+- `backend/tests/chat-realtime.test.js`
+- `5D.3.txt` (this file)
+
+## FILES MODIFIED
+- `backend/src/socket/index.js` (room commands)
+- `backend/src/controllers/messageController.js` (post-commit broadcasts)
+- `frontend/src/main.jsx` (SocketProvider mount)
+- `frontend/src/components/ChatPanel.jsx`, `frontend/src/components/CommentSection.jsx` (live updates + dedupe + resync)
+- `frontend/package.json` (+ socket.io-client 4.8.3)
+- `PROJECT_PLAN.md`, `PROJECT_PROGRESS.md`, `PROJECT_RESULT.md`
+
+## NEXT SUB-PHASE
+
+**5D.4 — Realtime Notifications**: wire `notification:new` + `notification:unread-count` emissions through notificationService (single source of truth preserved); useNotifications consumes push with polling demoted to fallback; multi-tab badge verification.

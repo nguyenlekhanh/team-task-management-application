@@ -524,12 +524,13 @@
 **Phase 5C.5: Notifications Testing & Integration** - **COMPLETED** (68-assertion automated integration suite `backend/tests/notification-integration.js` + npm runner; 1 real bug found and fixed — string recipient IDs dropped in notifyUsers; all triggers/preferences/deadline-job/isolation verified; 17/17 regression checks pass)
 **Phase 5D.1: Realtime / Socket.IO Design & Architecture Plan** - **COMPLETED** (design document 5D.1.txt created; no realtime code installed — REST-authoritative socket design, handshake JWT auth, user/group/task rooms, event catalog, presence/reconnection/delivery semantics, staged 5D.2–5D.5 roadmap)
 **Phase 5D.2: Socket.IO Foundation (Backend)** - **COMPLETED** (socket.io 4.8.3 on shared http.Server; shared tokenAuth extraction; handshake auth with cookie fallback; user:{id} room; no-op-safe realtimeEmitter; 22/22 foundation tests + 68/68 notifications + regression green)
+**Phase 5D.3: Realtime Chat + Comments** - **COMPLETED** (DB-verified group/task room joins; message:new / comment:new broadcasts post-persist via realtimeEmitter with REST-sanitized payloads; frontend SocketContext/useSocketEvent/ChatPanel/CommentSection live updates with id-dedupe + reconnect resync; 35/35 chat tests, all prior suites green)
 
 ## Recommended Next Steps
 
-1. **Begin Phase 5D.3 Realtime Chat + Comments:**
-   - Emit message:new / comment:new from messageController post-commit
-   - Authorized group:join / task:join commands
-   - Frontend SocketContext + useSocketEvent; ChatPanel/CommentSection live updates with dedupe-by-id
+1. **Begin Phase 5D.4 Realtime Notifications:**
+   - Wire notification:new + notification:unread-count through notificationService
+   - useNotifications consumes push; 30s polling demoted to fallback
+   - Multi-tab badge behavior verification
 
 (End of file)

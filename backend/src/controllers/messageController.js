@@ -1,6 +1,8 @@
 const { Message, Group, GroupMember, User, Task, TaskMember } = require('../models');
 const { Op } = require('sequelize');
 const { notifyUsers, extractMentions } = require('../utils/notificationService');
+const realtimeEmitter = require('../services/realtimeEmitter');
+const { groupRoom, taskRoom } = require('../socket/rooms');
 
 function sanitizeMessage(message) {
   return {
@@ -175,6 +177,10 @@ async function addGroupMessage(req, res) {
     } catch (notifyErr) {
       console.error('[ERROR] addGroupMessage notification trigger:', notifyErr.message);
     }
+
+    // Realtime delivery (5D.3): broadcast the persisted, sanitized message to
+    // the group room. Best-effort - REST response below is unaffected.
+    realtimeEmitter.emitToRoom(groupRoom(groupId), 'message:new', sanitizeMessage(createdMessage));
 
     res.status(201).json({
       message: 'Message sent successfully',
@@ -366,6 +372,10 @@ async function addTaskComment(req, res) {
     } catch (notifyErr) {
       console.error('[ERROR] addTaskComment notification trigger:', notifyErr.message);
     }
+
+    // Realtime delivery (5D.3): broadcast the persisted, sanitized comment to
+    // the task room. Best-effort - REST response below is unaffected.
+    realtimeEmitter.emitToRoom(taskRoom(taskId), 'comment:new', sanitizeMessage(createdMessage));
 
     res.status(201).json({
       message: 'Comment added successfully',

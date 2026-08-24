@@ -382,13 +382,13 @@ project-root/
 
 ## Current Phase
 
-**Phase 5D.2: Socket.IO Foundation (Backend)** - **COMPLETED** (socket.io 4.8.3 on shared http.Server; handshake JWT auth with cookie fallback via shared tokenAuth util; user:{id} private room; no-op-safe realtimeEmitter; CLIENT_ORIGIN socket CORS; 22/22 foundation tests)
+**Phase 5D.3: Realtime Chat + Comments** - **COMPLETED** (authorized group/task room joins with DB verification; message:new / comment:new broadcasts post-persist via realtimeEmitter; frontend SocketContext + useSocketEvent + live ChatPanel/CommentSection with id-dedupe and reconnect resync; 35/35 new tests)
 
 ## Recommended Next Steps
 
-1. **Begin Phase 5D.3 Realtime Chat + Comments:**
-   - Emit message:new / comment:new from messageController post-commit
-   - Authorized group:join / task:join commands
-   - Frontend SocketContext + useSocketEvent; ChatPanel/CommentSection live updates with dedupe-by-id
+1. **Begin Phase 5D.4 Realtime Notifications:**
+   - Wire notification:new + notification:unread-count through notificationService
+   - useNotifications consumes push; 30s polling demoted to fallback
+   - Multi-tab badge behavior verification
 
 (End of file)

@@ -1,5 +1,6 @@
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect, useRef, useCallback } from 'react'
 import { messageApi } from '../services/api'
+import { useSocket } from '../contexts/SocketContext'
 import { MessageItem } from './MessageItem'
 
 export function ChatPanel({ groupId, currentUserId, userRole }) {
@@ -12,19 +13,21 @@ export function ChatPanel({ groupId, currentUserId, userRole }) {
   const [page, setPage] = useState(1)
   const messagesEndRef = useRef(null)
   const messagesContainerRef = useRef(null)
+  const socket = useSocket()
+  const everConnectedRef = useRef(false)
 
   const canSend = true // All group members can send messages
 
   const loadMessages = async (pageNum = 1, append = false) => {
     try {
       setLoading(true)
-      const response = await messageApi.getGroupMessages(groupId, { 
-        page: pageNum, 
-        limit: 50 
+      const response = await messageApi.getGroupMessages(groupId, {
+        page: pageNum,
+        limit: 50
       })
       const newMessages = response.data.items
       const pagination = response.data.pagination
-      
+
       if (append) {
         setMessages(prev => [...prev, ...newMessages])
       } else {
@@ -43,6 +46,42 @@ export function ChatPanel({ groupId, currentUserId, userRole }) {
   useEffect(() => {
     loadMessages(1, false)
   }, [groupId])
+
+  // Realtime: join the group room; live-append incoming messages (dedupe by id
+  // so the sender's REST insert is not duplicated); resync via REST on reconnect.
+  const handleIncomingMessage = useCallback((item) => {
+    if (!item || item.id === undefined) return
+    setMessages(prev => prev.some(m => m.id === item.id) ? prev : [...prev, item])
+  }, [])
+
+  useEffect(() => {
+    if (!socket || !groupId) return undefined
+    const numericId = Number(groupId)
+
+    const onConnect = () => {
+      socket.emit('group:join', { groupId: numericId }, (res) => {
+        if (!res?.ok) console.warn('group:join rejected:', res?.error)
+      })
+      // Resync after reconnection: REST is the source of truth. Skip the very
+      // first connect - initial load already came from REST.
+      if (everConnectedRef.current) {
+        loadMessages(1, false)
+      }
+      everConnectedRef.current = true
+    }
+
+    if (socket.connected) {
+      onConnect()
+    }
+    socket.on('connect', onConnect)
+    socket.on('message:new', handleIncomingMessage)
+
+    return () => {
+      socket.off('connect', onConnect)
+      socket.off('message:new', handleIncomingMessage)
+      socket.emit('group:leave', { groupId: numericId })
+    }
+  }, [socket, groupId, handleIncomingMessage])
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })

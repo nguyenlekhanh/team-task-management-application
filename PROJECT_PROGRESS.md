@@ -1156,3 +1156,38 @@ Begin **5D.2** (Socket.IO Foundation - Backend)
 
 ### Next Phase
 Begin **5D.3** (Realtime Chat + Comments)
+
+## Phase Status: PHASE 5D.3 - COMPLETED (Realtime Chat + Comments)
+
+### What Was Implemented
+**Backend:**
+- Room commands in socket/index.js with DB-verified authorization + acks: group:join / group:leave / task:join / task:leave (membership checked at join; malformed/nonexistent ids rejected safely; leave always safe)
+- messageController.addGroupMessage → emits `message:new` to `group:{id}` AFTER commit, payload = sanitizeMessage output (identical to REST response item)
+- messageController.addTaskComment → emits `comment:new` to `task:{id}` same pattern
+- 5C.3 notification triggers preserved exactly (no duplication); emitter failures cannot affect REST persistence
+
+**Frontend (minimal chat/comment consumption):**
+- services/socket.js — socket factory deriving endpoint from VITE_SOCKET_URL or VITE_API_URL origin; authenticates with existing localStorage token
+- contexts/SocketContext.jsx — one socket per tab while authenticated; closes on logout/expiry; mounted inside AuthProvider
+- hooks/useSocketEvent.js — auto-cleanup subscription helper
+- ChatPanel — joins group room on connect; live-appends message:new with dedupe by id (no sender duplication); re-join + silent REST resync on reconnect (skips first connect); leaves on unmount
+- CommentSection — symmetric task room integration
+
+### Files Created
+- `frontend/src/services/socket.js`
+- `frontend/src/contexts/SocketContext.jsx`
+- `frontend/src/hooks/useSocketEvent.js`
+- `backend/tests/chat-realtime.test.js`
+- `5D.3.txt`
+
+### Files Modified
+- `backend/src/socket/index.js`, `backend/src/controllers/messageController.js`
+- `frontend/src/main.jsx`, `frontend/src/components/ChatPanel.jsx`, `frontend/src/components/CommentSection.jsx`, `frontend/package.json` (+socket.io-client 4.8.3)
+
+### Test Results
+- ✅ New chat realtime suite: **35/35** (room authz matrix incl. malformed/nonexistent ids; message+comment broadcast payloads match persisted rows/sanitized shape; outsider runtime+structural isolation; single copy via REST; 5C.3 triggers fire exactly once; emitter-no-op safety; burst persistence)
+- ✅ Socket foundation suite: **22/22** · Notification suite: **68/68** · Regression sweep: **14/14**
+- ✅ Frontend production build succeeds
+
+### Next Phase
+Begin **5D.4** (Realtime Notifications)
