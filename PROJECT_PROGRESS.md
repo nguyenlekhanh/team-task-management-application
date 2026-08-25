@@ -1327,3 +1327,28 @@ JWT forgery classes · IDOR matrix · mass assignment (ownerId/creatorId/senderI
 
 ### Next Phase
 Begin **5E.4** (Performance Review)
+
+## Phase Status: PHASE 5E.4 - COMPLETED (Performance Review)
+
+### Measured Bottlenecks & Optimizations
+1. **Notification fan-out** (notifyUsers): baseline 61 SQL statements / 2131 ms for 30 recipients (per-recipient INSERT + COUNT loop, O(2N+1)) → **3 statements / 160 ms** via single bulkCreate(returning:true) + one GROUP BY unread-count query; per-row fallback retained for older SQLite builds. Emission semantics unchanged (post-persist, per-row notification:new + authoritative per-recipient unread frame).
+2. **Monolithic JS bundle**: 429.76 kB raw / 125.62 kB gzip → **264.96 kB / 87.49 kB gzip initial** (−30% gzip) via React.lazy route-level splitting with styled Suspense loader; pages ship as 14 on-demand chunks.
+
+### Audited — measured adequate, intentionally unchanged
+List endpoints bounded+indexed · findAndCountAll without N+1 · deadline job scan trivial at MVP scale (dueDate index deferred) · presence/limiter memory bounded+pruned (regression-tested) · polling retained by design · React render churn none found · payload shapes already minimal
+
+### Files Created
+- `backend/tests/performance.test.js`
+- `5E.4.txt`
+
+### Files Modified
+- `backend/src/utils/notificationService.js`, `frontend/src/App.jsx`, `backend/package.json` (+test:performance)
+
+### Test Results
+- ✅ New performance regression suite: **22/22** (statement-bound guard ≤N+8 for 20 recipients; correctness preserved; limiter prune/reset contracts; presence registry cleanup + stale-timer safety)
+- ✅ Full battery: foundation **22**, chat **35**, notif-realtime **20**, presence **26**, system **46**, notifications **68**, error-contract **20**, security **45**, REST regression **14**
+- ✅ Frontend production build succeeds
+- Total automated assertions: **318**, all passing
+
+### Next Phase
+Begin **5E.5** (Final Testing & Documentation)

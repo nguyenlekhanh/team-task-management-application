@@ -382,13 +382,13 @@ project-root/
 
 ## Current Phase
 
-**Phase 5E.3: Security Review** - **COMPLETED** (5 vulnerabilities fixed: unrestricted CORS→allowlist, unpinned JWT algorithm→HS256, missing cookie SameSite, no registration password minimum, login brute-force exposure→failed-attempt limiter; plus security headers; new 45-assertion security suite; full 296-assertion battery green)
+**Phase 5E.4: Performance Review** - **COMPLETED** (measured fan-out bottleneck 61→3 SQL statements & 2131→160 ms for 30 recipients via bulkCreate + grouped unread counts; route-level code splitting cut initial JS 125.6→87.5 kB gzip; new 22-assertion performance regression suite; full 318-assertion battery green)
 
 ## Recommended Next Steps
 
-1. **Begin Phase 5E.4 Performance Review:**
-   - Query analysis (SQLite EXPLAIN), response-time checks
-   - Frontend bundle/code-splitting review
-   - Socket memory footprint, caching opportunities
+1. **Begin Phase 5E.5 Final Testing & Documentation:**
+   - Full regression sweep, cross-browser checks
+   - API documentation, deployment guide, developer/user guides
+   - Final PROJECT_* consolidation
 
 (End of file)

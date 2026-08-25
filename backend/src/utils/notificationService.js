@@ -1,3 +1,4 @@
+const { Op } = require('sequelize');
 const { Notification, User } = require('../models');
 const realtimeEmitter = require('../services/realtimeEmitter');
 
@@ -80,12 +81,14 @@ async function notifyUsers({ recipientIds, senderId = null, type, title, message
     return [];
   }
 
-  const created = [];
-  for (const recipient of recipients) {
-    if (!isTypeAllowedForUser(recipient, type)) {
-      continue;
-    }
-    const notification = await createNotification({
+  // Performance (5E.4): eligible rows are inserted in ONE bulk statement and
+  // unread counts are computed in ONE grouped query, replacing the previous
+  // per-recipient loop (2N+1 statements -> ~N/rows-per-statement + 2).
+  const eligible = recipients.filter(r => isTypeAllowedForUser(r, type));
+  let created = [];
+
+  if (eligible.length > 0) {
+    const rows = eligible.map(recipient => ({
       recipientId: recipient.id,
       senderId,
       taskId,
@@ -97,28 +100,52 @@ async function notifyUsers({ recipientIds, senderId = null, type, title, message
       isRead: false,
       readAt: null,
       metadata
-    });
-    if (notification) {
-      created.push(notification);
-      // Realtime delivery (5D.4): emit only after successful persistence.
-      // Preference-suppressed notifications never reach this point (no row,
-      // no event). Best-effort: delivery failure cannot affect the DB row.
-      realtimeEmitter.emitToUser(recipient.id, 'notification:new', sanitizeNotification(notification));
+    }));
+
+    try {
+      created = await Notification.bulkCreate(rows, { returning: true });
+    } catch (err) {
+      console.error('[ERROR] notifyUsers (bulk create):', err.message);
+      created = [];
+    }
+
+    // Fallback for SQLite builds without INSERT...RETURNING support:
+    // guarantee ids exist by inserting individually.
+    if (!created.length || created.some(n => !n.id)) {
+      created = [];
+      for (const row of rows) {
+        const notification = await createNotification(row);
+        if (notification) created.push(notification);
+      }
+    }
+
+    // Realtime delivery (5D.4): emit only after successful persistence.
+    // Preference-suppressed notifications never reach this point. Best-effort:
+    // delivery failure cannot affect the DB row.
+    for (const notification of created) {
+      realtimeEmitter.emitToUser(notification.recipientId, 'notification:new', sanitizeNotification(notification));
     }
   }
 
-  // Authoritative unread-count correction frame per affected recipient.
+  // Authoritative unread-count correction frame per affected recipient -
+  // computed in a single grouped query (5E.4).
   if (created.length > 0) {
     const affectedIds = [...new Set(created.map(n => n.recipientId))];
-    for (const rid of affectedIds) {
-      try {
-        const unreadCount = await Notification.count({
-          where: { recipientId: rid, isRead: false }
-        });
-        realtimeEmitter.emitToUser(rid, 'notification:unread-count', { unreadCount });
-      } catch (err) {
-        console.error('[ERROR] notifyUsers (unread-count):', err.message);
+    try {
+      const counts = await Notification.findAll({
+        attributes: [
+          'recipientId',
+          [Notification.sequelize.fn('COUNT', Notification.sequelize.col('id')), 'unreadCount']
+        ],
+        where: { recipientId: { [Op.in]: affectedIds }, isRead: false },
+        group: ['recipientId']
+      });
+      const countMap = new Map(counts.map(c => [Number(c.get('recipientId')), Number(c.get('unreadCount'))]));
+      for (const rid of affectedIds) {
+        realtimeEmitter.emitToUser(rid, 'notification:unread-count', { unreadCount: countMap.get(rid) || 0 });
       }
+    } catch (err) {
+      console.error('[ERROR] notifyUsers (unread-count):', err.message);
     }
   }
   return created;

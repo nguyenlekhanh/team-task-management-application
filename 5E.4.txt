@@ -1,0 +1,125 @@
+# Phase 5E.4 - Performance Review
+
+## STATUS
+COMPLETED
+
+## OBJECTIVE
+Evidence-driven performance audit: measure → identify real bottleneck → smallest safe optimization → benchmark → regression. Architecture preserved (React/Vite, Express, Sequelize, SQLite, Socket.IO single-instance, in-memory presence/limiters).
+
+---
+
+## MEASUREMENT METHODOLOGY
+- **SQL statement counting**: Sequelize `logging` hook captured per operation (structural metric, environment-independent).
+- **Wall-time**: `process.hrtime.bigint()` around in-process fan-out calls.
+- **Bundle**: Vite production build output sizes (raw + gzip).
+- Environment: Node v20 local SQLite file DB; absolute times are indicative, statement counts and bundle bytes are exact.
+
+---
+
+## BASELINE OBSERVATIONS & BOTTLENECKS FOUND
+
+### B1 — Notification fan-out scaling (REAL, FIXED)
+- **Measurement**: `notifyUsers` with 30 recipients executed **61 SQL statements** (1 recipient-load + 30 individual INSERTs + 30 individual unread COUNTs) taking **~2131 ms**. Scaling is O(2N+1): every group message pays two queries per member.
+- **Root cause**: per-recipient loop issuing one INSERT and one COUNT each.
+
+### B2 — Single monolithic JS bundle (REAL, FIXED)
+- **Measurement**: production build emitted one 429.76 KB (125.62 KB gzip) `index-*.js` containing every page, regardless of route visited.
+
+### Audited — measured adequate, intentionally NOT changed
+| Area | Evidence |
+|---|---|
+| List endpoints | All bounded: limit clamped ≤100; stable ORDER BY; covering indexes exist ((groupId,createdAt),(taskId,createdAt),(recipientId,isRead),(recipientId,createdAt DESC), tasks groupId/status etc.) |
+| findAndCountAll usage | One COUNT + one SELECT per page; indexed WHEREs; no N+1 (associations eager-loaded via includes) |
+| Deadline job | Single indexed-ish scan of Tasks per daily run at MVP scale (<10k rows ⇒ full scan is sub-ms class); dedupe check per due task via existing (taskId,type) lookups; no N+1 beyond that |
+| Presence registry | Map/Set ops O(1) per socket event; broadcast does one indexed GroupMember query per transition only; timers cleared; registry entries deleted at grace expiry (regression-tested) |
+| Rate limiters | Fixed-window Maps with opportunistic pruning + hard caps (10k join / 5k login entries); clearUser on disconnect (regression-tested) |
+| Polling vs push | 30 s fallback polling retained by design (5D.4 contract); no duplicate UI work observed (dedupe-by-id merge) |
+| React renders | Context values stable between auth/socket changes; handlers memoized where consumed by useSocketEvent; no measurable churn found — blanket memoization explicitly avoided |
+| API payload shapes | Sanitizer outputs already minimal (5C–5D contracts preserved) |
+
+---
+
+## OPTIMIZATIONS MADE (before/after)
+
+### O1 — Batched notification fan-out (`notificationService.notifyUsers`)
+- Eligible rows inserted via a single `bulkCreate(..., { returning: true })` (verified ids populate on this SQLite build), falling back to per-row creates automatically if RETURNING were unavailable.
+- Unread counts computed in ONE grouped query (`GROUP BY recipientId` over affected ids) instead of one COUNT per recipient.
+- Emission semantics unchanged: still strictly post-persistence, per-notification `notification:new` + authoritative per-recipient `notification:unread-count`.
+
+| Metric (30 recipients) | Before | After | Improvement |
+|---|---|---|---|
+| SQL statements | 61 | **3** | **20×** |
+| Wall time | 2131 ms | **160 ms** | **~13×** |
+| Scaling | O(2N+1) | ~O(1)+insert-batch | structural |
+
+Correctness re-verified: all rows created with persisted ids, zero duplicates, sender exclusion intact, insertion order intact, unread counts match REST truth.
+
+### O2 — Route-level code splitting (`App.jsx`)
+- All nine pages lazy-loaded via `React.lazy` + shared styled `<Suspense>` loader (existing spinner convention).
+- Pages now ship as separate chunks loaded on navigation.
+
+| Bundle (production) | Before | After | Improvement |
+|---|---|---|---|
+| Initial JS (raw) | 429.76 kB | **264.96 kB** | −38% |
+| Initial JS (gzip) | 125.62 kB | **87.49 kB** | −30% |
+
+Route chunks observed: Login 0.89k, Dashboard 1.29k, Groups 2.11k, MyTasks 2.14k, TaskList 3.34k, Profile 3.09k, TaskDetail 6.37k, GroupDetail 5.14k, NotificationBell-graph 7.86k (+shared vendor splits) — gzip values.
+
+---
+
+## PERFORMANCE REGRESSION TESTS ADDED
+`backend/tests/performance.test.js` (+ `npm run test:performance`) — **22 assertions, ALL PASSED**, deliberately structural (no millisecond brittleness):
+- notifyUsers statement count stays ≤ N+8 for 20 recipients (was 2N+1=41 before optimization) — guards against regression to per-row COUNT loops
+- fan-out correctness preserved post-optimization: row count, persisted ids, no duplicates, sender exclusion, insertion order, second/small fan-out path
+- join limiter: threshold block behavior, clearUser reset (reconnect-clean contract), per-user isolation
+- presence registry: multi-socket counting, all-but-one removal keeps online, grace expiry deletes registry entry, eviction helper leaves rooms, canceled-grace keeps online
+- login limiter: configured threshold/window honored, cross-IP isolation, window expiry prune unblocks
+
+---
+
+## FULL REGRESSION AFTER OPTIMIZATIONS (all green)
+| Suite | Result |
+|---|---|
+| Socket foundation (5D.2) | **22/22** |
+| Chat realtime (5D.3) | **35/35** |
+| Notification realtime (5D.4) | **20/20** |
+| Presence (5D.5) | **26/26** |
+| System integration (5E.1) | **46/46** |
+| Notification integration (5C.5) | **68/68** |
+| Error contract (5E.2) | **20/20** |
+| Security review (5E.3) | **45/45** (lockout section auto-skips without knobbed env) |
+| REST regression sweep | **14/14** |
+| Performance regressions (NEW 5E.4) | **22/22** |
+| Frontend production build | ✅ succeeds |
+
+Total automated assertions: **318**, all passing.
+
+## MEMORY / CLEANUP REVIEW (audited, previously implemented cleanup confirmed by tests)
+- Frontend: socket listeners removed via useSocketEvent cleanup; poll interval cleared on unmount/auth-loss; Suspense boundaries introduce no retained listeners.
+- Backend: presence timers cleared on reconnect/reset and registry entries deleted at expiry (tested); join limiter prunes expired windows each check + hard caps; login limiter same pattern (tested); deadline job holds no persistent state.
+
+---
+
+## KNOWN LIMITATIONS / DEFERRALS TO 5E.5+
+1. dueDate has no dedicated index; the daily deadline job performs one full-table scan of Tasks — measured irrelevant at MVP scale (<10k rows). Revisit if task volumes grow orders of magnitude.
+2. bulkCreate RETURNING depends on bundled SQLite ≥3.35; automatic per-row fallback exists (slower path, correctness identical).
+3. Route chunks add a per-navigation network fetch (cached thereafter); net UX positive on first paint.
+4. 30 s notification fallback polling intentionally retained (5D.4 offline/reconnect contract).
+5. No HTTP caching headers/ETags yet — candidate for Phase 9/deployment work.
+
+---
+
+## FILES CHANGED
+**Modified**
+- `backend/src/utils/notificationService.js` (batched insert + grouped counts; per-row fallback)
+- `frontend/src/App.jsx` (lazy routes + PageLoader)
+- `backend/package.json` (+ script `test:performance`)
+- `PROJECT_PLAN.md`, `PROJECT_PROGRESS.md`, `PROJECT_RESULT.md`
+
+**Created**
+- `backend/tests/performance.test.js`
+- `5E.4.txt` (this file)
+
+## NEXT SUB-PHASE
+
+**5E.5 — Final Testing & Documentation** (full regression sweep, cross-browser checks, API/OpenAPI docs, deployment guide, developer/user guides, final PROJECT_* consolidation)
