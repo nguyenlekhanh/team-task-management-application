@@ -1,0 +1,109 @@
+# Phase 5E.2 - Error Handling & UX Polish
+
+## STATUS
+COMPLETED
+
+## OBJECTIVE
+Reliability/UX hardening of existing features: audit → reproduce → smallest fix → regression. No redesigns, no new features, no new dependencies.
+
+---
+
+## ERROR-HANDLING AUDIT SUMMARY
+
+| Area | Audit finding | Action |
+|---|---|---|
+| **Login failure → axios interceptor** | `POST /auth/login` returns **401** for wrong password; the axios response interceptor treated EVERY 401 as session-expiry → wiped localStorage + `window.location.href='/login'` ⇒ **full page reload on every failed login**, destroying the rendered error message | **FIXED**: interceptor skips auth endpoints (`/auth/login`, `/auth/register`) — login page owns its error UX; protected-request 401s still wipe + redirect |
+| **Unhandled controller exceptions** | Express default dev handler leaks **stack traces** to clients under `NODE_ENV=development`; `login` had no try/catch, `getMe` re-threw non-token errors | **FIXED**: global error middleware in `app.js` (safe JSON envelope, server-side logging only); login/getMe wrapped with safe 500 fallbacks |
+| **Malformed JSON body** | body-parser SyntaxError surfaced as 500 via new middleware | **FIXED**: middleware classifies `entity.parse.failed` / SyntaxError-400 → clean `{error:'Invalid JSON body'}` 400 |
+| **Garbage date fields persisted** | `POST/PUT task` accepted non-date `startDate`/`dueDate` values (e.g. objects) → stored, rendered later as 'Invalid Date' in UI | **FIXED**: date validation in createTask/updateTask (`400 Invalid start date or due date`) |
+| **Axios has no timeout** | hanging requests left spinners forever | **FIXED**: 15 s default timeout; timeouts surface as 'Request timed out…' |
+| **Socket auth-expiry reconnect loop** | expired-token sockets retried reconnect indefinitely | **FIXED**: SocketContext handles `connect_error` for auth-classified reasons — closes socket, clears stale auth, redirects to /login (mirrors REST path; per 5D.1 §4 design) |
+| **No React error boundary** | a render exception blanked the entire app | **ADDED**: minimal root `ErrorBoundary` (Tailwind-styled card, reload recovery, logs only `error.message`, does NOT intercept API errors) |
+| markAsRead optimistic state | verified correct already (await-before-update) | no change |
+| Form duplicate-submission guards | Login/Register/Profile/moderators/chat/comment all disable while pending | verified, no change |
+| Empty/loading/error states | all major lists already differentiate (verified across pages/components) | no change |
+| Backend logging | `err.message` only everywhere; never tokens/headers/passwords | verified, no change |
+
+---
+
+## API ERROR CONTRACT (now enforced & tested)
+- Consistent envelope: `{ "error": "<safe message>" }`
+- Status usage: 400 validation · 401 auth · 403 permission (clear role wording) · 404 blind not-found · 409 duplicates · 500 generic
+- Client errors from body-parser map to 400 ('Invalid JSON body')
+- Global handler normalizes everything uncaught to `{error:'Internal server error'}` 500
+- **Leak patterns asserted absent** in every tested error body: stack frames, raw SQL, node_modules paths, Sequelize/validation class names, file:line references
+- Frontend helper added: `getApiErrorMessage(error, fallback)` in services/api.js — distinguishes timeout / network failure / server message / fallback
+
+## AUTHENTICATION FAILURE BEHAVIOR
+- Protected-request 401 → storage wipe → `/login` (unchanged, no loops observed: PublicRoute sees cleared state)
+- Auth-endpoint 401 → inline form error only (fixed reload bug)
+- Socket handshake auth failures → same classification list as backend (`Authentication required` / `Invalid token` / `Token expired` / `User not found`) → close + wipe + redirect; other connect_errors keep standard reconnection
+
+## SESSION RESTORE
+- Startup reads localStorage only (no network) — cannot hang; malformed stored JSON is cleaned up (pre-existing); expired tokens surface on first API call via interceptor. Documented as intended behavior.
+
+## REALTIME ERROR BOUNDARIES
+- All event handlers validate required fields before state updates (`item.id` guards in useNotifications/ChatPanel/CommentSection); malformed frames ignored
+- Presence/notification/emitter failures remain best-effort and cannot break REST or socket lifecycle (re-verified by full battery)
+
+## CONCURRENCY / RACES
+- Verified existing guards: pending flags block double-send on all mutation buttons; await-before-state-update ordering in notification mutations prevents false-authoritative states; realtime handlers merge by primary key so REST/socket races converge; logout closes socket via SocketProvider effect
+
+---
+
+## TESTS PERFORMED & RESULTS
+
+### New: `backend/tests/error-contract.test.js` (+ `npm run test:errors`) — **20 assertions, ALL PASSED**
+Safe-shape + leak-pattern scanning across: register validation 400 · REST no-token/invalid-token 401 · login invalid credentials 401 (generic 'Invalid credentials') · malformed JSON 400 · blind/non-owner/member-delete group cases (404/403 with clear owner wording) · nonexistent task 404 · garbage date payload now 400 with clear message · notification bad id 400. Every body scanned for stack/SQL/node_modules/class-name/file-line leak patterns — zero leaks.
+**Regression caught during development**: my first login try/catch refactor scoped `user` inside the block breaking ALL logins — caught immediately by the suite, fixed (`let user` hoist), suite green. This is the audit→test→fix loop working as intended.
+
+### Full battery after fixes (all green)
+| Suite | Result |
+|---|---|
+| Socket foundation (5D.2) | **22/22** |
+| Chat realtime (5D.3) | **35/35** |
+| Notification realtime (5D.4) | **20/20** |
+| Presence/membership/rate-limit (5D.5) | **26/26** (env knobs) |
+| System integration (5E.1) | **46/46** |
+| Notification integration (5C.5) | **68/68** |
+| Error contract (NEW 5E.2) | **20/20** |
+| REST regression sweep | **14/14** |
+| Frontend production build | ✅ succeeds (ErrorBoundary + api changes included) |
+
+Total automated assertions: **271**, all passing.
+
+### Frontend verification (code-level; no browser automation in project)
+- Login/Register failure keeps rendered error + input preserved (reload-loop eliminated)
+- Network failure/timeout paths surface friendly messages via fallbacks + new helper
+- Socket disconnect/reconnect: listeners auto-managed by useSocketEvent cleanup; resync paths from 5D.3/5D.4 unchanged; repeated-failure loop eliminated for auth-classified errors
+- Render-crash safety via root ErrorBoundary
+
+---
+
+## KNOWN LIMITATIONS / DEFERRALS TO 5E.3+
+1. Stateful token blacklist/refresh tokens still deferred (Phase 9 security): bearer tokens remain valid ≤15 min after logout (cookie IS cleared).
+2. No REST-level rate limiting yet (socket joins are limited since 5D.5) — Phase 9 candidate.
+3. Toast system not introduced; inline banners/bad messages remain the pattern (consistent with existing design).
+4. External error-monitoring intentionally not added.
+
+---
+
+## FILES CHANGED
+**Modified**
+- `backend/src/app.js` — global safe error middleware (+ client-parse-error classification)
+- `backend/src/controllers/authController.js` — login/getMe safe wrapping
+- `backend/src/controllers/taskController.js` — startDate/dueDate validation (create + update)
+- `frontend/src/services/api.js` — 15 s timeout, auth-endpoint-aware 401 interceptor, getApiErrorMessage helper
+- `frontend/src/contexts/SocketContext.jsx` — auth-classified connect_error handling
+- `frontend/src/main.jsx` — mount ErrorBoundary
+- `backend/package.json` (+ script `test:errors`)
+- `PROJECT_PLAN.md`, `PROJECT_PROGRESS.md`, `PROJECT_RESULT.md`
+
+**Created**
+- `frontend/src/components/ErrorBoundary.jsx`
+- `backend/tests/error-contract.test.js`
+- `5E.2.txt` (this file)
+
+## NEXT SUB-PHASE
+
+**5E.3 — Security Review** (JWT hardening/refresh strategy decision, REST rate limiting, CORS tightening, input-sanitization sweep, deployment security checklist)

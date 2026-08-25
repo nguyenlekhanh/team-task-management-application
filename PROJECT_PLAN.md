@@ -382,13 +382,12 @@ project-root/
 
 ## Current Phase
 
-**Phase 5E.1: Full System Integration** - **COMPLETED** (cross-feature audit + new 46-assertion system-integration suite covering auth lifecycle, task authorization matrix incl. removed-creator boundary, group-deletion cascade integrity, multi-tab delivery, offline resync, failed-op isolation, room boundaries; zero application bugs found; full 231-assertion battery green)
+**Phase 5E.2: Error Handling & UX Polish** - **COMPLETED** (fixed login-401 reload loop; global safe error middleware + malformed-JSON 400 classification; login/getMe exception wrapping; task date-field validation; axios timeout + auth-endpoint-aware interceptor; SocketContext auth-failure reconnect guard; root ErrorBoundary; new 20-assertion error-contract suite — full 271-assertion battery green)
 
 ## Recommended Next Steps
 
-1. **Begin Phase 5E.2 Error Handling & UX Polish:**
-   - Global React error boundary; Express API error middleware
-   - Loading skeletons / empty states / validation messages / toasts
-   - Keyboard navigation + accessibility pass
+1. **Begin Phase 5E.3 Security Review:**
+   - JWT/refresh strategy decision, REST rate limiting, CORS tightening
+   - Input sanitization sweep, deployment security checklist
 
 (End of file)

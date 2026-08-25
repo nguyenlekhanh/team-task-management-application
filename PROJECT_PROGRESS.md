@@ -1262,3 +1262,36 @@ Begin **5E.1** (Full System Integration)
 
 ### Next Phase
 Begin **5E.2** (Error Handling & UX Polish)
+
+## Phase Status: PHASE 5E.2 - COMPLETED (Error Handling & UX Polish)
+
+### Bugs Found & Fixed
+1. **Failed login reloaded the page**: wrong password → 401 → axios interceptor wiped auth + hard-redirected to /login, destroying the form error. Interceptor now skips auth endpoints; login page owns its error UX.
+2. **Stack-trace leakage**: `NODE_ENV=development` Express default handler exposed stacks for uncaught errors (login/getMe had no safe wrapping). Added global error middleware returning `{error:'Internal server error'}` 500 with server-side-only logging.
+3. **Malformed JSON returned 500**: middleware now classifies body-parser parse failures as 400 'Invalid JSON body'.
+4. **Garbage task dates persisted silently**: startDate/dueDate validation added to create/update (400 'Invalid start date or due date').
+5. **Hanging requests**: axios instance now has a 15 s timeout surfacing 'Request timed out…'.
+6. **Socket auth-expiry reconnect loop**: SocketContext closes + clears auth on auth-classified connect_error (mirrors REST path).
+7. **Render crashes blanked the app**: minimal root ErrorBoundary added with reload recovery.
+
+### Also
+- `getApiErrorMessage(error, fallback)` helper in services/api.js (timeout/network/server-message distinction)
+- New `backend/tests/error-contract.test.js` (+ `test:errors`): safe-shape + leak-pattern scanning across representative 400/401/403/404/500 responses
+
+### Files Created
+- `frontend/src/components/ErrorBoundary.jsx`
+- `backend/tests/error-contract.test.js`
+- `5E.2.txt`
+
+### Files Modified
+- `backend/src/app.js`, `backend/src/controllers/authController.js`, `backend/src/controllers/taskController.js`, `backend/package.json`
+- `frontend/src/services/api.js`, `frontend/src/contexts/SocketContext.jsx`, `frontend/src/main.jsx`
+
+### Test Results
+- ✅ Error contract suite: **20/20** (leak-pattern scanning across representative error classes)
+- ✅ Full battery: foundation **22/22**, chat **35/35**, notification-realtime **20/20**, presence **26/26**, system integration **46/46**, notification integration **68/68**, REST regression **14/14**
+- ✅ Frontend production build succeeds
+- Total automated assertions: **271**, all passing
+
+### Next Phase
+Begin **5E.3** (Security Review)

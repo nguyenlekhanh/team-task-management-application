@@ -26,6 +26,22 @@ export function SocketProvider({ children }) {
     if (!token) return undefined
 
     const s = createSocket(token)
+    // Auth-classified handshake failures (expired/invalid token) must not
+    // retry forever - mirror the REST 401 path: clear stale auth, go to login.
+    s.on('connect_error', (err) => {
+      const reason = err?.message || ''
+      if (
+        reason === 'Authentication required' ||
+        reason === 'Invalid token' ||
+        reason === 'Token expired' ||
+        reason === 'User not found'
+      ) {
+        s.close()
+        localStorage.removeItem('token')
+        localStorage.removeItem('user')
+        window.location.href = '/login'
+      }
+    })
     socketRef.current = s
     setSocket(s)
 

@@ -2,6 +2,13 @@ const { Task, Group, GroupMember, User, Checklist, TaskMember } = require('../mo
 const { Op } = require('sequelize');
 const { notifyUsers } = require('../utils/notificationService');
 
+// Date fields must be absent or parseable; rejects garbage objects/values
+// that would otherwise persist and render as 'Invalid Date' in the UI (5E.2).
+function isValidDateValue(value) {
+  if (value === undefined || value === null || value === '') return true;
+  return !isNaN(new Date(value).getTime());
+}
+
 function sanitizeTask(task) {
   return {
     id: task.id,
@@ -99,6 +106,10 @@ async function createTask(req, res) {
 
   const validStatuses = ['todo', 'in_progress', 'completed', 'overdue'];
   const validPriorities = ['low', 'medium', 'high', 'urgent'];
+
+  if (!isValidDateValue(startDate) || !isValidDateValue(dueDate)) {
+    return res.status(400).json({ error: 'Invalid start date or due date' });
+  }
 
   if (priority && !validPriorities.includes(priority)) {
     return res.status(400).json({ error: 'Invalid priority value' });
@@ -288,6 +299,10 @@ async function updateTask(req, res) {
 
   const validStatuses = ['todo', 'in_progress', 'completed', 'overdue'];
   const validPriorities = ['low', 'medium', 'high', 'urgent'];
+
+  if (!isValidDateValue(startDate) || !isValidDateValue(dueDate)) {
+    return res.status(400).json({ error: 'Invalid start date or due date' });
+  }
 
   if (status && !validStatuses.includes(status)) {
     return res.status(400).json({ error: 'Invalid status value' });

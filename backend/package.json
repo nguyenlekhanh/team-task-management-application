@@ -14,7 +14,7 @@
     "test:presence": "node tests/presence-integration.test.js",
     "test:system": "node tests/system-integration.test.js",
     "test:all": "node tests/socket-foundation.test.js && node tests/chat-realtime.test.js && node tests/notification-realtime.test.js && node tests/presence-integration.test.js && node tests/system-integration.test.js && node tests/notification-integration.js",
-    "test:system": "node tests/system-integration.test.js"
+    "test:errors": "node tests/error-contract.test.js"
   },
   "keywords": [],
   "author": "",

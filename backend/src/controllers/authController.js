@@ -63,22 +63,28 @@ async function register(req, res) {
  */
 async function login(req, res) {
   const { username, password } = req.body;
+  let user;
 
-  // Find user by username
-  const user = await User.findOne({ where: { username } });
+  try {
+    // Find user by username
+    user = await User.findOne({ where: { username } });
 
-  if (!user) {
-    return res.status(401).json({
-      error: 'Invalid credentials'
-    });
-  }
+    if (!user) {
+      return res.status(401).json({
+        error: 'Invalid credentials'
+      });
+    }
 
-  // Verify password
-  const isValidPassword = await bcrypt.compare(password, user.password);
-  if (!isValidPassword) {
-    return res.status(401).json({
-      error: 'Invalid credentials'
-    });
+    // Verify password
+    const isValidPassword = await bcrypt.compare(password, user.password);
+    if (!isValidPassword) {
+      return res.status(401).json({
+        error: 'Invalid credentials'
+      });
+    }
+  } catch (err) {
+    console.error('[ERROR] login:', err.message);
+    return res.status(500).json({ error: 'Login failed' });
   }
 
   // Generate JWT token
@@ -171,7 +177,13 @@ async function getMe(req, res) {
         error: 'Token expired'
       });
     }
-    throw err;
+    if (err.name === 'JsonWebTokenError') {
+      return res.status(401).json({
+        error: 'Invalid token'
+      });
+    }
+    console.error('[ERROR] getMe:', err.message);
+    return res.status(500).json({ error: 'Failed to fetch user' });
   }
 }
 

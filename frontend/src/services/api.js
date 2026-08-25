@@ -8,6 +8,7 @@ const api = axios.create({
     'Content-Type': 'application/json',
   },
   withCredentials: true,
+  timeout: 15000,
 })
 
 api.interceptors.request.use(
@@ -21,10 +22,17 @@ api.interceptors.request.use(
   (error) => Promise.reject(error)
 )
 
+// 401 handling: a session-expiry on a PROTECTED request clears stale auth and
+// returns to /login. Auth-endpoint failures (e.g. wrong password on login)
+// must NOT trigger the wipe/reload - the login page surfaces its own error.
+const AUTH_ENDPOINTS = ['/auth/login', '/auth/register']
+
 api.interceptors.response.use(
   (response) => response,
   (error) => {
-    if (error.response?.status === 401) {
+    const url = error.config?.url || ''
+    const isAuthEndpoint = AUTH_ENDPOINTS.some((p) => url.includes(p))
+    if (error.response?.status === 401 && !isAuthEndpoint) {
       localStorage.removeItem('token')
       localStorage.removeItem('user')
       window.location.href = '/login'
@@ -32,6 +40,13 @@ api.interceptors.response.use(
     return Promise.reject(error)
   }
 )
+
+// Safe user-facing message extraction shared across pages/forms.
+export function getApiErrorMessage(error, fallback) {
+  if (error?.code === 'ECONNABORTED') return 'Request timed out. Please try again.'
+  if (!error?.response) return 'Network error. Check your connection and try again.'
+  return error.response?.data?.error || fallback
+}
 
 export const authApi = {
   register: (data) => api.post('/auth/register', data),
