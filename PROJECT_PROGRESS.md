@@ -1213,3 +1213,29 @@ Begin **5D.4** (Realtime Notifications)
 
 ### Next Phase
 Begin **5D.5** (Presence + Testing & Integration)
+
+## Phase Status: PHASE 5D.5 - COMPLETED (Presence + Testing & Integration)
+
+### What Was Implemented
+- **presence.js registry**: in-memory Map<userId,{sockets,generation,offlineTimer}>; 0→1 broadcasts online once, 1→N silent (multi-tab), last-disconnect starts configurable grace (`PRESENCE_GRACE_MS`, default 5000); generation-guarded timers so stale offline timers are no-ops; `User.onlineStatus` intentionally NOT written (it is a user-controlled profile flag, not connection-derived — documented decision)
+- **presence:updated event**: `{userId, online, at}` broadcast to co-member group rooms only; best-effort, never breaks socket lifecycle
+- **joinLimiter.js**: bounded fixed-window limiter (default 20/10s via env), opportunistic pruning + 10k hard cap, per-user cleanup on disconnect
+- **Room commands**: group/task joins now rate-limited first (abuse shield), DB authorization unchanged and independent
+- **Eviction**: removeMember evicts ALL target sockets from the group room; deleteGroup evicts every member; both best-effort after authoritative DB changes
+
+### Files Created
+- `backend/src/socket/presence.js`, `backend/src/socket/joinLimiter.js`
+- `backend/tests/presence-integration.test.js`
+- `5D.5.txt`
+
+### Files Modified
+- `backend/src/socket/index.js`, `backend/src/controllers/groupController.js`, `backend/package.json` (+test:presence)
+
+### Test Results
+- ✅ New presence/membership/rate-limit suite: **26/26** (online transition + scope isolation; multi-tab counting; grace expiry; reconnect-cancel + stale-timer safety; eviction of all sockets incl. message/notification silence + rejoin rejection + re-add restoration + unrelated-room integrity; throttle behavior with authz independence + cross-user immunity + reconnect-clean state; chat delivery across reconnect; no client presence control)
+- ✅ Socket foundation **22/22** · Chat realtime **35/35** · Notification realtime **20/20** · Notification integration **68/68** · REST regression sweep **14/14**
+- ✅ Frontend production build succeeds
+- Server exercised under test knobs PRESENCE_GRACE_MS=800 / SOCKET_JOIN_LIMIT=8 / SOCKET_JOIN_WINDOW_MS=3000
+
+### Next Phase
+Phase 5D COMPLETE. Begin **5E.1** (Full System Integration)

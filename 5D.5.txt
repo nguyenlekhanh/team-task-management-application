@@ -1,0 +1,130 @@
+# Phase 5D.5 - Presence + Testing & Integration
+
+## STATUS
+COMPLETED
+
+## OBJECTIVE
+Complete the realtime phase: connection-derived presence with multi-tab correctness and disconnect grace period, presence broadcasts scoped to co-members, membership-change room eviction across all devices, join rate-limit hardening, plus the full reconnection/integration test matrix and regression verification. No redesign of 5D.1–5D.4 contracts.
+
+---
+
+## IMPLEMENTATION SUMMARY
+
+### New backend modules
+**`src/socket/presence.js`** — in-memory registry `Map<userId, { sockets:Set<socketId>, generation:number, offlineTimer }>`:
+- `addSocket(userId, socketId)` → 0→1 transition broadcasts online once; 1→N adds silently (multi-tab correct)
+- `removeSocket(userId, socketId)` → other sockets remaining ⇒ nothing; last socket gone ⇒ grace timer starts
+- **Generation guard**: every transition increments a per-user generation captured by its timer; on fire, offline is applied only if generation still matches AND socket set is still empty — a stale timer can never mark a reconnected user offline (double protection alongside clearTimeout-on-reconnect)
+- Broadcasts `presence:updated` to co-member group rooms only (`GroupMember` lookup per transition); best-effort try/catch — failures logged, never affect socket lifecycle
+- `evictUserFromRoom/evictUserFromGroup(userId, room)` — leaves ALL of the user's sockets from a room via the registry (multi-tab correct); no-op-safe before init
+
+**`src/socket/joinLimiter.js`** — bounded in-memory fixed-window limiter keyed `${userId}:${event}`:
+- Defaults 20 joins / 10 s (env knobs `SOCKET_JOIN_LIMIT`, `SOCKET_JOIN_WINDOW_MS`)
+- Opportunistic pruning of expired entries + hard size cap (10k) against unbounded growth
+- `clearUser()` on socket disconnect → reconnects never inherit stale counters
+
+### Wiring (`src/socket/index.js`)
+- Connection: implicit `user:{id}` join + `presence.addSocket()`; Disconnect: `presence.removeSocket()` + `joinLimiter.clearUser()`
+- `group:join` / `task:join` now pass through the limiter FIRST (abuse shield incl. unauthorized spam), then run unchanged database authorization — rate limiting never replaces membership validation; throttled requests never touch the DB
+
+### Membership-change eviction (`src/controllers/groupController.js`)
+- `removeMember`: after authoritative DB deletion → evict ALL target-user sockets from `group:{groupId}` (best-effort, logged)
+- `deleteGroup`: after cascade delete → evict every former member's sockets from the deleted group's room
+- Re-adding membership requires a fresh authorized `group:join`; removed users cannot rejoin until the DB says so again
+
+### Frontend
+No changes required (per §17 of the phase spec): no member-list/presence UI exists today, so the realtime contract + tests were prioritized over speculative UI. Existing lifecycle already satisfies §18 (one socket/tab via SocketContext, auto-cleanup listeners, logout closes, StrictMode-safe ref guard) as proven by 5D.3/5D.4 suites.
+
+---
+
+## PRESENCE ARCHITECTURE DECISIONS
+
+| Decision | Choice | Rationale |
+|---|---|---|
+| Source of truth | server-side connection registry | clients never claim presence; no client-set commands exist (`presence:setOnline` etc. ignored — tested) |
+| `User.onlineStatus` DB field | NOT written by connections | inspection showed it is a user-controlled profile flag ("Show as online" toggle in Profile), not connection-derived; avoiding per-connection DB writes follows the phase's DB-discipline rule |
+| Grace period | `PRESENCE_GRACE_MS` env, default 5000 ms | configurable for fast tests (suite runs at 800 ms) without leaking test-only code |
+| Event | `presence:updated` S→C | matches established `<domain>:<past-tense>` convention |
+| Payload | `{ userId, online, at }` | minimal; ISO timestamp per project convention; no socket IDs/secrets |
+| Scope | co-member group rooms only | smallest correct audience; unrelated/isolated users receive nothing (tested) |
+| Initial snapshot / resync | not added | no consumer exists yet; reconnect correctness is covered by REST-authoritative resync patterns from 5D.3/5D.4; adding a snapshot API now would be unused surface |
+
+Event: `presence:updated` — direction S→C — room(s) `group:{gid}` of every group the subject belongs to — payload `{userId:int, online:bool, at:ISO}` — timing: on 0→1 transition (online) and after grace expiry with zero sockets (offline) — authorization: receivers are current members by virtue of room membership.
+
+---
+
+## RECONNECTION MATRIX (automated)
+- connect → online broadcast ✓
+- second tab connects → NO duplicate online ✓
+- one tab disconnects → still online ✓
+- final tab disconnects → grace starts → offline broadcast ✓
+- reconnect during grace → cancel + remain online ✓ (stale timer fired harmlessly in-window ✓, ≤1 duplicate-free online event ✓)
+- reconnect after offline → online again ✓
+- chat room rejoin after reconnect restores delivery ✓
+- notification resync/dedupe: covered by 5D.4 suite (re-run green)
+
+---
+
+## TESTS PERFORMED & RESULTS
+
+### New: `backend/tests/presence-integration.test.js` — 26 assertions, ALL PASSED
+Presence: online broadcast to co-member with minimal payload; unrelated user receives nothing; multi-tab no-duplicate-online; partial-disconnect stays online; grace-expiry offline; reconnect-cancels-grace; stale-timer safety; isolation.
+Membership eviction: pre-removal join; removal evicts all sockets (whoami-proven); no further message/notification frames; rejoin rejected ('Not a member'); re-add restores join + live delivery; unrelated group room untouched.
+Rate limiting: allowed-up-to-limit; abuse throttled ('Too many…'); authz independent (unauthorized fresh user gets membership error, not throttle); other users unaffected mid-window; reconnect clears counters.
+Reconnect/security: chat delivery across reconnect cycle; client-controlled `presence:setOnline` ignored.
+Cleanup: all fixtures cascade-deleted, zero residue.
+
+### Full regression battery (all green)
+- ✅ Socket foundation: **22/22**
+- ✅ Chat realtime (5D.3): **35/35**
+- ✅ Notification realtime (5D.4): **20/20**
+- ✅ Notification integration (5C.5): **68/68**
+- ✅ Backend REST regression sweep: **14/14**
+- ✅ Frontend production build succeeds
+- Server run under test knobs: `PRESENCE_GRACE_MS=800 SOCKET_JOIN_LIMIT=8 SOCKET_JOIN_WINDOW_MS=3000`
+
+---
+
+## SECURITY VERIFICATION
+- Presence identity derives solely from handshake-JWT-authenticated `socket.userId`; no client command can set or spoof presence (unknown events ignored — tested).
+- Broadcasts carry only `{userId, online, at}` — no socket IDs, tokens, or private fields (asserted).
+- Visibility limited to co-members via existing group rooms; isolated users receive nothing (asserted).
+- Removed members: evicted from all their sockets, cannot rejoin without DB-backed membership, receive no further frames (all asserted).
+- Rate limiting is additive: it throttles volume only and never bypasses/replaces membership checks (asserted both directions).
+- User-room and notification-room isolation intact (foundation + 5D.4 suites re-run green).
+
+## MEMORY / PERFORMANCE REVIEW
+- Registry entries deleted when grace expires with zero sockets; timers cleared on reconnect/reset.
+- Limiter prunes expired windows on every check and hard-caps at 10k entries; per-user state cleared on disconnect.
+- Per-transition cost: one indexed GroupMember query for broadcast fan-out — negligible at team scale.
+
+---
+
+## KNOWN LIMITATIONS / DEFERRALS BEYOND 5D.5
+1. No presence UI yet (no consumer existed; contract + tests delivered first).
+2. Single-instance only: registry/limiter/grace timers are in-memory; multi-instance deployment would require the Redis adapter plan noted in 5D.1 §14 (explicitly out of scope).
+3. Presence visibility is group-scoped; cross-group "friends"/direct-message presence has no concept in this app.
+4. Group-owner deletion of an offline user relies on room absence rather than active eviction (sockets reconnect into re-validated joins).
+5. Phase 9 items (rate limiting on REST auth routes, CORS tightening for REST, refresh tokens) remain separate future work.
+
+---
+
+## FILES CREATED
+- `backend/src/socket/presence.js`
+- `backend/src/socket/joinLimiter.js`
+- `backend/tests/presence-integration.test.js`
+- `5D.5.txt` (this file)
+
+## FILES MODIFIED
+- `backend/src/socket/index.js` (presence + limiter wiring)
+- `backend/src/controllers/groupController.js` (removeMember/deleteGroup eviction hooks)
+- `backend/package.json` (+ script `test:presence`)
+- `PROJECT_PLAN.md`, `PROJECT_PROGRESS.md`, `PROJECT_RESULT.md`
+
+---
+
+## NEXT PHASE
+
+Phase 5D (Realtime) is COMPLETE (5D.1–5D.5). Next per PHASE5_PLAN.md roadmap:
+
+**5E.1 — Full System Integration** (cross-feature end-to-end verification, data consistency, performance pass) — followed by 5E.2 UX/error polish, 5E.3 security review, 5E.4 performance review, 5E.5 final testing & documentation.

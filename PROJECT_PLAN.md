@@ -382,13 +382,13 @@ project-root/
 
 ## Current Phase
 
-**Phase 5D.4: Realtime Notifications** - **COMPLETED** (notification:new + authoritative unread-count frames emitted from notificationService after persistence to user:{recipientId} rooms; useNotifications consumes push with id-dedupe and reconnect resync; 20/20 realtime tests, all suites green)
+**Phase 5D.5: Presence + Testing & Integration** - **COMPLETED** (connection-derived presence registry with multi-tab counting, grace period + generation-guarded offline timers, co-member-scoped presence:updated broadcasts; membership-change eviction for all user sockets on removeMember/deleteGroup; bounded join rate limiter with disconnect cleanup; 26/26 new integration tests; full realtime battery green — Phase 5D COMPLETE)
 
 ## Recommended Next Steps
 
-1. **Begin Phase 5D.5 Presence + Testing & Integration:**
-   - Presence registry with multi-tab reference counting + grace period + broadcasts
-   - Membership-change room eviction; join rate-limit hardening
-   - Full reconnection/resync matrix; cross-feature integration tests; docs polish
+1. **Begin Phase 5E.1 Full System Integration:**
+   - Cross-feature end-to-end flows (register → group → task → checklist → chat → notifications)
+   - Data consistency and cascade verification
+   - Query/performance pass
 
 (End of file)

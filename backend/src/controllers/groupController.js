@@ -236,7 +236,19 @@ async function deleteGroup(req, res) {
       return res.status(404).json({ error: 'Group not found' });
     }
 
+    const members = await GroupMember.findAll({ where: { groupId }, attributes: ['userId'] });
     await group.destroy();
+
+    // Realtime room eviction (5D.5): every member's sockets leave the deleted
+    // group's room. Best-effort; database deletion is authoritative.
+    try {
+      const presence = require('../socket/presence');
+      for (const m of members) {
+        presence.evictUserFromGroup(m.userId, groupId);
+      }
+    } catch (evictErr) {
+      console.error('[ERROR] group deletion room eviction:', evictErr.message);
+    }
 
     res.json({ message: 'Group deleted successfully' });
   } catch (err) {
@@ -388,6 +400,19 @@ async function removeMember(req, res) {
     }
 
     await targetMember.destroy();
+
+    // Realtime room eviction (5D.5): the removed member's connected sockets
+    // must leave the group room across all their tabs/devices. Best-effort -
+    // membership removal itself is already authoritative in the database.
+    try {
+      const presence = require('../socket/presence');
+      const evicted = presence.evictUserFromGroup(targetUserId, groupId);
+      if (evicted > 0) {
+        console.log(`[SOCKET] evicted ${evicted} socket(s) of user #${targetUserId} from group #${groupId}`);
+      }
+    } catch (evictErr) {
+      console.error('[ERROR] member room eviction:', evictErr.message);
+    }
 
     res.json({ message: 'Member removed successfully' });
   } catch (err) {
