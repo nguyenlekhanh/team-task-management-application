@@ -382,13 +382,13 @@ project-root/
 
 ## Current Phase
 
-**Phase 5E.4: Performance Review** - **COMPLETED** (measured fan-out bottleneck 61→3 SQL statements & 2131→160 ms for 30 recipients via bulkCreate + grouped unread counts; route-level code splitting cut initial JS 125.6→87.5 kB gzip; new 22-assertion performance regression suite; full 318-assertion battery green)
+**Phase 5E.5: Final Testing & Documentation** - **COMPLETED** (full battery re-run green, docs/ created: API.md + DEVELOPMENT.md + DEPLOYMENT.md + USER_GUIDE.md; README rewritten; aggregate test:all extended) — **Phase 5E and the currently implemented project scope are COMPLETE.**
 
-## Recommended Next Steps
+## Project Completion Summary
+All planned phases are COMPLETED: 0–4 (foundation/auth/groups/tasks), 5A checklist, 5B chat, 5C notifications, 5D realtime (Socket.IO foundation/chat/notifications/presence), 5E.1–5E.5 integration/error/security/performance/documentation. Final state: 9 test suites / 318 assertions green, production build passing, documentation consolidated under docs/.
 
-1. **Begin Phase 5E.5 Final Testing & Documentation:**
-   - Full regression sweep, cross-browser checks
-   - API documentation, deployment guide, developer/user guides
-   - Final PROJECT_* consolidation
+## Recommended Next Steps (future work, NOT started)
+- Phase 9 candidates: refresh tokens/token revocation, REST rate limiting beyond auth, HTTPS/HSTS/CSP at proxy, email/push channels
+- Scale-out prerequisites if ever needed: Redis adapter + shared presence + non-SQLite store
 
 (End of file)

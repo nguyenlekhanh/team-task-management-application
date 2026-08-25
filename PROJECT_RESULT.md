@@ -531,6 +531,7 @@
 **Phase 5E.2: Error Handling & UX Polish** - **COMPLETED** (fixed login-401 reload loop, stack-trace leakage via global error middleware, malformed-JSON 400 classification, garbage task-date validation, axios timeout + auth-endpoint-aware interceptor, socket auth-expiry reconnect guard, root ErrorBoundary; new 20-assertion error-contract suite; full 271-assertion battery green)
 **Phase 5E.3: Security Review** - **COMPLETED** (5 vulnerabilities fixed: CORS allowlist, JWT HS256 alg pinning, cookie SameSite, registration password minimum, login brute-force failed-attempt limiter; security headers added; new 45-assertion security suite; full 296-assertion battery green)
 **Phase 5E.4: Performance Review** - **COMPLETED** (measured & fixed fan-out bottleneck: notifyUsers 61→3 SQL statements / 2131→160 ms for 30 recipients via bulkCreate + grouped counts; route-level code splitting cut initial JS −30% gzip; new 22-assertion performance regression suite; full 318-assertion battery green)
+**Phase 5E.5: Final Testing & Documentation** - **COMPLETED** (full battery re-run: 9 suites / 318 assertions green; docs/ created — API.md, DEVELOPMENT.md, DEPLOYMENT.md, USER_GUIDE.md; README rewritten with verified commands; aggregate test:all extended) — **PROJECT SCOPE COMPLETE**
 
 ## Recommended Next Steps
 
@@ -540,3 +541,31 @@
    - Final PROJECT_* consolidation
 
 (End of file)
+## Final Feature Matrix (Phase 5E.5)
+
+| Area | Status | Verification |
+|---|---|---|
+| Authentication (register/login/logout/JWT) | ✅ Complete | error-contract + security suites |
+| Profile & password change | ✅ Complete | REST regression + security suite |
+| Groups & member/role management | ✅ Complete | system-integration + security suites |
+| Tasks CRUD + assignment + statuses | ✅ Complete | system-integration matrix |
+| Task filtering/sorting/pagination | ✅ Complete | system-integration + regression sweep |
+| Checklists (CRUD/toggle/progress) | ✅ Complete | system-integration + 5A.5 record |
+| Group chat + task comments | ✅ Complete | chat-realtime suite |
+| Notifications (5 types, prefs, isolation) | ✅ Complete | notification integration + realtime suites |
+| Realtime chat/comments delivery | ✅ Complete | chat-realtime suite |
+| Realtime notification push | ✅ Complete | notification-realtime suite |
+| Presence (multi-tab, grace period) | ✅ Complete | presence suite |
+| Membership eviction + reconnect authz | ✅ Complete | presence + system suites |
+| Reconnect/resync behavior | ✅ Complete | 5D.3–5E.1 suites |
+| Security hardening | ✅ Complete | security suite (5E.3) |
+| Error handling & sanitization | ✅ Complete | error-contract suite (5E.2) |
+| Performance (fan-out batching, code splitting) | ✅ Complete | performance suite (5E.4) |
+| Testing (9 suites, 318 assertions) | ✅ Green | final battery run recorded in 5E.5 |
+| Documentation (API/dev/deploy/user) | ✅ Complete | docs/ directory |
+
+## Phase History (final)
+0 Foundation · 1 Project setup · 2 User system · 3 Groups · 4 Tasks backend/frontend ·
+**5A** Checklist (5 phases) · **5B** Chat & comments (5 phases) · **5C** Notifications (5 phases) ·
+**5D** Realtime: design→foundation→chat→notifications→presence (5 phases) ·
+**5E.1** Integration · **5E.2** Error/UX · **5E.3** Security · **5E.4** Performance · **5E.5** Final testing & documentation.

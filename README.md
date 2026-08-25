@@ -1,311 +1,68 @@
 # Team Task Management Application
 
-A collaboration platform combining task management, group communication, and team workflow tracking.
+A collaboration platform combining **team groups, task management, checklists, group chat, task comments, notifications, and realtime updates** — built with React + Vite on the frontend and Node/Express + Sequelize (SQLite) + Socket.IO on the backend.
 
-## Project Structure
+**Status: feature-complete for implemented scope.** 318 automated assertions across 9 test suites, all passing.
 
+## Features
+- **Authentication** — register/login (JWT, bcrypt-hashed passwords), profile editing, password change, brute-force login lockout
+- **Groups & members** — create/update/delete groups; owner/admin/member roles; member management with realtime room eviction on removal
+- **Tasks** — CRUD, assignment, statuses, priorities, filters/search/sorting/pagination, per-task authorization
+- **Checklists** — ordered items, completion tracking with completer + timestamp
+- **Chat & comments** — group chat + per-task comments with edit/delete and role-based deletion
+- **Notifications** — TASK_ASSIGNED, TASK_COMPLETED, NEW_MESSAGE, DEADLINE_APPROACHING, MENTION; unread badge; mark read/all-read/delete; per-type user preferences
+- **Realtime** — Socket.IO: instant messages/comments, pushed notifications, connection-derived presence with multi-tab support, automatic reconnect + REST resync
+- **Security** — CORS allowlist, HS256-pinned JWTs, HttpOnly+SameSite cookies, security headers, rate limiting (logins + socket joins), validated/sanitized inputs, blind-404 authorization, safe error envelopes
+
+## Architecture
 ```
-project-root/
-├── backend/          # Node.js + Express API server (IMPLEMENTED)
-├── frontend/         # React + Vite + TailwindCSS application (IMPLEMENTED)
-├── database/         # SQLite migrations
-├── PROJECT_PLAN.md   # Project architecture and roadmap
-├── PROJECT_PROGRESS.md # Phase tracking document
-├── PROJECT_RESULT.md # Implementation verification report
-└── README.md         # This document
+React 18 + Vite + TailwindCSS  ──HTTP/WS──►  Express + Socket.IO ──Sequelize──► SQLite
+      Context/hooks, code-split routes            JWT auth · in-memory presence/limiters
+```
+REST is authoritative for all reads/writes; Socket.IO is a best-effort delivery layer. Single-node by design (see docs/DEPLOYMENT.md).
+
+## Repository structure
+```
+backend/
+  src/{controllers,routes,middleware,models,services,socket,utils,jobs,jobs,config}
+  migrations/          Sequelize migrations (Users…Notifications)
+  tests/               9 integration/security/perf suites (plain node scripts)
+frontend/
+  src/{pages,components,contexts,hooks,services}
+docs/                  API.md · DEVELOPMENT.md · DEPLOYMENT.md · USER_GUIDE.md
+PROJECT_*.md / *.txt   Phase plans, records, and final reports (5A … 5E.5)
 ```
 
-## Getting Started
-
-### Prerequisites
-
-- Node.js >= v20.19.0 (Note: Currently running v18.19.1, sqlite3 may show warnings)
-- npm or yarn
-
-### Backend Setup
-
+## Quick start
 ```bash
+npm install && cd backend && npm install && cd ../frontend && npm install && cd ..
+cp .env.example backend/.env           # defaults work for local dev
+
 cd backend
+../node_modules/.bin/sequelize db:migrate
+PRESENCE_GRACE_MS=800 SOCKET_JOIN_LIMIT=8 SOCKET_JOIN_WINDOW_MS=3000 npm start   # :3000
 
-# Install dependencies
-npm install
-
-# Set up environment variables
-cp .env.example .env
-# Edit .env with your configuration (JWT_SECRET required)
-
-# Start server
-npm run dev  # Development mode with nodemon
-# or
-npm start    # Production mode
+# second terminal
+cd frontend && npm run dev             # :5173 (proxies /api)
 ```
+Full configuration reference: [docs/DEVELOPMENT.md](docs/DEVELOPMENT.md)
 
-Backend will run on `http://localhost:3000`
-
-### Frontend Setup
-
+## Test commands (backend/, server must be running)
 ```bash
-cd frontend
-
-# Install dependencies
-npm install
-
-# Start development server (with API proxy to backend)
-npm run dev
+npm run test:all        # aggregate: all 9 suites
+npm run test:sockets | test:chat | test:notification-realtime | test:presence
+npm run test:system | test:notifications | test:errors | test:security | test:performance
 ```
+Presence suite needs `PRESENCE_GRACE_MS=800 SOCKET_JOIN_LIMIT=8` env values; security lockout section needs `AUTH_MAX_FAILED<=8`. Frontend: `npm run build`.
 
-Frontend will run on `http://localhost:5173` (proxies `/api` to `http://localhost:3000`)
+## Documentation
+- [docs/API.md](docs/API.md) — REST endpoints + Socket.IO event contract
+- [docs/DEVELOPMENT.md](docs/DEVELOPMENT.md) — setup, env vars, tests, debugging
+- [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md) — production notes and honest limitations
+- [docs/USER_GUIDE.md](docs/USER_GUIDE.md) — end-user walkthrough
 
-### Frontend Production Build
+## Security notes
+JWTs expire after 15 minutes (HttpOnly SameSite cookie + bearer transport); passwords are bcrypt-hashed and never returned; CORS is an allowlist; logins and socket joins are rate-limited; error responses are sanitized envelopes. See 5E.3.txt for the full review. Production checklist: set a strong `JWT_SECRET`, exact `CLIENT_ORIGIN`, `NODE_ENV=production`, HTTPS in front.
 
-```bash
-cd frontend
-npm run build  # Creates optimized build in dist/
-npx serve -s dist  # Serve production build
-```
-
-### Available Scripts
-
-**Backend:**
-- `npm run dev` - Start development server with nodemon
-- `npm start` - Start production server
-- `npm test` - Run tests (not implemented)
-
-**Frontend:**
-- `npm run dev` - Start Vite development server with hot reload
-- `npm run build` - Build for production
-- `npm run preview` - Preview production build locally
-
-### API Endpoints
-
-#### Health Check
-```bash
-GET http://localhost:3000/api/health
-
-Response:
-{
-  "status": "ok",
-  "timestamp": "2026-...",
-  "message": "Server is running"
-}
-```
-
-#### Authentication
-```bash
-# Register new user
-POST http://localhost:3000/api/auth/register
-{
-  "username": "testuser",
-  "password": "testpass123",
-  "displayName": "Test User"
-}
-
-# Login
-POST http://localhost:3000/api/auth/login
-{
-  "username": "testuser",
-  "password": "testpass123"
-}
-
-# Get current user (requires valid JWT token)
-GET http://localhost:3000/api/auth/me
-Authorization: Bearer <token>
-
-# Logout
-POST http://localhost:3000/api/auth/logout
-Authorization: Bearer <token>
-```
-
-#### User Profile
-```bash
-# Get profile (requires valid JWT token)
-GET http://localhost:3000/api/users/me
-Authorization: Bearer <token>
-
-# Update profile (requires valid JWT token)
-PUT http://localhost:3000/api/users/me
-Authorization: Bearer <token>
-{
-  "displayName": "New Name",
-  "avatarUrl": "https://example.com/avatar.png",
-  "onlineStatus": true
-}
-
-# Change password (requires valid JWT token)
-PUT http://localhost:3000/api/users/me/password
-Authorization: Bearer <token>
-{
-  "currentPassword": "oldpass",
-  "newPassword": "newpass123"
-}
-```
-
-#### Groups
-```bash
-# Create group (requires valid JWT token)
-POST http://localhost:3000/api/groups
-Authorization: Bearer <token>
-{
-  "name": "My Group",
-  "description": "Group description",
-  "avatarUrl": "https://example.com/avatar.png"
-}
-
-# List user's groups (requires valid JWT token)
-GET http://localhost:3000/api/groups
-Authorization: Bearer <token>
-
-# Get group (requires valid JWT token, must be member)
-GET http://localhost:3000/api/groups/1
-Authorization: Bearer <token>
-
-# Update group (requires valid JWT token, owner/admin only)
-PUT http://localhost:3000/api/groups/1
-Authorization: Bearer <token>
-{
-  "name": "New Name",
-  "description": "Updated description"
-}
-
-# Delete group (requires valid JWT token, owner only)
-DELETE http://localhost:3000/api/groups/1
-Authorization: Bearer <token>
-```
-
-#### Group Members
-```bash
-# List group members (requires valid JWT token, must be member)
-GET http://localhost:3000/api/groups/1/members
-Authorization: Bearer <token>
-
-# Add member (requires valid JWT token, owner/admin only)
-POST http://localhost:3000/api/groups/1/members
-Authorization: Bearer <token>
-{
-  "userId": 2,
-  "role": "member"
-}
-
-# Remove member (requires valid JWT token, owner/admin only, cannot remove owner)
-DELETE http://localhost:3000/api/groups/1/members/2
-Authorization: Bearer <token>
-
-# Change member role (requires valid JWT token, owner only, cannot change owner)
-PUT http://localhost:3000/api/groups/1/members/2
-Authorization: Bearer <token>
-{
-  "role": "admin"
-}
-```
-
-### Frontend Pages
-
-- **Login** (`/login`) - Username/password authentication
-- **Register** (`/register`) - New user registration
-- **Dashboard** (`/dashboard`) - Protected route showing user info and backend health status
-- **Profile** (`/profile`) - Protected route with Profile Settings and Change Password tabs
-- **Groups** (`/groups`) - List user's groups, create new group
-- **Group Detail** (`/groups/:id`) - Group details, member management
-
-## Git Initialization and Workflow
-
-### Initialize Git Repository
-
-```bash
-# From project root
-git init
-
-# Add all files
-git add .
-
-# Create initial commit
-git commit -m "Initial project structure"
-
-# Add remote origin
-git remote add origin <your-repository-url>
-```
-
-### Git Ignore Rules
-
-The `.gitignore` file at the project root ignores:
-
-**Node.js:**
-- `node_modules/` - Dependencies not tracked in repo
-- `package-lock.json` - Generated lock file
-- npm/yarn/pnpm logs and temporary files
-
-**Environment:**
-- `.env` - Local environment variables (never committed)
-- `.env.*` - Any environment file variants
-- `!.env.example` - Example file is committed for reference
-
-**Frontend:**
-- `dist/`, `build/` - Build output directories
-- `.vite/` - Vite development cache
-- `coverage/` - Test coverage reports
-
-**Backend:**
-- `uploads/` - User uploaded files
-- `logs/` - Application logs
-- Temporary and runtime files
-
-**Database:**
-- `*.sqlite`, `*.sqlite3`, `*.db` - SQLite database files
-- `data/` - Generated database files
-
-**IDE:**
-- `.vscode/`, `.idea/` - IDE specific settings
-- `*.swp`, `*.swo` - Vim swap files
-
-**Operating System:**
-- `.DS_Store` - macOS directory metadata
-- `Thumbs.db` - Windows directory metadata
-
-**Security:**
-- Certificates and private keys should never be committed
-
-### Recommended Commit Workflow
-
-1. **Feature branches**: Create a branch for each feature/bugfix
-   ```bash
-   git checkout -b feature/username-system
-   ```
-
-2. **Commit frequently**: Small, atomic commits
-   ```bash
-   git add .
-   git commit -m "feat: add user registration endpoint"
-   ```
-
-3. **Pull before pushing**: Always pull latest changes
-   ```bash
-   git pull origin main --rebase
-   ```
-
-4. **Push and create PR**: Submit feature branch for review
-   ```bash
-   git push origin feature/username-system
-   ```
-
-5. **Never commit**: 
-   - `.env` files with real secrets
-   - `node_modules/`
-   - Database files with production data
-   - Build artifacts
-
-## Project Phases
-
-See `PROJECT_PLAN.md` for the complete 9-phase development roadmap with implementation status.
-
-## Technology Stack
-
-- **Frontend**: React 18 + Vite 5 + TailwindCSS 3 (IMPLEMENTED)
-- **Backend**: Node.js + Express + Sequelize (IMPLEMENTED)
-- **Database**: SQLite (IMPLEMENTED - Users, Groups, GroupMembers tables)
-- **Realtime**: Socket.IO (NOT IMPLEMENTED)
-- **Authentication**: JWT + bcrypt (IMPLEMENTED)
-- **State Management**: React Context API (IMPLEMENTED)
-- **HTTP Client**: Axios (IMPLEMENTED)
-- **Routing**: React Router DOM v6 (IMPLEMENTED)
-
-(End of file)
+## Known limitations
+Single-node only (SQLite + in-memory presence/rate-limiters/rooms; no Redis adapter); no token revocation list (stateless 15-min tokens); scheduler runs in-process daily at 09:00 UTC; no email/push delivery; no mobile-native client.

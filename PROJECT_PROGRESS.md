@@ -1352,3 +1352,38 @@ List endpoints bounded+indexed · findAndCountAll without N+1 · deadline job sc
 
 ### Next Phase
 Begin **5E.5** (Final Testing & Documentation)
+
+## Phase Status: PHASE 5E.5 - COMPLETED (Final Testing & Documentation) — PROJECT SCOPE COMPLETE
+
+### Final Verification (actual run)
+Full battery executed after all changes — every suite green:
+| Suite | Assertions |
+|---|---|
+| Socket foundation | 22 |
+| Chat realtime | 35 |
+| Notification realtime | 20 |
+| Presence/membership/rate-limit | 26 |
+| System integration | 46 |
+| Notification integration | 68 |
+| Error contract | 20 |
+| Security review | 45 |
+| Performance regression | 22 |
+| REST regression sweep | 14 |
+| **Total** | **318 passing, 0 failing** |
+Frontend production build ✅ (initial JS 264.96 kB / 87.49 kB gzip, code-split pages).
+
+### Documentation Created/Updated
+- **docs/API.md** — full REST reference (verified against actual route registrations) + Socket.IO event contract
+- **docs/DEVELOPMENT.md** — setup, env vars table, migrations, per-suite test commands + aggregate `test:all`, debugging
+- **docs/DEPLOYMENT.md** — single-node architecture honesty: build, env, backups, scheduler, security posture, explicit non-goals (no Redis/horizontal scaling)
+- **docs/USER_GUIDE.md** — practical end-user walkthrough of all implemented features
+- **README.md** — rewritten to match reality; every command verified against package.json scripts
+
+### Aggregate runner extended
+`npm run test:all` now includes error-contract, security, and performance suites.
+
+### Known Limitations (intentional, documented in docs/DEPLOYMENT.md)
+SQLite single-node · in-memory presence/rate-limiters/rooms · no Redis adapter or horizontal scaling · stateless JWT without revocation list (≤15 min exposure) · scheduler in-process (no back-fill) · no email/push · no browser automation for cross-browser matrix.
+
+### Project Status
+Phase 5A–5E.5 all COMPLETED. The currently implemented project scope is feature-complete, tested (318 assertions), secured (5E.3 review), performance-reviewed (5E.4), and fully documented.
