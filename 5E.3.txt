@@ -1,0 +1,116 @@
+# Phase 5E.3 - Security Review
+
+## STATUS
+COMPLETED
+
+## OBJECTIVE
+Focused application security audit and hardening: audit → identify real vulnerabilities with evidence → smallest safe fix → regression. No rewrites, no security theater, no new dependencies.
+
+---
+
+## SECURITY SCOPE & THREAT MODEL
+Audited against: authentication bypass, broken authorization/IDOR, horizontal & vertical privilege escalation, removed-member access, cross-group leakage, ownership bypass, notification/message/comment isolation, Socket.IO room-authz bypass, room guessing, forged identity, JWT misuse, password handling, sensitive-data exposure, mass assignment, input handling, ORM injection, malformed JSON, unsafe errors, rate-limit/brute-force exposure, insecure CORS, cookie configuration, token storage, stale socket authorization, resource enumeration, resource limits.
+
+---
+
+## VULNERABILITIES FOUND & FIXES MADE (5 real findings)
+
+### V1 — Unrestricted CORS (medium)
+- **Evidence**: `app.use(cors())` allowed every origin with credentials; browsers could send credentialed cross-origin requests from any site.
+- **Fix**: origin allowlist from `CLIENT_ORIGIN` (comma-separated, default `http://localhost:5173`) applied to REST; disallowed browser origins receive no ACAO header. No-Origin requests (tests/curl) pass through. Matches the Socket.IO allowlist from 5D.2.
+
+### V2 — JWT algorithm not pinned (low-medium)
+- **Evidence**: `jwt.verify(token, SECRET)` accepted any algorithm header; enables alg-confusion token forgery classes.
+- **Fix**: `algorithms: ['HS256']` pinned in `utils/tokenAuth.js` (single shared verification point for REST + sockets).
+
+### V3 — Cookie missing SameSite (low)
+- **Evidence**: auth cookie had HttpOnly + Secure(prod) but no SameSite → relied on browser defaults.
+- **Fix**: `sameSite: 'lax'` added.
+
+### V4 — No registration password minimum (low)
+- **Evidence**: `POST /auth/register` accepted any password length while change-password enforced ≥6 — inconsistent policy.
+- **Fix**: registration enforces ≥6 characters (`400 Password must be at least 6 characters`), aligned with existing convention.
+
+### V5 — Login brute-force exposure (medium)
+- **Evidence**: unlimited failed login attempts per IP; no throttle anywhere on auth endpoints.
+- **Fix**: new `middleware/loginLimiter.js` — bounded in-memory fixed-window counter of FAILED attempts per IP (default 30 / 15 min via `AUTH_MAX_FAILED`, `AUTH_FAILURE_WINDOW_MS`); blocked IPs get 429 'Too many failed login attempts…' even for valid credentials until the window expires; successful logins never counted; pruned opportunistically + hard size cap; documented env knobs.
+- **Verified live** (knobbed run): 5 failures → 429 lockout incl. correct credentials; window expiry restores access (window=2.5s run).
+
+---
+
+## HARDENING ADDED (defense-in-depth, no behavior change)
+- Security headers on all responses: `X-Content-Type-Options: nosniff`, `X-Frame-Options: DENY`, `Referrer-Policy: no-referrer`.
+- `.env.example` documents all security-relevant env vars (CLIENT_ORIGIN, presence/join/auth limiter knobs).
+
+---
+
+## AREAS AUDITED WITH NO DEFECTS FOUND (evidence = passing tests)
+
+| Area | Evidence |
+|---|---|
+| Authentication | wrong-secret / alg:none / expired / malformed tokens all rejected (401); identity always re-resolved from DB per request; deleted users lose API access (middleware 404) |
+| IDOR | outsider blind-404s on task GET/status/comment/checklist/group delete/members/chat-post; nonexistent notification mark-read 404; user lists self-scoped only |
+| Mass assignment | forged ownerId/creatorId/senderId/assignedBy ignored (server-derived values win); role not settable through group/task/message creation; updateGroup destructures only name/description/avatarUrl |
+| Role escalation | member: cannot update/delete group, remove owner, assign tasks, self-promote; admin ceiling: cannot delete owner-created tasks, remove/change owner, delete group; owner intact |
+| Removed members | REST access denied despite prior creator/assignee status (5E.1); sockets evicted from rooms; rejoin denied without DB membership; zero further chat/notification frames (5D.5 suite) |
+| Socket security | identity server-derived from pinned-alg JWT; user:{id} implicit & self-scoped; group/task joins DB-authorized; room guesses rejected; join limiter abuse shield with disconnect cleanup (5D.5 suite) |
+| Notification isolation | recipient-scoped list/mark-read/delete/preferences; realtime only to server-assigned user:{recipientId}; sender exclusion intact (5C.5/5D.4 suites) |
+| Payload hygiene | message:new / notification:new frames scanned — no password/token/jwt/bearer/cookie substrings; sanitizers reuse REST shapes |
+| ORM / injection | zero raw SQL in src (grep); all queries parameterized Sequelize; FK cascade matrix exercised live in 5E.1 |
+| XSS | zero `dangerouslySetInnerHTML`/`innerHTML` usages (walked frontend/src); all user-generated content rendered as React text |
+| Input limits | express.json default ~100 kB body cap verified live (413 safe envelope); field-level length caps pre-existing (titles 200, content 5000, checklist 500, etc.); pagination clamped ≤100 |
+| Enumeration | login returns generic 'Invalid credentials'; protected resources blind-404 for non-members; acceptable residual risk documented (registration username 409 reveals existence — standard trade-off, left as-is) |
+| Error leakage | leak-pattern scanning across 400/401/403/404/413/500 envelopes — zero stack/SQL/path/class leaks (5E.2 suite) |
+
+---
+
+## TESTS PERFORMED & RESULTS
+
+### New: `backend/tests/security.test.js` (+ `npm run test:security`) — **45 assertions, ALL PASSED**
+JWT forgery (7) · IDOR/cross-tenant (6) · mass assignment (5) · role escalation (8) · socket security incl. payload scans and removed-member flow (9) · information leakage envelopes (5) · oversized-body 413 (2) · registration policy (1) · brute-force lockout incl. valid-credentials-blocked-during-lockout (2, knobbed run) · static XSS walk (1) · cleanup (1).
+
+### Full regression battery after fixes (all green)
+| Suite | Result |
+|---|---|
+| Socket foundation (5D.2) | **22/22** |
+| Chat realtime (5D.3) | **35/35** |
+| Notification realtime (5D.4) | **20/20** |
+| Presence/membership/rate-limit (5D.5) | **26/26** |
+| System integration (5E.1) | **46/46** |
+| Notification integration (5C.5) | **68/68** |
+| Error contract (5E.2) | **20/20** |
+| Security review (NEW 5E.3) | **45/45** |
+| REST regression sweep | **14/14** |
+| Frontend production build | ✅ succeeds |
+
+Total automated assertions: **296**, all passing.
+
+---
+
+## KNOWN LIMITATIONS / ACCEPTED RISKS (documented, deferred to Phase 9+)
+1. **Stateless JWT residual validity**: bearer tokens remain valid ≤15 min after logout/cookie-clearing; no revocation list by design (cookie IS cleared). Refresh-token/blacklist decision remains Phase 9.
+2. **JWT_SECRET default fallback** ('your-secret-key') exists for dev convenience; production deployments MUST set a strong secret (documented in .env.example posture).
+3. Registration username-uniqueness 409 allows username enumeration — standard trade-off, left unchanged.
+4. Failed-login lockout is per-IP only; shared-NAT users can lock each other out within the window; distributed attacks are out of scope for single-instance SQLite deployment.
+5. Resource limits rely on express.json's ~100 kB body cap + per-field length caps; no request-rate limiting on non-auth REST endpoints (socket joins and logins are limited).
+6. HTTPS/HSTS, CSP, and reverse-proxy TLS termination belong to deployment (Phase 9 / out of code scope).
+
+---
+
+## FILES CHANGED
+**Modified**
+- `backend/src/app.js` — CORS allowlist + security headers
+- `backend/src/utils/tokenAuth.js` — HS256 algorithm pinning
+- `backend/src/controllers/authController.js` — register password policy; sameSite cookie; brute-force limiter wiring
+- `backend/package.json` (+ script `test:security`)
+- `.env.example` (documented all security env knobs)
+- `PROJECT_PLAN.md`, `PROJECT_PROGRESS.md`, `PROJECT_RESULT.md`
+
+**Created**
+- `backend/src/middleware/loginLimiter.js`
+- `backend/tests/security.test.js`
+- `5E.3.txt` (this file)
+
+## NEXT SUB-PHASE
+
+**5E.4 — Performance Review** (query analysis, response times, bundle/code-splitting, socket memory, caching opportunities — per PHASE5_PLAN.md)

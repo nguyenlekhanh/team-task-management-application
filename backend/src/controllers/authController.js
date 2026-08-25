@@ -2,6 +2,7 @@ const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const User = require('../models/User');
 const sequelize = require('../config/database');
+const loginLimiter = require('../middleware/loginLimiter');
 
 const JWT_SECRET = process.env.JWT_SECRET || 'your-secret-key';
 const JWT_EXPIRES_IN = '15m';
@@ -18,6 +19,13 @@ async function register(req, res) {
   if (!username || !password || !displayName) {
     return res.status(400).json({
       error: 'Missing required fields: username, password, displayName'
+    });
+  }
+
+  // Password policy: aligns with change-password minimum (5E.3)
+  if (typeof password !== 'string' || password.length < 6) {
+    return res.status(400).json({
+      error: 'Password must be at least 6 characters'
     });
   }
 
@@ -65,11 +73,19 @@ async function login(req, res) {
   const { username, password } = req.body;
   let user;
 
+  // Brute-force shield: block only after repeated FAILED attempts from this IP.
+  if (loginLimiter.isBlocked(req.ip)) {
+    return res.status(429).json({
+      error: 'Too many failed login attempts. Try again later.'
+    });
+  }
+
   try {
     // Find user by username
     user = await User.findOne({ where: { username } });
 
     if (!user) {
+      loginLimiter.recordFailure(req.ip);
       return res.status(401).json({
         error: 'Invalid credentials'
       });
@@ -78,6 +94,7 @@ async function login(req, res) {
     // Verify password
     const isValidPassword = await bcrypt.compare(password, user.password);
     if (!isValidPassword) {
+      loginLimiter.recordFailure(req.ip);
       return res.status(401).json({
         error: 'Invalid credentials'
       });
@@ -98,6 +115,7 @@ async function login(req, res) {
   res.cookie('token', token, {
     httpOnly: true,
     secure: process.env.NODE_ENV === 'production',
+    sameSite: 'lax',
     maxAge: 15 * 60 * 1000 // 15 minutes
   });
 

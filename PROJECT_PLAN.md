@@ -382,12 +382,13 @@ project-root/
 
 ## Current Phase
 
-**Phase 5E.2: Error Handling & UX Polish** - **COMPLETED** (fixed login-401 reload loop; global safe error middleware + malformed-JSON 400 classification; login/getMe exception wrapping; task date-field validation; axios timeout + auth-endpoint-aware interceptor; SocketContext auth-failure reconnect guard; root ErrorBoundary; new 20-assertion error-contract suite — full 271-assertion battery green)
+**Phase 5E.3: Security Review** - **COMPLETED** (5 vulnerabilities fixed: unrestricted CORS→allowlist, unpinned JWT algorithm→HS256, missing cookie SameSite, no registration password minimum, login brute-force exposure→failed-attempt limiter; plus security headers; new 45-assertion security suite; full 296-assertion battery green)
 
 ## Recommended Next Steps
 
-1. **Begin Phase 5E.3 Security Review:**
-   - JWT/refresh strategy decision, REST rate limiting, CORS tightening
-   - Input sanitization sweep, deployment security checklist
+1. **Begin Phase 5E.4 Performance Review:**
+   - Query analysis (SQLite EXPLAIN), response-time checks
+   - Frontend bundle/code-splitting review
+   - Socket memory footprint, caching opportunities
 
 (End of file)

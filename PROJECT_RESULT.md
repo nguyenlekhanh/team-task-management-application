@@ -529,11 +529,13 @@
 **Phase 5D.5: Presence + Testing & Integration** - **COMPLETED** (connection-derived presence registry with multi-tab counting, grace period + generation guard, co-member-scoped broadcasts; membership-change room eviction; bounded join rate limiter; 26/26 presence tests; full realtime battery green — Phase 5D COMPLETE)
 **Phase 5E.1: Full System Integration** - **COMPLETED** (cross-feature audit + new 46-assertion system-integration suite: auth lifecycle, task authz matrix incl. removed-creator boundary, group-deletion cascade integrity, multi-tab fan-out, offline resync, failed-op isolation, leakage probes; zero app bugs found; full 231-assertion battery green)
 **Phase 5E.2: Error Handling & UX Polish** - **COMPLETED** (fixed login-401 reload loop, stack-trace leakage via global error middleware, malformed-JSON 400 classification, garbage task-date validation, axios timeout + auth-endpoint-aware interceptor, socket auth-expiry reconnect guard, root ErrorBoundary; new 20-assertion error-contract suite; full 271-assertion battery green)
+**Phase 5E.3: Security Review** - **COMPLETED** (5 vulnerabilities fixed: CORS allowlist, JWT HS256 alg pinning, cookie SameSite, registration password minimum, login brute-force failed-attempt limiter; security headers added; new 45-assertion security suite; full 296-assertion battery green)
 
 ## Recommended Next Steps
 
-1. **Begin Phase 5E.3 Security Review:**
-   - JWT/refresh strategy decision, REST rate limiting, CORS tightening
-   - Input sanitization sweep, deployment security checklist
+1. **Begin Phase 5E.4 Performance Review:**
+   - Query analysis (SQLite EXPLAIN), response-time checks
+   - Frontend bundle/code-splitting review
+   - Socket memory footprint, caching opportunities
 
 (End of file)

@@ -16,7 +16,8 @@ const CODES = {
 // Never throws: resolves { user } on success or { error, code } with messages safe to expose to clients.
 async function getUserFromToken(token) {
   try {
-    const decoded = jwt.verify(token, JWT_SECRET);
+    // Algorithm pinned: prevents algorithm-confusion token forgery (5E.3).
+    const decoded = jwt.verify(token, JWT_SECRET, { algorithms: ['HS256'] });
     const user = await User.findByPk(decoded.userId);
     if (!user) {
       return { error: 'User not found', code: CODES.USER_NOT_FOUND };

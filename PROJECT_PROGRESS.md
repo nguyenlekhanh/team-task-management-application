@@ -1295,3 +1295,35 @@ Begin **5E.2** (Error Handling & UX Polish)
 
 ### Next Phase
 Begin **5E.3** (Security Review)
+
+## Phase Status: PHASE 5E.3 - COMPLETED (Security Review)
+
+### Vulnerabilities Found & Fixed (5)
+1. **Unrestricted CORS** → CLIENT_ORIGIN allowlist for REST (matches socket allowlist); no-origin requests pass; disallowed origins get no ACAO
+2. **JWT algorithm not pinned** → `algorithms:['HS256']` in shared tokenAuth verifier
+3. **Auth cookie missing SameSite** → `sameSite:'lax'` added (HttpOnly + Secure(prod) preserved)
+4. **No registration password minimum** → ≥6 chars enforced, aligned with change-password rule
+5. **Login brute-force exposure** → new loginLimiter middleware: per-IP failed-attempt fixed window (default 30/15min via env), 429 lockout incl. valid credentials during window; verified live with knobbed run
+
+### Defense-in-depth added
+- Security headers: nosniff / X-Frame-Options DENY / Referrer-Policy no-referrer
+- .env.example documents all security knobs
+
+### Audited clean (evidence = passing tests)
+JWT forgery classes · IDOR matrix · mass assignment (ownerId/creatorId/senderId/assignedBy/role ignored) · role-escalation ceilings (member/admin/owner) · removed-member REST+socket isolation · room guessing · notification isolation · payload hygiene (no secrets in frames) · zero raw SQL · zero dangerouslySetInnerHTML · body-size cap (413) · enumeration posture · error leakage patterns
+
+### Files Created
+- `backend/src/middleware/loginLimiter.js`
+- `backend/tests/security.test.js`
+- `5E.3.txt`
+
+### Files Modified
+- `backend/src/app.js`, `backend/src/utils/tokenAuth.js`, `backend/src/controllers/authController.js`, `backend/package.json` (+test:security), `.env.example`
+
+### Test Results
+- ✅ Security suite: **45/45** (incl. live brute-force lockout with knobbed run + valid-credentials-blocked-during-window)
+- ✅ Full battery green: foundation **22**, chat **35**, notif-realtime **20**, presence **26**, system **46**, notifications **68**, error-contract **20**, REST regression **14**
+- ✅ Frontend production build succeeds — Total assertions: **296**
+
+### Next Phase
+Begin **5E.4** (Performance Review)
