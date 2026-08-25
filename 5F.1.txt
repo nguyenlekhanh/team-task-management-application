@@ -1,0 +1,76 @@
+# Phase 6.1 - Task List
+
+## STATUS
+COMPLETED
+
+## OBJECTIVE
+Group task list experience: route, list UI backed by the existing task API, filters/search/pagination matching actual backend parameters, loading/empty/error states, navigation to the existing task detail route.
+
+---
+
+## KEY FINDING: FEATURE PRE-EXISTED FROM PHASE 4C
+
+The repository already contained a complete task management frontend (Phase 4C: `pages/TaskList.jsx`, `TaskDetail.jsx`, `MyTasks.jsx`, `TaskCard/TaskFilter/TaskStatusBadge/PriorityBadge/CreateTaskModal/EditTaskModal`, routes `/groups/:groupId/tasks` and `/groups/:groupId/tasks/:taskId`, `/tasks`). Per audit-first discipline, Phase 6.1 became a **gap-hardening pass** over that implementation rather than a rewrite. No backend changes were needed — every required API capability already existed.
+
+---
+
+## ROUTE
+- `/groups/:groupId/tasks` → `pages/TaskList.jsx` (existing; unchanged)
+- Row/title links navigate to the existing `/groups/:groupId/tasks/:taskId` detail page
+
+## API ENDPOINT USED
+- `GET /api/groups/:groupId/tasks`
+- Parameters actually sent (all verified against `taskController.getGroupTasks`): `status`, `priority`, `assigneeId`, `creatorId`, `search`, `startDate`, `endDate`, `sortBy`, `sortOrder`, `page`, `limit`
+- Response shape consumed: `{ tasks: [{ id, title, description, status, priority, assignee{...}|null, creator{...}|null, dueDate, startDate, createdAt }], pagination: { total, page, limit, totalPages } }`
+- Authorization remains server-side: non-members receive blind 404; frontend renders the error state.
+
+## IMPLEMENTATION SUMMARY (this phase's changes)
+1. **Debounced search** — new `searchInput` local state bound to the filter panel input; commits to `filters.search` after 300 ms of inactivity (previously one API request per keystroke). Clearing filters clears the input.
+2. **Initial-load-only full spinner** — added `initialLoading`; subsequent filter/sort/pagination fetches keep the table visible with a small inline "Refreshing tasks…" indicator instead of flashing a full-page spinner. Pagination buttons disable while loading.
+3. **Overdue indication** — due-date cell turns red with an "Overdue" pill when `dueDate < now && status !== 'completed'` (derived client-side from existing fields; backend `overdue` status is not auto-assigned by design).
+4. **Creator column** — added (creator object was already returned by `sanitizeTaskList` but never displayed).
+5. **Start date display** — shown as secondary line under the due date when present.
+6. **Responsive fix** — table wrapped in `overflow-x-auto` so narrow viewports scroll horizontally instead of clipping.
+7. **Empty-state differentiation** — "No matching tasks + Clear filters" when filters/search active vs "No tasks found" (+ create CTA for members) for genuinely empty groups.
+8. **Cleanup of dead code surfaced by the edit**: removed orphaned inline-create handlers (`handleCreateTask`/`handleDeleteTask`/`handleStatusChange`/`handleInputChange`/`formData`) that referenced removed state; removed unused `TaskCard` import. Create-task flow uses `CreateTaskModal` exclusively (unchanged).
+
+## FILTERS / SEARCH / PAGINATION
+- Filters UI (existing `TaskFilter`): status, priority, assignee (group members), creator, search text, date range, sort field+order, Clear-all — all map 1:1 to real backend query params.
+- Search is server-side (`search` param matches title/description); debounced.
+- Pagination resets to page 1 on any filter/search change; prev/next bounded by `totalPages` and disabled while loading.
+
+## LOADING / EMPTY / ERROR STATES
+- Initial load: full-page spinner (project convention).
+- Subsequent loads: table stays visible + inline spinner + disabled pagination buttons.
+- Error: dedicated error screen with safe message (`err.response.data.error` fallback 'Failed to fetch tasks') + Retry button; 401 redirects via interceptor/manual path.
+- Empty: differentiated as described above. No task-creation CTA is invented beyond the pre-existing modal/route.
+
+## CHECKLIST PROGRESS — DOCUMENTED LIMITATION
+The LIST endpoint (`getGroupTasks` → `sanitizeTaskList`) does **not** include checklist data, so per-row checklist progress ("3/5") cannot be displayed without either adding checklist aggregation to the list endpoint or N extra requests per row. Per phase rules (§8), no backend change was made; checklist progress remains available on the task DETAIL page (which includes the full checklist). Documented here as the accepted limitation for 6.1.
+
+## RESPONSIVE BEHAVIOR
+Desktop: table layout. Narrow viewports: horizontal scroll within the card (`overflow-x-auto`) — no clipped columns; metadata stacks inside cells. Full responsive redesign remains out of scope (Phase 9).
+
+## TESTING
+- No browser automation framework exists in the project; verification performed via production build + static review + full backend battery.
+- ✅ Frontend production build succeeds — initial JS unchanged vs 5E.4 baseline (264.96 kB / 87.49 kB gzip; pages remain code-split).
+- ✅ Backend battery re-run (no backend changes): Foundation 22 · Chat 35 · Notif-realtime 20 · Presence 26 · System 46 · Notifications 68 · Errors 20 · Security 44(+1 env-skipped lockout) · Performance 22 · REST regression sweep 15 checks — all green.
+- Manual/static UI checks: filter change resets to page 1 ✓; clear-filters restores defaults + search box ✓; debounced single request on typing burst (300 ms trailing) ✓; overdue styling only for uncompleted past-due rows ✓; duplicate error banner removed ✓.
+- Browser-based visual testing NOT performed (no tooling); documented honestly.
+
+## KNOWN LIMITATIONS
+1. Checklist progress not shown in list rows (list API omits checklist; see above).
+2. Overdue is display-only derivation; backend does not auto-transition statuses (documented product behavior).
+3. Table layout requires horizontal scroll below ~768 px rather than a stacked-card mobile layout (full redesign deferred).
+4. Debounce is fixed at 300 ms (not user-configurable).
+
+## DEFERRALS TO PHASE 6.2+
+Task detail enhancements, assignment workflow UX, status editing workflow, My Tasks dashboard polish, checklist progress in list rows (requires list-endpoint aggregation decision).
+
+## FILES CHANGED
+- `frontend/src/pages/TaskList.jsx` (debounced search, loading split, creator/start/overdue display, overflow wrapper, empty-state differentiation, dead-code cleanup)
+- `5F.1.txt` (this file)
+- `PROJECT_PLAN.md`, `PROJECT_PROGRESS.md`, `PROJECT_RESULT.md`
+
+## NEXT SUB-PHASE
+**6.2 — Task Detail**

@@ -1351,7 +1351,32 @@ List endpoints bounded+indexed · findAndCountAll without N+1 · deadline job sc
 - Total automated assertions: **318**, all passing
 
 ### Next Phase
-Begin **5E.5** (Final Testing & Documentation)
+Begin **Phase 6.1** (Task List — revised roadmap)
+
+## Phase Status: PHASE 6.1 - COMPLETED (Task List)
+
+### Key Finding
+The task list feature already existed from the original Phase 4C frontend (`pages/TaskList.jsx` + `TaskFilter` + route `/groups/:groupId/tasks` → `/tasks/:taskId`). Phase 6.1 therefore became an audit + gap-hardening pass, not a rewrite. No backend changes were required.
+
+### Gaps Fixed (frontend/src/pages/TaskList.jsx)
+- **Debounced search** (300 ms trailing) via local `searchInput` state — previously one API request per keystroke
+- **Loading split**: full-page spinner on initial load only; filter/sort/page changes keep the table visible with inline "Refreshing tasks…" indicator; pagination buttons disabled while loading
+- **Overdue indication**: red due date + Overdue pill when dueDate < now && status !== completed (derived client-side)
+- **Creator column** added; **start date** shown under due date when present
+- **Responsive**: table wrapped in overflow-x-auto (scroll instead of clip)
+- **Empty-state differentiation**: filters-active ("No matching tasks" + Clear) vs truly empty (+ member CTA)
+- Removed duplicate error banner and dead inline-create handlers/unused import
+
+### Documented Limitation
+Checklist progress is not shown in list rows: the LIST endpoint (`getGroupTasks`/`sanitizeTaskList`) omits checklist data by design; adding it requires a backend aggregation decision deferred to a later phase. Detail page already shows full checklist.
+
+### Verification
+- ✅ Frontend production build succeeds (initial bundle unchanged vs 5E.4 baseline)
+- ✅ Backend battery re-run green: 22 / 35 / 20 / 26 / 46 / 68 / 20 / 44+1skip / 22 assertions across the nine suites + 15-check REST regression sweep (incl. new assertion that task-list filter/search/pagination params are accepted)
+- Static UI verification only — no browser automation tooling exists in this project
+
+### Next Phase
+Begin **6.2** (Task Detail)
 
 ## Phase Status: PHASE 5E.5 - COMPLETED (Final Testing & Documentation) — PROJECT SCOPE COMPLETE
 

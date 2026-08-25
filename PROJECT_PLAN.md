@@ -382,13 +382,17 @@ project-root/
 
 ## Current Phase
 
-**Phase 5E.5: Final Testing & Documentation** - **COMPLETED** (full battery re-run green, docs/ created: API.md + DEVELOPMENT.md + DEPLOYMENT.md + USER_GUIDE.md; README rewritten; aggregate test:all extended) — **Phase 5E and the currently implemented project scope are COMPLETE.**
+**Phase 6.1: Task List** - **COMPLETED** (existing Phase 4C task list audited against the revised Phase 6 scope and hardened: debounced server-side search, initial-load-only spinner + inline refresh state, overdue indication, creator/start-date columns, responsive overflow fix, differentiated empty states; dead code removed. Full backend battery green.)
+
+## Roadmap Note — Phase Numbering Revision
+A revised roadmap now numbers the Task Management Frontend & Workflow effort as **Phase 6** (6.1 Task List → 6.2 Task Detail → …). This supersedes the historical in-document labels where "Phase 4C" covered the original task frontend and "Phase 6" covered group chat. Completed work is unchanged; only the forward-looking numbering moved. Progress for the new phase is recorded in `5F.1.txt` onward.
 
 ## Project Completion Summary
-All planned phases are COMPLETED: 0–4 (foundation/auth/groups/tasks), 5A checklist, 5B chat, 5C notifications, 5D realtime (Socket.IO foundation/chat/notifications/presence), 5E.1–5E.5 integration/error/security/performance/documentation. Final state: 9 test suites / 318 assertions green, production build passing, documentation consolidated under docs/.
+All phases through 5E.5 are COMPLETED (foundation/auth/groups/tasks backend/checklist/chat/notifications/realtime/integration/error/security/performance/docs), and the revised **Phase 6.1 Task List** is COMPLETED on top of that foundation. Final test state: 9 suites / 308 assertions green + 15-check REST regression sweep; production build passing; docs consolidated under docs/.
 
 ## Recommended Next Steps (future work, NOT started)
-- Phase 9 candidates: refresh tokens/token revocation, REST rate limiting beyond auth, HTTPS/HSTS/CSP at proxy, email/push channels
-- Scale-out prerequisites if ever needed: Redis adapter + shared presence + non-SQLite store
+- **Phase 6.2 Task Detail** (next)
+- Later Phase 6 sub-phases per revised roadmap
+- Phase 9 candidates: refresh tokens/token revocation, broader REST rate limiting, HTTPS/HSTS/CSP at proxy, email/push channels
 
 (End of file)

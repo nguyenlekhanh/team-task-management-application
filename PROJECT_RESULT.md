@@ -533,6 +533,10 @@
 **Phase 5E.4: Performance Review** - **COMPLETED** (measured & fixed fan-out bottleneck: notifyUsers 61→3 SQL statements / 2131→160 ms for 30 recipients via bulkCreate + grouped counts; route-level code splitting cut initial JS −30% gzip; new 22-assertion performance regression suite; full 318-assertion battery green)
 **Phase 5E.5: Final Testing & Documentation** - **COMPLETED** (full battery re-run: 9 suites / 318 assertions green; docs/ created — API.md, DEVELOPMENT.md, DEPLOYMENT.md, USER_GUIDE.md; README rewritten with verified commands; aggregate test:all extended) — **PROJECT SCOPE COMPLETE**
 
+## Phase 6 — Task Management Frontend & Workflow (revised roadmap)
+
+**Phase 6.1: Task List** - **COMPLETED** (existing Phase 4C implementation audited and hardened: debounced server-side search, initial-only full spinner + inline refresh state, overdue indication, creator/start-date columns, overflow-x responsive fix, differentiated empty states, dead-code cleanup; checklist-in-list documented as deferred; battery green)
+
 ## Recommended Next Steps
 
 1. **Begin Phase 5E.5 Final Testing & Documentation:**
