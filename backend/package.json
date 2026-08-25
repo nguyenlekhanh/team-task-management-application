@@ -11,7 +11,10 @@
     "test:sockets": "node tests/socket-foundation.test.js",
     "test:chat": "node tests/chat-realtime.test.js",
     "test:notification-realtime": "node tests/notification-realtime.test.js",
-    "test:presence": "node tests/presence-integration.test.js"
+    "test:presence": "node tests/presence-integration.test.js",
+    "test:system": "node tests/system-integration.test.js",
+    "test:all": "node tests/socket-foundation.test.js && node tests/chat-realtime.test.js && node tests/notification-realtime.test.js && node tests/presence-integration.test.js && node tests/system-integration.test.js && node tests/notification-integration.js",
+    "test:system": "node tests/system-integration.test.js"
   },
   "keywords": [],
   "author": "",

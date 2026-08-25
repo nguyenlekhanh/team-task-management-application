@@ -1,0 +1,117 @@
+# Phase 5E.1 - Full System Integration
+
+## STATUS
+COMPLETED
+
+## OBJECTIVE
+Integration-hardening pass over the completed system (auth, users, groups, tasks, checklists, chat/comments, notifications, presence, Socket.IO rooms, reconnection, authorization): audit → cross-feature test → reproduce → fix → regression. No new features; no architecture changes.
+
+---
+
+## INTEGRATION AUDIT SUMMARY
+
+| Area | Finding | Action |
+|---|---|---|
+| Transactions | No explicit Sequelize transactions anywhere; every write autocommits per statement and ALL realtime emissions occur strictly after awaited persistence | "Never announce uncommitted state" holds trivially — documented, no change needed |
+| Route mounting | `/notifications` mounted before `/` routers; no shadowing/conflicts across auth/users/groups/tasks/messages/notifications | none needed |
+| FK cascade semantics | Notifications: recipientId CASCADE, senderId SET NULL, taskId SET NULL, groupId CASCADE, messageId SET NULL (matches 5C.2) | verified behaviorally in new suite |
+| Auth seam REST↔Socket | Single shared verifier (`utils/tokenAuth.js`) since 5D.2; identical messages/codes both surfaces | verified |
+| onlineStatus semantics | Profile-controlled flag, deliberately NOT connection-derived (5D.5 decision) | preserved; documented again below |
+| Known stateless-JWT posture | Logout clears the httpOnly cookie but the bearer token remains valid until its 15-min expiry (documented since Phase 1/9-deferral) | pinned by an explicit test so future phases notice any change |
+
+**Result: NO application bugs were discovered by the full cross-feature matrix. Zero production-code changes were required.** The only additions are the integration test suite itself plus an aggregate runner.
+
+---
+
+## CROSS-FEATURE TEST COVERAGE ADDED
+
+New suite `backend/tests/system-integration.test.js` (+ `npm run test:system`) — **46 assertions, all passing**, over real HTTP + Socket.IO polling transport:
+
+### Authentication lifecycle
+- Unauthenticated REST → 401; invalid login rejected
+- REST-issued JWT authenticates the socket (single mechanism, shared verifier)
+- Logout expires the httpOnly cookie (Set-Cookie epoch) — asserted
+- Stateless bearer validity after logout — pinned as documented posture
+- Fresh login after logout works
+
+### Task authorization matrix (group membership = security boundary)
+- owner/creator update ✓; assignee status change ✓
+- ordinary member: update 403, delete 403, comment 201, checklist-add 201
+- outsider: GET/status/comment/checklist all blind-404 (no info leak)
+- **Removed-CREATOR boundary**: member's own task becomes 404 for them after removal (status-change and comments too); access restored on re-add — proves prior creator/assignee status grants nothing once group membership is gone
+- Admin tier: cannot delete owner-created task (403); can delete member-created task
+
+### Group deletion integrity
+- Deletion evicts member sockets from `group:{id}` (whoami-proven)
+- Future joins to deleted group rejected; cascaded task room join fails ('Task not found')
+- Cascaded task/group/messages unreachable via REST (404s)
+- Notifications referencing the deleted group are FK-CASCADE deleted (verified zero rows remain)
+
+### Multi-tab delivery
+- Chat event delivered exactly once per tab (both copies same id)
+- Notification fans out to EVERY tab (user-room copy semantics), identical ids
+- Remaining tab keeps receiving after sibling tab closes
+
+### Offline recipient resync
+- REST persists while recipient has no sockets; reconnect + REST fetch shows exactly one authoritative row
+
+### Failed operations leave no realtime state
+- Assign-to-non-member 400 ⇒ zero new TASK_ASSIGNED rows
+- Empty-content message 400 ⇒ zero broadcast frames
+
+### Room boundaries & leakage
+- Cross-group task-room join rejected; guessed group room rejected; guessed user private room impossible (whoami rooms self-scoped)
+- Task comment reaches authorized task room only; zero leakage to same-app other-group member
+
+---
+
+## BUGS FOUND & FIXES MADE
+**None at the application layer.** One test-infrastructure correction during development (missing helper method in the new suite's polling client). One operational note surfaced (below).
+
+Operational note (not a bug): the presence suite requires its documented env knobs (`PRESENCE_GRACE_MS`, `SOCKET_JOIN_LIMIT`, `SOCKET_JOIN_WINDOW_MS`); running it against a default-configured server cannot exercise throttling. Mitigated by adding aggregate runner documentation.
+
+---
+
+## REGRESSION RESULTS (full battery)
+
+| Suite | Result |
+|---|---|
+| Socket foundation (5D.2) | **22/22** |
+| Chat realtime (5D.3) | **35/35** |
+| Notification realtime (5D.4) | **20/20** |
+| Presence/membership/rate-limit (5D.5) | **26/26** (with documented env knobs) |
+| System integration (NEW 5E.1) | **46/46** |
+| Notification integration (5C.5) | **68/68** |
+| REST regression sweep | **14/14** |
+| Frontend production build | ✅ succeeds |
+
+Total automated assertions across suites: **231**, all passing.
+
+---
+
+## SECURITY VERIFICATION (cross-feature)
+- Group membership remains THE boundary: creator/assignee history, existing URLs, and existing sockets confer no access after removal.
+- Room guesses (group/task/user) all fail server-side; user rooms remain self-scoped.
+- Realtime frames never leak across groups/users; payloads reuse REST sanitizers only.
+- Failed/suppressed operations produce no rows, no events, no partial realtime state.
+
+## DATABASE / CONSISTENCY VERIFICATION
+- Autocommit-per-statement + post-await emission ordering ⇒ no uncommitted-state announcements (audited all emit sites: task assign/status, message/comment creates, notificationService, presence transitions).
+- Cascade matrix exercised live: Group→Tasks/Messages/GroupMembers/Notifications(groupId) on delete; User→Notifications(recipient) on user cleanup; SET NULL paths untouched where designed.
+
+## KNOWN LIMITATIONS / DEFERRALS TO 5E.2+
+1. Stateless JWT residual validity after logout (cookie cleared; token lives ≤15 min) — refresh tokens/blacklist deferred to Phase 9 security work per plan.
+2. Deleted groups leave inert task-room memberships in memory (no events can ever fire for cascaded tasks; joins fail) — unobservable, left unmodified per minimal-fix discipline.
+3. Presence UI still not surfaced anywhere (contract exists; consumer intentionally deferred).
+4. Reassigning the same assignee re-notifies (documented 5C.5 known behavior).
+5. Read-side notification transitions still do not broadcast across tabs (30 s poll bounds staleness).
+
+---
+
+## FILES CHANGED
+- **Created**: `backend/tests/system-integration.test.js`, `5E.1.txt`
+- **Modified**: `backend/package.json` (+ scripts `test:system`, `test:all` aggregate), `PROJECT_PLAN.md`, `PROJECT_PROGRESS.md`, `PROJECT_RESULT.md`
+
+## NEXT SUB-PHASE
+
+**5E.2 — Error Handling & UX Polish** (global error boundary, API error middleware, loading skeletons, empty states, validation messages, toasts, keyboard nav, accessibility)

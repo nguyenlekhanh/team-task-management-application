@@ -527,12 +527,13 @@
 **Phase 5D.3: Realtime Chat + Comments** - **COMPLETED** (DB-verified group/task room joins; message:new / comment:new broadcasts post-persist via realtimeEmitter with REST-sanitized payloads; frontend SocketContext/useSocketEvent/ChatPanel/CommentSection live updates with id-dedupe + reconnect resync; 35/35 chat tests, all prior suites green)
 **Phase 5D.4: Realtime Notifications** - **COMPLETED** (notificationService emits notification:new + authoritative unread-count to user rooms post-persist for all 5 types; useNotifications push consumption with dedupe + reconnect resync; 20/20 realtime tests, all suites green)
 **Phase 5D.5: Presence + Testing & Integration** - **COMPLETED** (connection-derived presence registry with multi-tab counting, grace period + generation guard, co-member-scoped broadcasts; membership-change room eviction; bounded join rate limiter; 26/26 presence tests; full realtime battery green — Phase 5D COMPLETE)
+**Phase 5E.1: Full System Integration** - **COMPLETED** (cross-feature audit + new 46-assertion system-integration suite: auth lifecycle, task authz matrix incl. removed-creator boundary, group-deletion cascade integrity, multi-tab fan-out, offline resync, failed-op isolation, leakage probes; zero app bugs found; full 231-assertion battery green)
 
 ## Recommended Next Steps
 
-1. **Begin Phase 5E.1 Full System Integration:**
-   - Cross-feature end-to-end flows (register → group → task → checklist → chat → notifications)
-   - Data consistency and cascade verification
-   - Query/performance pass
+1. **Begin Phase 5E.2 Error Handling & UX Polish:**
+   - Global React error boundary; Express API error middleware
+   - Loading skeletons / empty states / validation messages / toasts
+   - Keyboard navigation + accessibility pass
 
 (End of file)

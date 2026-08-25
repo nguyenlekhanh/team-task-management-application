@@ -382,13 +382,13 @@ project-root/
 
 ## Current Phase
 
-**Phase 5D.5: Presence + Testing & Integration** - **COMPLETED** (connection-derived presence registry with multi-tab counting, grace period + generation-guarded offline timers, co-member-scoped presence:updated broadcasts; membership-change eviction for all user sockets on removeMember/deleteGroup; bounded join rate limiter with disconnect cleanup; 26/26 new integration tests; full realtime battery green — Phase 5D COMPLETE)
+**Phase 5E.1: Full System Integration** - **COMPLETED** (cross-feature audit + new 46-assertion system-integration suite covering auth lifecycle, task authorization matrix incl. removed-creator boundary, group-deletion cascade integrity, multi-tab delivery, offline resync, failed-op isolation, room boundaries; zero application bugs found; full 231-assertion battery green)
 
 ## Recommended Next Steps
 
-1. **Begin Phase 5E.1 Full System Integration:**
-   - Cross-feature end-to-end flows (register → group → task → checklist → chat → notifications)
-   - Data consistency and cascade verification
-   - Query/performance pass
+1. **Begin Phase 5E.2 Error Handling & UX Polish:**
+   - Global React error boundary; Express API error middleware
+   - Loading skeletons / empty states / validation messages / toasts
+   - Keyboard navigation + accessibility pass
 
 (End of file)

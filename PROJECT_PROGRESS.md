@@ -1238,4 +1238,27 @@ Begin **5D.5** (Presence + Testing & Integration)
 - Server exercised under test knobs PRESENCE_GRACE_MS=800 / SOCKET_JOIN_LIMIT=8 / SOCKET_JOIN_WINDOW_MS=3000
 
 ### Next Phase
-Phase 5D COMPLETE. Begin **5E.1** (Full System Integration)
+Begin **5E.1** (Full System Integration)
+
+## Phase Status: PHASE 5E.1 - COMPLETED (Full System Integration)
+
+### What Was Done
+- **Audit**: no transactions anywhere (autocommit ⇒ commit-before-emit holds at every emit site); route mounting clean; FK cascade semantics match 5C.2; REST↔socket auth share one verifier; onlineStatus stays profile-controlled
+- **New cross-feature suite** `backend/tests/system-integration.test.js` (+ `test:system`, aggregate `test:all`): 46 assertions over auth lifecycle (logout cookie expiry, pinned stateless-JWT posture), full task authorization matrix incl. removed-creator boundary and admin tier rules, group-deletion cascade integrity (eviction, unreachable cascaded data, FK-CASCADE'd notifications), multi-tab chat/notification fan-out, offline-recipient resync, failed-operation isolation, cross-group leakage + room-guess probes
+- **Result: zero application bugs found — no production code changed.** Only the test suite + runner scripts added.
+
+### Files Created
+- `backend/tests/system-integration.test.js`
+- `5E.1.txt`
+
+### Files Modified
+- `backend/package.json` (test:system, test:all)
+
+### Test Results
+- ✅ System integration suite: **46/46**
+- ✅ Full battery: foundation **22/22**, chat **35/35**, notification-realtime **20/20**, presence **26/26** (with documented env knobs), notification integration **68/68**, REST regression **14/14**
+- ✅ Frontend production build succeeds
+- Total automated assertions: **231**, all passing
+
+### Next Phase
+Begin **5E.2** (Error Handling & UX Polish)
