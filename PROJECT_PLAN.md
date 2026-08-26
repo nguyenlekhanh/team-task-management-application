@@ -397,8 +397,13 @@ A revised roadmap now numbers the Task Management Frontend & Workflow effort as 
 All phases through 5E.5 are COMPLETED (foundation/auth/groups/tasks backend/checklist/chat/notifications/realtime/integration/error/security/performance/docs), and the revised **Phase 6.1 Task List** is COMPLETED on top of that foundation. Final test state: 9 suites / 308 assertions green + 15-check REST regression sweep; production build passing; docs consolidated under docs/.
 
 ## Recommended Next Steps (future work, NOT started)
-- **Phase 6.2 Task Detail** (next)
+- **Phase 6.6 Task UX Polish** (next)
 - Later Phase 6 sub-phases per revised roadmap
 - Phase 9 candidates: refresh tokens/token revocation, broader REST rate limiting, HTTPS/HSTS/CSP at proxy, email/push channels
+
+## Phase 6.5 Update
+**Phase 6.1–6.4 progress note:** Task List hardening, Task Detail hardening, page-based Create/Edit (modals retired), and server-authoritative status workflow were all COMPLETED after the summary above; see `5F.1.txt`–`5F.4.txt`.
+
+**Phase 6.5: My Tasks** - **COMPLETED** (cross-group view at /tasks; new server-derived `scope` param on GET /api/tasks [assigned|created] overriding any client-supplied identity filters; frontend rewritten — fixed crash-level missing Link import, triple headers, wrong view semantics; debounced search, overdue indicator, differentiated empty states; new 13-assertion mytasks suite incl. forged-identity override checks. Full battery green.)
 
 (End of file)

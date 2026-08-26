@@ -1472,3 +1472,29 @@ SQLite single-node · in-memory presence/rate-limiters/rooms · no Redis adapter
 
 ### Project Status
 Phase 5A–5E.5 all COMPLETED. The currently implemented project scope is feature-complete, tested (318 assertions), secured (5E.3 review), performance-reviewed (5E.4), and fully documented.
+
+## Phase Status: PHASE 6.5 - COMPLETED (My Tasks)
+
+### Backend (smallest focused change to existing GET /api/tasks)
+- New server-derived `scope` query param: `assigned` → assigneeId=req.user.id; `created` → creatorId=req.user.id
+- Client-supplied assigneeId/creatorId are overridden when scope present — identity can never be forged via query params
+- No-scope behavior unchanged (backward compatible)
+
+### Frontend (pages/MyTasks.jsx rewritten)
+- Fixed crash: `<Link>` used without import (page threw ReferenceError on render)
+- Collapsed triple-duplicated header blocks
+- Scope selector defaulting to "Assigned to me"; "Created by me" and legacy "All in my groups" available
+- 300 ms debounced search; initial-load-only spinner + inline refresh state; pagination disabled while loading
+- Overdue pill/date styling matching TaskList; due-date column added
+- Differentiated empty states with "Go to Groups" CTA; errors via getApiErrorMessage
+- Replaced full-reload `<a>` navigation with client-side Link; removed dead code
+
+### Tests
+- New `backend/tests/mytasks.test.js` (+ test:mytasks): **13 assertions, ALL PASSED** — unauthenticated 401 incl. forged userId, assigned/created scoping from server identity, cross-user isolation, backward-compat no-scope behavior, forged assigneeId override rejected, combined filters/search/sort/pagination/empty shape, cleanup
+
+### Verification
+- ✅ Production build succeeds (MyTasks lazy chunk ships)
+- ✅ Full battery green: 22/35/20/26/46/68/20/44+1skip/22 across nine suites
+
+### Next Phase
+Begin **6.6** (Task UX Polish)

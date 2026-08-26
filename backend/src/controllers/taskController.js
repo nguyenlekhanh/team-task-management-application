@@ -662,6 +662,7 @@ async function getMyTasks(req, res) {
     search,
     startDate,
     endDate,
+    scope,
     sortBy = 'createdAt',
     sortOrder = 'DESC',
     page = 1, 
@@ -687,9 +688,19 @@ async function getMyTasks(req, res) {
     const where = { groupId: { [Op.in]: groupIds } };
     if (status) where.status = status;
     if (priority) where.priority = priority;
-    if (assigneeId) where.assigneeId = parseInt(assigneeId, 10);
-    if (creatorId) where.creatorId = parseInt(creatorId, 10);
-    
+
+    // Scope (6.5): server-derived identity — the client never supplies whose
+    // tasks are viewed. Explicit assigneeId/creatorId query filters remain
+    // supported for backward compatibility when no scope is requested.
+    if (scope === 'assigned') {
+      where.assigneeId = req.user.id;
+    } else if (scope === 'created') {
+      where.creatorId = req.user.id;
+    } else {
+      if (assigneeId) where.assigneeId = parseInt(assigneeId, 10);
+      if (creatorId) where.creatorId = parseInt(creatorId, 10);
+    }
+
     if (search) {
       where[Op.or] = [
         { title: { [Op.like]: `%${search}%` } },

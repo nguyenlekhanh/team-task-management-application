@@ -16,7 +16,8 @@
     "test:all": "node tests/socket-foundation.test.js && node tests/chat-realtime.test.js && node tests/notification-realtime.test.js && node tests/presence-integration.test.js && node tests/system-integration.test.js && node tests/notification-integration.js && node tests/error-contract.test.js && node tests/security.test.js && node tests/performance.test.js",
     "test:errors": "node tests/error-contract.test.js",
     "test:security": "node tests/security.test.js",
-    "test:performance": "node tests/performance.test.js"
+    "test:performance": "node tests/performance.test.js",
+    "test:mytasks": "node tests/mytasks.test.js"
   },
   "keywords": [],
   "author": "",

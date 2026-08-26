@@ -1,0 +1,73 @@
+# Phase 6.5 - My Tasks
+
+## STATUS
+COMPLETED
+
+## OBJECTIVE
+Cross-group task view for the authenticated user at `/tasks`, using existing backend capabilities. Server-derived identity; no client-supplied user IDs defining the view.
+
+---
+
+## KEY FINDING: BACKEND + PAGE ALREADY EXISTED (Option A/B hybrid)
+- Backend `GET /api/tasks` (`taskController.getMyTasks`) already provided cross-group retrieval across the user's memberships with full filter/search/sort/pagination and eager-loaded creator/assignee/group — used as-is.
+- Frontend `pages/MyTasks.jsx` existed but had a **crash-level bug** (used `<Link>` without importing it → ReferenceError on render), triple-duplicated header blocks, wrong semantics (returned ALL group tasks while claiming "assigned to you or created by you"), no debounce, full-page spinner on every change, missing overdue indicator, and full-reload `<a>` navigation.
+
+## MY TASKS DEFINITION (implemented)
+Primary: **tasks assigned to the authenticated user** (`scope=assigned`, default). Explicit secondary scope: **created by me** (`scope=created`). Optional third: **all in my groups** (legacy behavior preserved when no scope sent). Multi-assignee TaskMembers remain future-proofing only — untouched.
+
+## API STRATEGY (smallest focused backend change, Option B)
+`getMyTasks` gained a server-derived `scope` query parameter:
+- `scope=assigned` → forces `assigneeId = req.user.id`
+- `scope=created` → forces `creatorId = req.user.id`
+- absent/other → legacy all-in-my-groups behavior (backward compatible)
+- Client-supplied `assigneeId`/`creatorId` are IGNORED whenever a scope is present — identity can never be forged via query params. No-scope explicit filters still work for backward compatibility.
+
+## FRONTEND REWRITE FIXES (`pages/MyTasks.jsx`)
+1. Missing `Link` import fixed (page previously crashed on render) + `<a href>` full-reload replaced with client-side `<Link>`.
+2. Triple header block collapsed to one.
+3. Scope selector ("Assigned to me" default / "Created by me" / "All in my groups").
+4. 300 ms debounced search (same convention as TaskList).
+5. Initial-load-only spinner; inline "Refreshing tasks…" during filter/pagination fetches; pagination disabled while loading.
+6. Overdue indication matching TaskList (red date + pill); due-date column added.
+7. Differentiated empty states (filters-active vs none) with "Go to Groups" CTA.
+8. Error messages via `getApiErrorMessage`; dead code removed (unused TaskCard import, orphaned status/assign handlers).
+
+## FILTERS / SEARCH / PAGINATION / SORTING
+- Filters: status, priority (TaskFilter panel), plus scope selector above; date-range and creator filters available through the same panel where meaningful.
+- Search: server-side title/description, debounced.
+- Pagination: server-side, page reset on filter/search/scope change, prev/next bounded by totalPages, disabled while loading.
+- Sorting: backend-supported fields; **default sortBy=dueDate ASC** chosen deliberately for a deadline-oriented view (backend supports all documented sort fields).
+
+## GROUP CONTEXT & NAVIGATION
+Every row shows `task.group.name` (eager-loaded server-side — no per-task group requests). Title/View navigate to `/groups/:groupId/tasks/:taskId` using server-returned ids.
+
+## AUTHORIZATION / SECURITY
+Identity always from JWT middleware (`req.user.id`); cross-user isolation verified (Bob's tasks never in Alice's view; forged assigneeId overridden by scope). Unauthenticated → 401 even with a forged `userId` param.
+
+## PERFORMANCE / N+1
+Single request serves the page regardless of group count (server-side join across memberships). No per-group/per-task fan-out.
+
+## REALTIME BOUNDARY (intentional)
+No realtime My Tasks updates — changes made elsewhere appear on refresh/filter/pagination/reload. Existing chat/notification/presence realtime untouched.
+
+## TESTS
+### New: `backend/tests/mytasks.test.js` (+ `npm run test:mytasks`) — **13 assertions, ALL PASSED**
+401 unauthenticated incl. forged userId param · scope=assigned correctness + cross-group inclusion · bob-isolation · scope=created · backward-compatible no-scope behavior · forged assigneeId overridden · status+priority combined with scope · search with scope · sorting+pagination bounded · empty-result shape · cleanup.
+### Full battery re-run green: 22 / 35 / 20 / 26 / 46 / 68 / 20 / 44+1skip / 22 across nine suites.
+### Frontend build ✅ — MyTasks lazy chunk ships; initial bundle unchanged.
+
+## KNOWN LIMITATIONS / DEFERRALS TO 6.6+
+1. No realtime My Tasks refresh (REST-authoritative; intentional boundary).
+2. Checklist progress not shown in rows (list endpoints omit checklist data — same deferred decision as 6.1).
+3. TaskFilter's assignee/creator dropdowns are less useful here (options are per-group members; My Tasks spans groups) — harmless, hidden behind the filters toggle.
+4. Default sort dueDate-ASC places tasks without due dates last (nulls ordering) — acceptable for a deadline view.
+
+## FILES CHANGED
+- `backend/src/controllers/taskController.js` (scope param)
+- `frontend/src/pages/MyTasks.jsx` (rewritten fixes)
+- `backend/tests/mytasks.test.js`, `backend/package.json` (+test:mytasks)
+- `5F.5.txt` (this file)
+- `PROJECT_PLAN.md`, `PROJECT_PROGRESS.md`, `PROJECT_RESULT.md`
+
+## NEXT SUB-PHASE
+**6.6 — Task UX Polish**

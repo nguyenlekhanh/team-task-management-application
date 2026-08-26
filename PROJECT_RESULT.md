@@ -539,10 +539,11 @@
 **Phase 6.2: Task Detail** - **COMPLETED** (existing Phase 4C detail page audited and hardened: group-name link row, overdue-consistent due-date display, normalized errors, true two-column layout restructure, description formatting; battery green)
 **Phase 6.3: Task Create/Edit** - **COMPLETED** (page-based create/edit at /tasks/new and /tasks/:id/edit via shared react-hook-form TaskForm; membership-gated create, group-context-guarded edit; legacy modals retired; status deliberately excluded from form — dedicated endpoint owns it; live payload smoke + full battery green)
 **Phase 6.4: Task Workflow** - **COMPLETED** (Task Detail status control now server-authoritative: response-driven state incl. server-managed completedAt, saving/duplicate guards, errors surfaced; transition-based notification dedupe verified live; realtime task sync intentionally deferred)
+**Phase 6.5: My Tasks** - **COMPLETED** (cross-group view at /tasks; new server-derived scope param on GET /api/tasks with forged-identity override protection; frontend rewritten fixing crash-level missing Link import, triple headers, wrong semantics; debounced search, overdue indicator, differentiated empty states; new 13-assertion mytasks suite; full battery green)
 
 ## Recommended Next Steps
 
-1. **Begin Phase 5E.5 Final Testing & Documentation:**
+1. **Begin Phase 6.6 Task UX Polish:**
    - Full regression sweep, cross-browser checks
    - API documentation, deployment guide, developer/user guides
    - Final PROJECT_* consolidation
