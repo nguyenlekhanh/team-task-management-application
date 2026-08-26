@@ -538,6 +538,7 @@
 **Phase 6.1: Task List** - **COMPLETED** (existing Phase 4C implementation audited and hardened: debounced server-side search, initial-only full spinner + inline refresh state, overdue indication, creator/start-date columns, overflow-x responsive fix, differentiated empty states, dead-code cleanup; checklist-in-list documented as deferred; battery green)
 **Phase 6.2: Task Detail** - **COMPLETED** (existing Phase 4C detail page audited and hardened: group-name link row, overdue-consistent due-date display, normalized errors, true two-column layout restructure, description formatting; battery green)
 **Phase 6.3: Task Create/Edit** - **COMPLETED** (page-based create/edit at /tasks/new and /tasks/:id/edit via shared react-hook-form TaskForm; membership-gated create, group-context-guarded edit; legacy modals retired; status deliberately excluded from form — dedicated endpoint owns it; live payload smoke + full battery green)
+**Phase 6.4: Task Workflow** - **COMPLETED** (Task Detail status control now server-authoritative: response-driven state incl. server-managed completedAt, saving/duplicate guards, errors surfaced; transition-based notification dedupe verified live; realtime task sync intentionally deferred)
 
 ## Recommended Next Steps
 

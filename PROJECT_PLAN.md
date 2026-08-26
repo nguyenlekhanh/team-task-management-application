@@ -382,6 +382,8 @@ project-root/
 
 ## Current Phase
 
+**Phase 6.4: Task Workflow** - **COMPLETED** (Task Detail status control made server-authoritative: uses PUT /tasks/:id/status response incl. server-managed completedAt, saving state + duplicate guard, errors surfaced via getApiErrorMessage; transition-based TASK_COMPLETED notification dedupe verified live; full battery green)
+
 **Phase 6.3: Task Create/Edit** - **COMPLETED** (new routes /groups/:groupId/tasks/new and /tasks/:taskId/edit with shared react-hook-form TaskForm; legacy modal forms retired in favor of page-based flows; status intentionally excluded from edit form — dedicated endpoint owns it; live payload smoke test + full battery green)
 
 **Phase 6.2: Task Detail** - **COMPLETED** (existing Phase 4C detail page audited and hardened: group name row linking to group, overdue-consistent due-date display, normalized error messages via getApiErrorMessage, true two-column layout with checklist+comments in main column and actions/members sidebar; description whitespace preserved. Full backend battery green.)

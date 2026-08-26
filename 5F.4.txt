@@ -1,0 +1,76 @@
+# Phase 6.4 - Task Workflow
+
+## STATUS
+COMPLETED
+
+## OBJECTIVE
+Make task status/workflow behavior usable and consistent in Task Detail, using the existing backend endpoint and authorization rules. Server-authoritative state; no new workflow architecture; no realtime task events (intentional boundary).
+
+---
+
+## AUDIT FINDINGS (backend, verified)
+- **Endpoint**: `PUT /api/tasks/:id/status` with `{ status }`
+- **Accepted values**: `todo | in_progress | completed | overdue` (no transition restrictions — any value change accepted; frontend reflects this, inventing none)
+- **Authorization**: owner / admin / creator / assignee; plain members → 403
+- **completedAt**: set to server time on transition INTO completed; cleared (null) when leaving completed — always from the server response
+- **Overdue**: stored status is one of the enum values; UI additionally derives a display-only Overdue indicator from dueDate+status (consistent with Task List since 6.1). No cron/client timers involved.
+- **Notifications**: transitioning INTO completed notifies creator/assignee/followers once per transition via the existing 5C.3 pipeline; repeating the same completed update creates NO duplicate (verified live)
+
+## FRONTEND GAPS FIXED (`pages/TaskDetail.jsx`)
+1. **Client-computed completedAt removed** — the old handler fabricated `completedAt = new Date().toISOString()` locally. Now the handler uses the **server response** (`response.data.task`) as the authoritative new state, so server-managed completedAt semantics are displayed exactly.
+2. **Silent failures** — errors were only `console.error`'d while the select kept the new value visually (falsely claiming success). Now: failures surface via the existing error banner using `getApiErrorMessage`, and the select keeps showing the server's current status.
+3. **Duplicate submissions** — added `statusSaving` guard: select disabled + "Updating status…" hint while in-flight; same-value selections are ignored.
+4. Accessibility: label associated with the select (`htmlFor`/`id`), `role="status"` hint.
+
+Task List needs no changes: it refetches authoritatively on mount/filter changes and already displays status via the shared badge component.
+
+## STATUS MODEL (as implemented)
+```
+todo ⇄ in_progress ⇄ completed      (any direction; backend imposes no extra rules)
+overdue   selectable/valid like the others
+completedAt: server-set on entering completed; cleared on leaving
+Overdue pill (UI): dueDate < now && status !== 'completed'
+```
+
+## REALTIME BOUNDARY (intentional)
+Other users see status changes only through existing REST behavior (navigation/refetch/polling). No `task:updated` socket event, no new rooms/emitters — deferred by design to a later phase if ever needed.
+
+## VERIFICATION (live API smoke against running server — 9 checks across two runs, ALL PASSED)
+- assignee (member role) can change status → 200, response reflects new status
+- completed transition sets server `completedAt`; moving back to todo clears it to null
+- invalid status value → 400 safe envelope
+- unauthorized plain member → 403; task status unchanged afterwards (state preserved on failure)
+- first completion adds exactly ONE TASK_COMPLETED notification for the creator; repeating completed status adds none (transition-based dedupe)
+- repeat-safety of the earlier sequence corrected in-test: two distinct todo→completed transitions legitimately produce two notifications (documented backend semantics, not a bug)
+
+Plus production build ✅ and full battery below.
+
+---
+
+## FULL REGRESSION BATTERY (all green)
+| Suite | Result |
+|---|---|
+| Socket foundation | 22 |
+| Chat realtime | 35 |
+| Notification realtime | 20 |
+| Presence/membership/rate-limit | 26 |
+| System integration | 46 |
+| Notification integration | 68 |
+| Error contract | 20 |
+| Security review | 44 (+1 env-skipped lockout check) |
+| Performance regression | 22 |
+| REST regression sweep | 15 checks |
+| Frontend build | ✅ |
+
+## KNOWN LIMITATIONS / DEFERRALS TO 6.5+
+1. No realtime propagation of status changes to other users/tabs (REST-refetch only) — intentional phase boundary.
+2. Status control hidden entirely from users without permission rather than disabled-with-tooltip (server still rejects with 403 if reached).
+3. Checklist completion does not auto-affect task status (no such backend rule exists; none invented).
+
+## FILES CHANGED
+- `frontend/src/pages/TaskDetail.jsx`
+- `5F.4.txt` (this file)
+- `PROJECT_PLAN.md`, `PROJECT_PROGRESS.md`, `PROJECT_RESULT.md`
+
+## NEXT SUB-PHASE
+**6.5 — My Tasks**

@@ -119,13 +119,20 @@ export function TaskDetail() {
     }
   }
 
+  const [statusSaving, setStatusSaving] = useState(false)
+
+  // Server-authoritative workflow (6.4): the PUT response returns the updated
+  // task incl. server-managed completedAt — never computed on the client.
   const handleStatusChange = async (status) => {
+    if (statusSaving || !task || task.status === status) return
+    setStatusSaving(true)
     try {
-      await taskApi.updateStatus(id, { status })
-      const updatedTask = { ...task, status, completedAt: status === 'completed' ? new Date().toISOString() : null }
-      setTask(updatedTask)
+      const response = await taskApi.updateStatus(id, { status })
+      setTask(response.data.task)
     } catch (err) {
-      console.error('Failed to update status:', err)
+      setError(getApiErrorMessage(err, 'Failed to update status'))
+    } finally {
+      setStatusSaving(false)
     }
   }
 
@@ -361,17 +368,22 @@ export function TaskDetail() {
             <div className="space-y-3">
               {canUpdateStatus && (
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Change Status</label>
+                  <label htmlFor="status-select" className="block text-sm font-medium text-gray-700 mb-1">Change Status</label>
                   <select
+                    id="status-select"
                     value={task.status}
+                    disabled={statusSaving}
                     onChange={(e) => handleStatusChange(e.target.value)}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 disabled:opacity-50 disabled:cursor-not-allowed"
                   >
                     <option value="todo">To Do</option>
                     <option value="in_progress">In Progress</option>
                     <option value="completed">Completed</option>
                     <option value="overdue">Overdue</option>
                   </select>
+                  {statusSaving && (
+                    <p className="mt-1 text-xs text-gray-500" role="status">Updating status…</p>
+                  )}
                 </div>
               )}
 

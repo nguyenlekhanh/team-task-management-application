@@ -1417,6 +1417,27 @@ Begin **6.3** (Task Create/Edit)
 ### Next Phase
 Begin **6.4** (Task Workflow)
 
+## Phase Status: PHASE 6.4 - COMPLETED (Task Workflow)
+
+### Gaps Fixed (frontend/src/pages/TaskDetail.jsx)
+- Status handler now **server-authoritative**: uses the PUT /tasks/:id/status response task (incl. server-managed completedAt set/clear) instead of fabricating completedAt client-side
+- Failures surfaced via error banner + getApiErrorMessage (previously console-only while select visually kept the new value)
+- `statusSaving` guard: select disabled + "Updating status…" hint; same-value selections ignored (duplicate-request prevention)
+- Label associated with select; overdue display already consistent with list from 6.2
+
+### Verified Live (9 workflow smoke checks, all passed)
+assignee can change status · response authoritative · completed sets/clears server completedAt · invalid status 400 safe · unauthorized member 403 with task state preserved · first completion adds exactly one TASK_COMPLETED notification for creator · repeating completed status creates no duplicate (transition-based dedupe confirmed)
+
+### Realtime Boundary (intentional)
+Other users see status changes only via REST refetch/navigation — no socket task events in this phase.
+
+### Verification
+- ✅ Frontend production build succeeds
+- ✅ Full backend battery green: 22/35/20/26/46/68/20/44+1skip/22
+
+### Next Phase
+Begin **6.5** (My Tasks)
+
 ## Phase Status: PHASE 5E.5 - COMPLETED (Final Testing & Documentation) — PROJECT SCOPE COMPLETE
 
 ### Final Verification (actual run)
