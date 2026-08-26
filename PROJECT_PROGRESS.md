@@ -1398,6 +1398,25 @@ Begin **6.2** (Task Detail)
 ### Next Phase
 Begin **6.3** (Task Create/Edit)
 
+## Phase Status: PHASE 6.3 - COMPLETED (Task Create/Edit)
+
+### What Was Implemented
+- New shared `components/TaskForm.jsx` (react-hook-form — already the project convention): title req ≤200, description ≤5000, assignee select from server-loaded members, priority enum default medium, start/due dates incl. due≥start check; submit disabled while saving; safe error banner via getApiErrorMessage
+- `pages/TaskCreatePage.jsx` at `/groups/:groupId/tasks/new`: membership-gated (non-members see notice), POSTs exact backend contract, navigates to new task detail using returned id
+- `pages/TaskEditPage.jsx` at `/groups/:groupId/tasks/:taskId/edit`: parallel-loads task+members, guards group-context mismatch, prefills from server (dates → YYYY-MM-DD), PUT update, navigates back to detail
+- Routes registered as lazy chunks in App.jsx
+- **Status excluded from the form by decision**: dedicated `PUT /tasks/:id/status` endpoint + detail-page select own status changes (documented hint shown on edit page)
+- TaskList "Create Task" buttons and TaskDetail "Edit Task" button now navigate to the new routes
+- Retired `CreateTaskModal.jsx` / `EditTaskModal.jsx` (zero remaining references, grep-verified) — page-based forms replace modals per revised roadmap
+
+### Verification
+- ✅ Production build succeeds; TaskCreatePage/TaskEditPage lazy chunks ship; initial bundle unchanged (~87.7 kB gzip)
+- ✅ Live API smoke using exact page payloads: CREATE 201 (dates stored correctly) → UPDATE 200 → cleanup
+- ✅ Backend battery green: 22/35/20/26/46/68/20/44+1skip/22 across nine suites
+
+### Next Phase
+Begin **6.4** (Task Workflow)
+
 ## Phase Status: PHASE 5E.5 - COMPLETED (Final Testing & Documentation) — PROJECT SCOPE COMPLETE
 
 ### Final Verification (actual run)

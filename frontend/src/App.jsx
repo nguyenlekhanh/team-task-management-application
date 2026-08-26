@@ -13,6 +13,8 @@ const GroupDetail = lazy(() => import('./pages/GroupDetail').then(m => ({ defaul
 const TaskList = lazy(() => import('./pages/TaskList').then(m => ({ default: m.TaskList })))
 const TaskDetail = lazy(() => import('./pages/TaskDetail').then(m => ({ default: m.TaskDetail })))
 const MyTasks = lazy(() => import('./pages/MyTasks').then(m => ({ default: m.MyTasks })))
+const TaskCreatePage = lazy(() => import('./pages/TaskCreatePage').then(m => ({ default: m.TaskCreatePage })))
+const TaskEditPage = lazy(() => import('./pages/TaskEditPage').then(m => ({ default: m.TaskEditPage })))
 
 function PageLoader() {
   return (
@@ -120,10 +122,26 @@ function App() {
           }
         />
         <Route
+          path="/groups/:groupId/tasks/new"
+          element={
+            <ProtectedRoute>
+              <TaskCreatePage />
+            </ProtectedRoute>
+          }
+        />
+        <Route
           path="/groups/:groupId/tasks/:taskId"
           element={
             <ProtectedRoute>
               <TaskDetail />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/groups/:groupId/tasks/:taskId/edit"
+          element={
+            <ProtectedRoute>
+              <TaskEditPage />
             </ProtectedRoute>
           }
         />

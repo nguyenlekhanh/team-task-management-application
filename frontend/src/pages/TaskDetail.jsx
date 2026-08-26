@@ -4,8 +4,6 @@ import { useAuth } from '../contexts/AuthContext'
 import { taskApi, groupApi, messageApi, getApiErrorMessage } from '../services/api'
 import { TaskStatusBadge } from '../components/TaskStatusBadge'
 import { PriorityBadge } from '../components/PriorityBadge'
-import { CreateTaskModal } from '../components/CreateTaskModal'
-import { EditTaskModal } from '../components/EditTaskModal'
 import { Checklist } from '../components/Checklist'
 import { CommentSection } from '../components/CommentSection'
 import { format } from 'date-fns'
@@ -20,7 +18,6 @@ export function TaskDetail() {
   const [task, setTask] = useState(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
-  const [showEditModal, setShowEditModal] = useState(false)
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false)
   const [groupMembers, setGroupMembers] = useState([])
   const [loadingMembers, setLoadingMembers] = useState(false)
@@ -398,7 +395,7 @@ export function TaskDetail() {
 
               {canEdit && (
                 <button
-                  onClick={() => setShowEditModal(true)}
+                  onClick={() => navigate(`/groups/${task.groupId}/tasks/${task.id}/edit`)}
                   className="w-full px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700"
                 >
                   Edit Task
@@ -443,14 +440,6 @@ export function TaskDetail() {
       </div>
 
       </div>
-
-      <EditTaskModal
-        isOpen={showEditModal}
-        onClose={() => setShowEditModal(false)}
-        task={task}
-        groupMembers={groupMembers}
-        onTaskUpdated={fetchTask}
-      />
     </main>
   </div>
   )

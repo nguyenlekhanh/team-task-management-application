@@ -1,0 +1,59 @@
+# Phase 6.3 - Task Create/Edit
+
+## STATUS
+COMPLETED
+
+## OBJECTIVE
+Proper page-based create/edit task forms at dedicated routes, using existing backend APIs, react-hook-form (already the project convention), and permission-aware UX. Legacy modal forms retired in favor of the new routes.
+
+---
+
+## ROUTES (new)
+- `/groups/:groupId/tasks/new` → `pages/TaskCreatePage.jsx` (lazy chunk)
+- `/groups/:groupId/tasks/:taskId/edit` → `pages/TaskEditPage.jsx` (lazy chunk)
+
+React Router v6 ranks the static `tasks/new` segment above `tasks/:taskId`, so no conflicts. All pre-existing routes preserved.
+
+## API ENDPOINTS USED (unchanged backend; payloads verified live)
+- Create: `POST /api/groups/:groupId/tasks`
+  payload: `{ title, description|null, assigneeId|null(Number), priority, startDate|null('YYYY-MM-DD'), dueDate|null }` → 201 `{ task: { id, … } }`
+- Edit: `PUT /api/tasks/:id` — same field set (**status intentionally excluded**, see decision below) → 200 `{ task }`
+- Members for assignee select: `GET /api/groups/:groupId/members` (one request per page load)
+- Edit prefill: `GET /api/tasks/:id`
+
+## NEW FILES
+- `components/TaskForm.jsx` — shared RHF form: title(required,≤200)/description(≤5000)/assignee select(group members)/priority enum(low|medium|high|urgent, default medium)/start+due dates; due-date validation includes "cannot be before start date"; submit disabled while saving; safe error banner (`getApiErrorMessage`); Cancel button.
+- `pages/TaskCreatePage.jsx` — loads members once; non-members see a notice card instead of the form (backend still authoritative); on success navigates to `/groups/:groupId/tasks/:id` using the server-returned ID.
+- `pages/TaskEditPage.jsx` — parallel-fetches task + members; group-context guard (`task.groupId !== groupId` ⇒ 'does not belong to this group' error state); prefills from server values (dates trimmed to YYYY-MM-DD); on success navigates back to task detail.
+
+## MODIFIED
+- `App.jsx` — two new lazy routes.
+- `pages/TaskList.jsx` — header + empty-state "Create Task" buttons now navigate to `/tasks/new`; CreateTaskModal import/state/render removed.
+- `pages/TaskDetail.jsx` — "Edit Task" button navigates to `/tasks/:id/edit`; EditTaskModal removed; stray unused `CreateTaskModal` import removed.
+- **Deleted**: `components/CreateTaskModal.jsx`, `components/EditTaskModal.jsx` (zero remaining references; grep-verified).
+
+## STATUS FIELD DECISION (documented per phase §9)
+Backend `PUT /tasks/:id` technically accepts `status`, but a dedicated endpoint (`PUT /tasks/:id/status`) exists and the detail page already owns status changes. Per the phase's preference, the edit form **excludes status**; creation uses the backend default (`todo`). The edit page displays a hint: "Status changes are made from the task page."
+
+## VALIDATION SUMMARY
+Frontend (react-hook-form): title required ≤200 · description ≤5000 · dates parseable · due ≥ start when both set. Backend remains authoritative (400s surface through the shared error banner). Server-derived fields never sent: creatorId/groupId/ownerId/assignedBy/role.
+
+## AUTHORIZATION UX
+Create page gates the form behind verified membership (members list from server); non-members get an explanatory panel. Edit relies on backend rules — 403/404 render as safe form/load errors. No frontend security model.
+
+## DATES
+HTML date inputs emit `YYYY-MM-DD`, matching the contract verified live (CREATE 201 stored `2026-09-01T00:00:00.000Z`). Empty strings are sent as null.
+
+## TESTING
+- ✅ Production build succeeds; `TaskCreatePage-*.js` / `TaskEditPage-*.js` chunks ship.
+- ✅ Live smoke against running API with exact page payloads: CREATE 201 (dates stored correctly) → UPDATE 200 → cleanup DELETE 200.
+- ✅ Backend battery green after changes: Foundation 22 · Chat 35 · Notif-realtime 20 · Presence 26 · System 46 · Notifications 68 · Errors 20 · Security 44(+env-skip) · Performance 22.
+- Browser E2E not performed (no tooling); static/build/live-API verification documented honestly.
+
+## KNOWN LIMITATIONS / DEFERRALS TO 6.4+
+1. Status editing lives on the detail page (dedicated endpoint), not in this form — Phase 6.4 will consolidate workflow UX.
+2. No unsaved-changes navigation guard (none existed previously; inputs persist across failed submits).
+3. Assignee options limited to current members list; assignment of non-members is rejected by backend anyway.
+
+## NEXT SUB-PHASE
+**6.4 — Task Workflow**

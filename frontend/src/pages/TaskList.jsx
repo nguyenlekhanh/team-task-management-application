@@ -5,7 +5,6 @@ import { taskApi, groupApi } from '../services/api'
 import { TaskFilter } from '../components/TaskFilter'
 import { TaskStatusBadge } from '../components/TaskStatusBadge'
 import { PriorityBadge } from '../components/PriorityBadge'
-import { CreateTaskModal } from '../components/CreateTaskModal'
 import { format } from 'date-fns'
 import { NotificationBell } from '../components/NotificationBell'
 
@@ -33,7 +32,6 @@ export function TaskList() {
   })
   const [pagination, setPagination] = useState({ total: 0, page: 1, limit: 20, totalPages: 1 })
   const [groupMembers, setGroupMembers] = useState([])
-  const [showCreateModal, setShowCreateModal] = useState(false)
 
   // Debounced search (5E-phase UX): typing must not fire a request per keystroke.
   const [searchInput, setSearchInput] = useState('')
@@ -255,7 +253,7 @@ export function TaskList() {
                 <p className="mt-1 text-sm text-gray-500">No tasks found for this group.</p>
                 {canCreateTask && (
                   <button
-                    onClick={() => setShowCreateModal(true)}
+                    onClick={() => navigate(`/groups/${groupId}/tasks/new`)}
                     className="mt-4 px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700"
                   >
                     Create Task
@@ -377,13 +375,6 @@ export function TaskList() {
           </div>
         )}
       </main>
-    <CreateTaskModal
-      isOpen={showCreateModal}
-      onClose={() => setShowCreateModal(false)}
-      groupId={groupId}
-      groupMembers={groupMembers}
-      onTaskCreated={fetchTasks}
-    />
   </div>
   )
 }
