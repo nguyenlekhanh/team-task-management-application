@@ -1378,6 +1378,26 @@ Checklist progress is not shown in list rows: the LIST endpoint (`getGroupTasks`
 ### Next Phase
 Begin **6.2** (Task Detail)
 
+## Phase Status: PHASE 6.2 - COMPLETED (Task Detail)
+
+### Key Finding
+`pages/TaskDetail.jsx` already existed (Phase 4C) covering fetch, metadata, dates, checklist component, realtime comments via shared socket, role-gated actions, loading/404/401 handling. Phase 6.2 = audit + gap hardening; no backend changes.
+
+### Gaps Fixed (frontend/src/pages/TaskDetail.jsx)
+- Group name row added (linked), sourced from existing `task.group.name`
+- Due-date cell now matches list styling: red + Overdue pill when past due and not completed
+- Non-404 fetch errors normalized through getApiErrorMessage (timeout/network friendly)
+- Layout restructured into a true two-column grid (main column: info/description/checklist/comments; sidebar: actions/members) — previously checklist/comments/sidebar floated as loose children pushing the sidebar below the fold; div balance verified programmatically
+- Description preserves line breaks (whitespace-pre-wrap, plain-text safe)
+
+### Verification
+- ✅ Production build succeeds (initial bundle unchanged)
+- ✅ Backend battery green: 22 / 35 / 20 / 26 / 46 / 68 / 20 / 44+1skip / 22 across nine suites
+- Static/build verification only (no browser tooling) — documented honestly
+
+### Next Phase
+Begin **6.3** (Task Create/Edit)
+
 ## Phase Status: PHASE 5E.5 - COMPLETED (Final Testing & Documentation) — PROJECT SCOPE COMPLETE
 
 ### Final Verification (actual run)

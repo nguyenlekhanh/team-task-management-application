@@ -536,6 +536,7 @@
 ## Phase 6 — Task Management Frontend & Workflow (revised roadmap)
 
 **Phase 6.1: Task List** - **COMPLETED** (existing Phase 4C implementation audited and hardened: debounced server-side search, initial-only full spinner + inline refresh state, overdue indication, creator/start-date columns, overflow-x responsive fix, differentiated empty states, dead-code cleanup; checklist-in-list documented as deferred; battery green)
+**Phase 6.2: Task Detail** - **COMPLETED** (existing Phase 4C detail page audited and hardened: group-name link row, overdue-consistent due-date display, normalized errors, true two-column layout restructure, description formatting; battery green)
 
 ## Recommended Next Steps
 

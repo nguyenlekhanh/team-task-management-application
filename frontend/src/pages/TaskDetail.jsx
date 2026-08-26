@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
 import { useNavigate, useParams, Link } from 'react-router-dom'
 import { useAuth } from '../contexts/AuthContext'
-import { taskApi, groupApi, messageApi } from '../services/api'
+import { taskApi, groupApi, messageApi, getApiErrorMessage } from '../services/api'
 import { TaskStatusBadge } from '../components/TaskStatusBadge'
 import { PriorityBadge } from '../components/PriorityBadge'
 import { CreateTaskModal } from '../components/CreateTaskModal'
@@ -56,7 +56,7 @@ export function TaskDetail() {
       if (err.response?.status === 404) {
         setError('Task not found')
       } else {
-        setError(err.message || 'Failed to fetch task')
+        setError(getApiErrorMessage(err, 'Failed to fetch task'))
       }
     } finally {
       setLoading(false)
@@ -254,6 +254,16 @@ export function TaskDetail() {
                   <dd className="text-sm text-gray-900 mt-1">{task.id}</dd>
                 </div>
                 <div>
+                  <dt className="text-sm font-medium text-gray-500">Group</dt>
+                  <dd className="text-sm text-gray-900 mt-1">
+                    {task.group?.name ? (
+                      <Link to={`/groups/${task.groupId}`} className="text-blue-600 hover:text-blue-900">
+                        {task.group.name}
+                      </Link>
+                    ) : '—'}
+                  </dd>
+                </div>
+                <div>
                   <dt className="text-sm font-medium text-gray-500">Created By</dt>
                   <dd className="text-sm text-gray-900 mt-1">{task.creator?.displayName || task.creator?.username}</dd>
                 </div>
@@ -283,8 +293,24 @@ export function TaskDetail() {
                 </div>
                 <div>
                   <dt className="text-sm font-medium text-gray-500">Due Date</dt>
-                  <dd className="text-sm text-gray-900 mt-1">
-                    {task.dueDate ? format(new Date(task.dueDate), 'MMM d, yyyy') : 'Not set'}
+                  <dd className="text-sm mt-1">
+                    {task.dueDate ? (
+                      (() => {
+                        const isOverdue = task.status !== 'completed' && new Date(task.dueDate) < new Date()
+                        return (
+                          <>
+                            <span className={isOverdue ? 'text-red-600 font-medium' : 'text-gray-900'}>
+                              {format(new Date(task.dueDate), 'MMM d, yyyy')}
+                            </span>
+                            {isOverdue && (
+                              <span className="ml-2 inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-700">
+                                Overdue
+                              </span>
+                            )}
+                          </>
+                        )
+                      })()
+                    ) : 'Not set'}
                   </dd>
                 </div>
                 <div>
@@ -311,25 +337,24 @@ export function TaskDetail() {
             {task.description && (
               <div className="mt-6">
                 <h3 className="text-lg font-semibold text-gray-900 mb-2">Description</h3>
-                <div className="prose max-w-none text-gray-700">{task.description}</div>
+                <div className="prose max-w-none text-gray-700 whitespace-pre-wrap">{task.description}</div>
               </div>
             )}
+
+            {/* Checklist */}
+            <Checklist
+              taskId={id}
+              items={checklistItems}
+              onAdd={handleAddChecklistItem}
+              onToggle={handleToggleChecklistItem}
+              onUpdate={handleUpdateChecklistItem}
+              onDelete={handleDeleteChecklistItem}
+              canManage={true}
+            />
+
+            {/* Comments */}
+            <CommentSection taskId={id} currentUserId={user.id} />
           </div>
-
-          {/* Checklist */}
-          <Checklist
-            taskId={id}
-            items={checklistItems}
-            onAdd={handleAddChecklistItem}
-            onToggle={handleToggleChecklistItem}
-            onUpdate={handleUpdateChecklistItem}
-            onDelete={handleDeleteChecklistItem}
-            canManage={true}
-          />
-
-          {/* Comments */}
-          <CommentSection taskId={id} currentUserId={user.id} />
-      </div>
 
         {/* Sidebar - Actions & Members */}
         <div className="space-y-6">
@@ -415,6 +440,8 @@ export function TaskDetail() {
               ))}
             </div>
 </div>
+      </div>
+
       </div>
 
       <EditTaskModal

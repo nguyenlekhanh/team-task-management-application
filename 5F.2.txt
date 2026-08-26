@@ -1,0 +1,53 @@
+# Phase 6.2 - Task Detail
+
+## STATUS
+COMPLETED
+
+## OBJECTIVE
+Complete, read-focused Task Detail experience on route `/groups/:groupId/tasks/:taskId` using existing APIs. As with 6.1, the page **already existed** from Phase 4C — this phase was an audit + gap-hardening pass with no backend changes.
+
+---
+
+## KEY FINDING
+`pages/TaskDetail.jsx` already provided: task fetch via `GET /api/tasks/:id`, title/description/status/priority badges, creator/assignee (incl. Unassigned), start/due/completed/created/updated dates with graceful 'Not set'/'Not completed' fallbacks, Checklist component (progress + pre-existing add/toggle/edit/delete interactions), CommentSection with realtime via the shared SocketContext, role-derived action panel (status select / assign / edit / delete), group members card, loading spinner, blind-404 error screen with Go Back, 401 redirect. Route + back-links to Group and Tasks existed.
+
+## GAPS FIXED THIS PHASE (smallest safe changes)
+1. **Group name never displayed** → added "Group" metadata row linking to `/groups/:groupId`; sourced from `task.group.name` already returned by the detail endpoint.
+2. **Overdue indication inconsistent with Task List** → due-date cell now renders red date + "Overdue" pill when `dueDate < now && status !== 'completed'` (same derivation as 6.1).
+3. **Non-404 error messages were raw axios strings** (e.g. timeout text) → now normalized via `getApiErrorMessage(err, 'Failed to fetch task')` (5E.2 helper).
+4. **Broken grid layout**: Checklist/Comments floated as loose grid children pushing the Actions/Members sidebar full-width below the fold → restructured into a true two-column layout: left column = Task Info + Description + Checklist + Comments; right column = Actions + Members. Stacks to single column on mobile (`lg:grid-cols-3`). Verified tag balance programmatically (final div depth 0).
+5. **Description formatting** → `whitespace-pre-wrap` so line breaks in plain-text descriptions are preserved (no HTML injection; React text rendering only).
+
+## PRESERVED PRE-EXISTING INTERACTIONS (per §10 exception)
+Checklist add/toggle/edit/delete and comment add/edit/delete are established interactions wired to real endpoints since earlier phases — preserved untouched rather than stripped to read-only. No NEW mutation workflows introduced; status-select/assign/edit/delete controls remain exactly as before, gated by server-derived role data.
+
+## API ENDPOINT USED (single request per artifact)
+- `GET /api/tasks/:id` → `{ task: { id, title, description, status, priority, creator{...}, assignee{...}|null, group{id,name}, startDate?, dueDate?, completedAt?, createdAt, updatedAt } }`
+- Follow-ups only where the page requires them: checklist items via existing `GET /tasks/:taskId/checklist`; comments rendered by existing CommentSection (self-fetching); members for the assign dropdown/members card via existing group-members endpoint.
+
+## LOADING / ERROR / MISSING-DATA STATES
+- Initial load: project spinner.
+- 401 → redirect (interceptor/manual path); 404 → 'Task not found' + Go Back; other errors → safe normalized message + retry-free static state (matches prior behavior).
+- Optional fields render '—'/'Not set'/'Unassigned'/'No description'; no raw `undefined`/`[object Object]` paths (all interpolations guarded).
+
+## RESPONSIVE
+Two-column ≥lg; single stacked column below; no horizontal overflow elements introduced. Full responsive redesign remains Phase 9 scope.
+
+## TESTING
+- ✅ Production build succeeds; JSX div-balance verified programmatically (final depth 0).
+- ✅ Backend battery re-run unchanged/green: Foundation 22 · Chat 35 · Notif-realtime 20 · Presence 26 · System 46 · Notifications 68 · Errors 20 · Security 44(+env-skip) · Performance 22.
+- Browser/E2E testing NOT performed (no tooling); static + build verification documented honestly.
+
+## KNOWN LIMITATIONS / DEFERRALS TO 6.3+
+- Status/assignee/edit/delete mutations remain from the legacy page; consolidated workflow UX is Phase 6.4 scope.
+- No realtime TASK update events (deferred by design).
+- TaskMembers (followers) are not displayed — detail endpoint does not include them; deferred.
+- Comments pagination inside CommentSection is its own existing behavior (unchanged).
+
+## FILES CHANGED
+- `frontend/src/pages/TaskDetail.jsx`
+- `5F.2.txt` (this file)
+- `PROJECT_PLAN.md`, `PROJECT_PROGRESS.md`, `PROJECT_RESULT.md`
+
+## NEXT SUB-PHASE
+**6.3 — Task Create/Edit**
