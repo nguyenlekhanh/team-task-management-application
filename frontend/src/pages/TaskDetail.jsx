@@ -6,9 +6,9 @@ import { TaskStatusBadge } from '../components/TaskStatusBadge'
 import { PriorityBadge } from '../components/PriorityBadge'
 import { Checklist } from '../components/Checklist'
 import { CommentSection } from '../components/CommentSection'
-import { format } from 'date-fns'
 import { getRoleColor } from '../utils/permissions'
 import { NotificationBell } from '../components/NotificationBell'
+import { formatTaskDate, formatTaskDateTime, isTaskOverdue } from '../utils/taskDisplay'
 
 export function TaskDetail() {
   const { id } = useParams()
@@ -292,7 +292,7 @@ export function TaskDetail() {
                 <div>
                   <dt className="text-sm font-medium text-gray-500">Start Date</dt>
                   <dd className="text-sm text-gray-900 mt-1">
-                    {task.startDate ? format(new Date(task.startDate), 'MMM d, yyyy') : 'Not set'}
+                    {task.startDate ? formatTaskDate(task.startDate, 'Not set') : 'Not set'}
                   </dd>
                 </div>
                 <div>
@@ -300,14 +300,14 @@ export function TaskDetail() {
                   <dd className="text-sm mt-1">
                     {task.dueDate ? (
                       (() => {
-                        const isOverdue = task.status !== 'completed' && new Date(task.dueDate) < new Date()
+                        const overdue = isTaskOverdue(task)
                         return (
                           <>
-                            <span className={isOverdue ? 'text-red-600 font-medium' : 'text-gray-900'}>
-                              {format(new Date(task.dueDate), 'MMM d, yyyy')}
+                            <span className={overdue ? 'text-red-600 font-medium' : 'text-gray-900'}>
+                              {formatTaskDate(task.dueDate)}
                             </span>
-                            {isOverdue && (
-                              <span className="ml-2 inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-700">
+                            {overdue && (
+                              <span className="ml-2 inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-700" aria-label="Overdue">
                                 Overdue
                               </span>
                             )}
@@ -320,19 +320,19 @@ export function TaskDetail() {
                 <div>
                   <dt className="text-sm font-medium text-gray-500">Completed At</dt>
                   <dd className="text-sm text-gray-900 mt-1">
-                    {task.completedAt ? format(new Date(task.completedAt), 'MMM d, yyyy HH:mm') : 'Not completed'}
+                    {task.completedAt ? formatTaskDateTime(task.completedAt, 'Not completed') : 'Not completed'}
                   </dd>
                 </div>
                 <div>
                   <dt className="text-sm font-medium text-gray-500">Created</dt>
                   <dd className="text-sm text-gray-900 mt-1">
-                    {format(new Date(task.createdAt), 'MMM d, yyyy HH:mm')}
+                    {formatTaskDateTime(task.createdAt)}
                   </dd>
                 </div>
                 <div>
                   <dt className="text-sm font-medium text-gray-500">Last Updated</dt>
                   <dd className="text-sm text-gray-900 mt-1">
-                    {format(new Date(task.updatedAt), 'MMM d, yyyy HH:mm')}
+                    {formatTaskDateTime(task.updatedAt)}
                   </dd>
                 </div>
               </dl>

@@ -382,6 +382,10 @@ project-root/
 
 ## Current Phase
 
+**Phase 6.6: Task UX Polish** - **COMPLETED** (shared taskDisplay helpers, aria enhancements for TaskForm/Checklist/pagination, consistent overdue/date formatting, responsive polish; frontend-only changes; build green)
+
+**Phase 6.5: My Tasks** - **COMPLETED** (cross-group view at /tasks via existing GET /api/tasks + new server-derived scope param [assigned|created]; fixed crash-level missing Link import, triple headers, wrong view semantics; debounced search, overdue indicator, differentiated empty states; new 13-assertion mytasks suite incl. forged-identity override checks. Full battery green.)
+
 **Phase 6.4: Task Workflow** - **COMPLETED** (Task Detail status control made server-authoritative: uses PUT /tasks/:id/status response incl. server-managed completedAt, saving state + duplicate guard, errors surfaced via getApiErrorMessage; transition-based TASK_COMPLETED notification dedupe verified live; full battery green)
 
 **Phase 6.3: Task Create/Edit** - **COMPLETED** (new routes /groups/:groupId/tasks/new and /tasks/:taskId/edit with shared react-hook-form TaskForm; legacy modal forms retired in favor of page-based flows; status intentionally excluded from edit form — dedicated endpoint owns it; live payload smoke test + full battery green)
@@ -394,12 +398,15 @@ project-root/
 A revised roadmap now numbers the Task Management Frontend & Workflow effort as **Phase 6** (6.1 Task List → 6.2 Task Detail → …). This supersedes the historical in-document labels where "Phase 4C" covered the original task frontend and "Phase 6" covered group chat. Completed work is unchanged; only the forward-looking numbering moved. Progress for the new phase is recorded in `5F.1.txt` onward.
 
 ## Project Completion Summary
-All phases through 5E.5 are COMPLETED (foundation/auth/groups/tasks backend/checklist/chat/notifications/realtime/integration/error/security/performance/docs), and the revised **Phase 6.1 Task List** is COMPLETED on top of that foundation. Final test state: 9 suites / 308 assertions green + 15-check REST regression sweep; production build passing; docs consolidated under docs/.
+All phases through 5E.5 are COMPLETED (foundation/auth/groups/tasks backend/checklist/chat/notifications/realtime/integration/error/security/performance/docs), and revised **Phase 6.1–6.6** are COMPLETED (Task List → Detail → Create/Edit → Workflow → My Tasks → UX Polish) on top of that foundation. Final test state: 9 suites green + REST regression sweep; production build passing; docs consolidated under docs/.
 
 ## Recommended Next Steps (future work, NOT started)
-- **Phase 6.6 Task UX Polish** (next)
+- **Phase 6.7** (next — per revised roadmap)
 - Later Phase 6 sub-phases per revised roadmap
 - Phase 9 candidates: refresh tokens/token revocation, broader REST rate limiting, HTTPS/HSTS/CSP at proxy, email/push channels
+
+## Phase 6.6 Update
+**Phase 6.6: Task UX Polish** - **COMPLETED** (shared taskDisplay helpers, aria improvements for TaskForm/Checklist/pagination, consistent overdue/date formatting across TaskList/MyTasks/TaskDetail, responsive polish; no backend changes; build green)
 
 ## Phase 6.5 Update
 **Phase 6.1–6.4 progress note:** Task List hardening, Task Detail hardening, page-based Create/Edit (modals retired), and server-authoritative status workflow were all COMPLETED after the summary above; see `5F.1.txt`–`5F.4.txt`.

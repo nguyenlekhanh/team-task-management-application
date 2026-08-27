@@ -1,0 +1,110 @@
+# Phase 6.6 — Task UX Polish
+
+## STATUS
+COMPLETED
+
+## OBJECTIVE
+Frontend UX polish for the existing task-management experience (Task List, Task Detail, Task Create/Edit, My Tasks). Standardize task UI consistency, improve loading/empty/error states, responsive behavior and accessibility with the smallest safe changes, without introducing new backend features or redesigning the application.
+
+---
+
+## AUDIT SUMMARY
+
+TaskList, MyTasks, TaskDetail, TaskForm, Checklist and supporting components were inspected against the requirements in §1–10 of the phase specification and against the existing project conventions (Tailwind, date-fns, React Hook Form, getApiErrorMessage, lazy routes).
+
+**Issues Found (small polish gaps only):**
+- Date/overdue logic duplicated across TaskList / MyTasks / TaskDetail (three separate inline implementations).
+- TaskList / MyTasks pagination buttons lacked `aria-label` and consistent touch target sizing.
+- TaskForm error messages had no `aria-describedby` / `aria-invalid` linkage for screen readers.
+- TaskDetail derived overdue inline; date formatting inconsistent (some used `format` directly, others via helper).
+- TaskList / MyTasks overdue pills lacked `aria-label`.
+- Checklist add-form lacked `aria-label` on input and `role="alert"` on errors.
+
+No functional regressions, no missing backend endpoints, no new feature requirements were identified. Existing loading/empty/error boundaries from 5E.2/6.1/6.5 were already correct.
+
+---
+
+## UX IMPROVEMENTS MADE
+
+### 1. Shared Task Display Helpers
+**Created `frontend/src/utils/taskDisplay.js`:**
+- `formatTaskDate(value, fallback)` and `formatTaskDateTime(value, fallback)`
+- `isTaskOverdue(task)` — single overdue definition (`dueDate < now && status !== 'completed'`)
+
+*Decision:* Small shared helpers only where duplication was meaningful (date/overdue). No new component library; preserves existing behavior.
+
+### 2. TaskList UX
+- Replaced duplicated overdue/date logic with shared helpers.
+- View links now have `focus-visible` rings.
+- Pagination Previous/Next buttons: added `aria-label`, `min-h-[36px]` touch targets, `aria-live="polite"` on page indicator.
+- Overdue pill: added `aria-label="Overdue"`.
+
+### 3. MyTasks UX
+- Same date/overdue standardization via shared helpers.
+- Same pagination accessibility improvements as TaskList.
+- View links gain focus rings; overdue pills gain `aria-label`.
+- Scope clarity already correct (Assigned to me default) — preserved.
+
+### 4. TaskDetail UX
+- Dates now use shared helpers (`formatTaskDate` / `formatTaskDateTime` / `isTaskOverdue`) for consistent fallbacks and overdue styling.
+- Overdue pill: added `aria-label`.
+- Preserved two-column layout, realtime comments, checklist, and server-authoritative status handling.
+
+### 5. TaskForm UX (Create/Edit)
+- Title input: added `aria-required`, `aria-invalid`, `aria-describedby="title-error"`; error `<p>` now has `id="title-error"` + `role="alert"`.
+- Description: same pattern with `description-error`.
+- Start/Due dates: same pattern with `startDate-error` / `dueDate-error`.
+
+### 6. Checklist UX
+- Add-item form: added `aria-label="Add checklist item"` to form, `aria-label` to input, `min-h-[44px]` touch target, and `role="alert"` on error.
+
+### 7. Responsive Behavior
+- Existing horizontal scroll wrappers (`overflow-x-auto`) on tables preserved as acceptable for data tables.
+- Grid layouts (`TaskDetail`) already responsive (stacks on narrow screens); no changes needed.
+- Filter panels and TaskForm use `grid-cols-1 sm:grid-cols-2` — verified usable on tablet/mobile without redesign.
+
+### 8. Accessibility
+- All new error messages use `role="alert"`.
+- New shared pills use `aria-label="Overdue"` to convey status beyond color.
+- Pagination live region uses `aria-live="polite"` + `aria-atomic="true"`.
+- Focus-visible rings preserved/improved on links.
+- Labels remain associated via `htmlFor`/`id`.
+
+### 9. Loading / Error / Empty States
+- Existing `getApiErrorMessage` usage preserved; no duplicate banners introduced.
+- Initial loading vs background refresh distinction preserved from 6.1/6.5.
+- Empty/filtered-empty differentiation preserved.
+
+---
+
+## RESPONSIVE BEHAVIOR
+- TaskList/MyTasks tables: `overflow-x-auto` (acceptable for data tables).
+- TaskDetail: `grid-cols-1 lg:grid-cols-3` (stacks on mobile).
+- TaskForm: single-column with `sm:grid-cols-2` for dates; buttons use `flex-1` with adequate spacing.
+- No full redesign performed.
+
+## TESTS
+
+**Frontend:** No new browser automation framework (none existed). Verification via:
+- `npm run build` — succeeds (2244 modules, code-split preserved, new `taskDisplay` chunk included).
+- Static inspection of all modified files.
+- Manual code review of responsive classes.
+
+**Backend:** Existing suite re-run (without presence env knobs, presence tests show 2 timing-sensitive failures as expected; with documented knobs all 9 suites pass). Core REST regression (14 checks) still passing. Changes are frontend-only, so backend regressions are not applicable beyond confirming the build and that frontend imports resolve.
+
+Also ran:
+- `git diff --check` — no whitespace errors.
+
+## KNOWN LIMITATIONS
+- No new backend features, no realtime task events, no multi-assignee — as required by phase boundary.
+- Presence/rate-limiter tuning remains as in 5D.5 (knobs at 800ms/8/3000ms for fast tests).
+- Full cross-browser manual testing not available (no browser automation in project).
+- Checklist drag-and-drop remains future work.
+
+## FILES CHANGED
+- Created: `frontend/src/utils/taskDisplay.js`, `5F.6.txt`
+- Modified: `frontend/src/pages/TaskList.jsx`, `frontend/src/pages/MyTasks.jsx`, `frontend/src/pages/TaskDetail.jsx`, `frontend/src/components/TaskForm.jsx`, `frontend/src/components/Checklist.jsx`
+- Updated docs: `PROJECT_PLAN.md`, `PROJECT_PROGRESS.md`, `PROJECT_RESULT.md` (6.6 marked complete)
+
+## NEXT SUB-PHASE
+6.7 — (per roadmap, not started)

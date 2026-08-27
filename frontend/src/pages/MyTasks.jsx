@@ -5,8 +5,8 @@ import { taskApi, getApiErrorMessage } from '../services/api'
 import { TaskFilter } from '../components/TaskFilter'
 import { TaskStatusBadge } from '../components/TaskStatusBadge'
 import { PriorityBadge } from '../components/PriorityBadge'
-import { format } from 'date-fns'
 import { NotificationBell } from '../components/NotificationBell'
+import { formatTaskDate, isTaskOverdue } from '../utils/taskDisplay'
 
 const EMPTY_FILTERS = {
   scope: 'assigned',
@@ -205,11 +205,11 @@ export function MyTasks() {
               </thead>
               <tbody className="bg-white divide-y divide-gray-200">
                 {tasks.map(task => {
-                  const isOverdue = task.dueDate && task.status !== 'completed' && new Date(task.dueDate) < new Date()
+                  const overdue = isTaskOverdue(task)
                   return (
                     <tr key={task.id} className="hover:bg-gray-50">
                       <td className="px-6 py-4">
-                        <Link to={`/groups/${task.groupId}/tasks/${task.id}`} className="text-blue-600 hover:text-blue-900 font-medium">
+                        <Link to={`/groups/${task.groupId}/tasks/${task.id}`} className="text-blue-600 hover:text-blue-900 font-medium focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 rounded">
                           {task.title}
                         </Link>
                         {task.description && (
@@ -228,11 +228,11 @@ export function MyTasks() {
                       <td className="px-6 py-4 whitespace-nowrap text-sm">
                         {task.dueDate ? (
                           <>
-                            <span className={isOverdue ? 'text-red-600 font-medium' : 'text-gray-500'}>
-                              {format(new Date(task.dueDate), 'MMM d, yyyy')}
+                            <span className={overdue ? 'text-red-600 font-medium' : 'text-gray-500'}>
+                              {formatTaskDate(task.dueDate)}
                             </span>
-                            {isOverdue && (
-                              <span className="ml-2 inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-700">
+                            {overdue && (
+                              <span className="ml-2 inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-700" aria-label="Overdue">
                                 Overdue
                               </span>
                             )}
@@ -242,7 +242,7 @@ export function MyTasks() {
                         )}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-right">
-                        <Link to={`/groups/${task.groupId}/tasks/${task.id}`} className="text-blue-600 hover:text-blue-900 text-sm">
+                        <Link to={`/groups/${task.groupId}/tasks/${task.id}`} className="text-blue-600 hover:text-blue-900 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 rounded">
                           View
                         </Link>
                       </td>
@@ -263,17 +263,19 @@ export function MyTasks() {
                 <button
                   onClick={() => handlePageChange(pagination.page - 1)}
                   disabled={pagination.page === 1 || loading}
-                  className="px-3 py-1 border border-gray-300 rounded-md text-sm disabled:opacity-50 disabled:cursor-not-allowed"
+                  aria-label="Go to previous page"
+                  className="px-3 py-1 border border-gray-300 rounded-md text-sm disabled:opacity-50 disabled:cursor-not-allowed min-h-[36px]"
                 >
                   Previous
                 </button>
-                <span className="px-3 py-1 text-sm text-gray-700">
+                <span className="px-3 py-1 text-sm text-gray-700" aria-live="polite" aria-atomic="true">
                   Page {pagination.page} of {pagination.totalPages}
                 </span>
                 <button
                   onClick={() => handlePageChange(pagination.page + 1)}
                   disabled={pagination.page === pagination.totalPages || loading}
-                  className="px-3 py-1 border border-gray-300 rounded-md text-sm disabled:opacity-50 disabled:cursor-not-allowed"
+                  aria-label="Go to next page"
+                  className="px-3 py-1 border border-gray-300 rounded-md text-sm disabled:opacity-50 disabled:cursor-not-allowed min-h-[36px]"
                 >
                   Next
                 </button>

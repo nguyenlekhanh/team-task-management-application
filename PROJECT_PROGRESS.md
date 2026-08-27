@@ -1496,5 +1496,27 @@ Phase 5A–5E.5 all COMPLETED. The currently implemented project scope is featur
 - ✅ Production build succeeds (MyTasks lazy chunk ships)
 - ✅ Full battery green: 22/35/20/26/46/68/20/44+1skip/22 across nine suites
 
+## Phase Status: PHASE 6.6 - COMPLETED (Task UX Polish)
+
+### UX Issues Found (audit)
+- Duplicated date/overdue logic across TaskList / MyTasks / TaskDetail.
+- Pagination buttons lacked accessible labels and consistent touch targets.
+- TaskForm errors not associated via aria-describedby/aria-invalid.
+- Checklist add form lacked accessible labels.
+- Minor responsive and empty-state inconsistencies; overdue pill missing aria-label.
+
+### UX Improvements Made
+- Created shared `frontend/src/utils/taskDisplay.js` (formatTaskDate / formatTaskDateTime / isTaskOverdue) and standardized all three task pages to use it.
+- TaskList/MyTasks: pagination Previous/Next now have `aria-label` and `min-h-[36px]`; page indicator has `aria-live="polite"`.
+- TaskForm: added `aria-required`, `aria-invalid`, `aria-describedby` with error `role="alert"` for title/description/startDate/dueDate.
+- Checklist: add-item form has `aria-label`, input `aria-label`, error `role="alert"`, `min-h-[44px]` on input.
+- TaskList/MyTasks overdue pills now have `aria-label="Overdue"`; View links have `focus-visible` rings.
+- TaskDetail due-date overdue styling now consistent via shared helper.
+
+### Verification
+- ✅ Frontend production build succeeds (code-split preserved; new shared chunk `taskDisplay` included)
+- ✅ Backend battery re-run green (9 suites) — frontend-only changes, no backend regression expected
+- Static inspection and responsive review performed; no browser automation in project
+
 ### Next Phase
-Begin **6.6** (Task UX Polish)
+Begin **6.7** (per roadmap, not started)

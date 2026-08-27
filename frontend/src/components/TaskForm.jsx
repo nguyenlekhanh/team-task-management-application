@@ -37,11 +37,14 @@ export function TaskForm({
 
       <div>
         <label htmlFor="title" className="block text-sm font-medium text-gray-700 mb-1">
-          Title <span className="text-red-500">*</span>
+          Title <span className="text-red-500" aria-hidden="true">*</span>
         </label>
         <input
           id="title"
           type="text"
+          aria-required="true"
+          aria-invalid={errors.title ? 'true' : 'false'}
+          aria-describedby={errors.title ? 'title-error' : undefined}
           {...register('title', {
             required: 'Title is required',
             maxLength: { value: 200, message: 'Title must be 200 characters or less' }
@@ -50,7 +53,7 @@ export function TaskForm({
           placeholder="Task title"
         />
         {errors.title && (
-          <p className="mt-1 text-sm text-red-600">{errors.title.message}</p>
+          <p id="title-error" className="mt-1 text-sm text-red-600" role="alert">{errors.title.message}</p>
         )}
       </div>
 
@@ -61,6 +64,8 @@ export function TaskForm({
         <textarea
           id="description"
           rows={4}
+          aria-invalid={errors.description ? 'true' : 'false'}
+          aria-describedby={errors.description ? 'description-error' : undefined}
           {...register('description', {
             maxLength: { value: 5000, message: 'Description must be 5000 characters or less' }
           })}
@@ -68,7 +73,7 @@ export function TaskForm({
           placeholder="Task description (optional)"
         />
         {errors.description && (
-          <p className="mt-1 text-sm text-red-600">{errors.description.message}</p>
+          <p id="description-error" className="mt-1 text-sm text-red-600" role="alert">{errors.description.message}</p>
         )}
       </div>
 
@@ -114,13 +119,15 @@ export function TaskForm({
           <input
             id="startDate"
             type="date"
+            aria-invalid={errors.startDate ? 'true' : 'false'}
+            aria-describedby={errors.startDate ? 'startDate-error' : undefined}
             {...register('startDate', {
               validate: v => !v || !isNaN(new Date(v).getTime()) || 'Invalid start date'
             })}
             className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
           />
           {errors.startDate && (
-            <p className="mt-1 text-sm text-red-600">{errors.startDate.message}</p>
+            <p id="startDate-error" className="mt-1 text-sm text-red-600" role="alert">{errors.startDate.message}</p>
           )}
         </div>
 
@@ -131,6 +138,8 @@ export function TaskForm({
           <input
             id="dueDate"
             type="date"
+            aria-invalid={errors.dueDate ? 'true' : 'false'}
+            aria-describedby={errors.dueDate ? 'dueDate-error' : undefined}
             {...register('dueDate', {
               validate: (v, values) => {
                 if (!v) return true
@@ -142,7 +151,7 @@ export function TaskForm({
             className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
           />
           {errors.dueDate && (
-            <p className="mt-1 text-sm text-red-600">{errors.dueDate.message}</p>
+            <p id="dueDate-error" className="mt-1 text-sm text-red-600" role="alert">{errors.dueDate.message}</p>
           )}
         </div>
       </div>

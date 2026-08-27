@@ -49,9 +49,9 @@ export function Checklist({ taskId, items, onAdd, onToggle, onUpdate, onDelete, 
       </div>
 
       {adding && (
-        <form onSubmit={handleSubmit(handleSubmitForm)} className="mb-4 space-y-2">
+        <form onSubmit={handleSubmit(handleSubmitForm)} className="mb-4 space-y-2" aria-label="Add checklist item">
           {error && (
-            <div className="p-2 bg-red-50 text-red-600 rounded text-sm">
+            <div className="p-2 bg-red-50 text-red-600 rounded text-sm" role="alert">
               {error}
             </div>
           )}
@@ -60,7 +60,8 @@ export function Checklist({ taskId, items, onAdd, onToggle, onUpdate, onDelete, 
               {...register('title', { required: 'Title is required', maxLength: 500 })}
               type="text"
               placeholder="Checklist item title"
-              className="flex-1 px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm"
+              aria-label="Checklist item title"
+              className="flex-1 px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm min-h-[44px]"
               autoFocus
             />
             <button
