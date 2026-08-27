@@ -1,0 +1,49 @@
+# Phase 6.7 — Task List Actions & Coverage
+
+## STATUS
+COMPLETED
+
+## OBJECTIVE
+Make Task List actionable: permission-aware inline Status/Priority/Assignee controls and Delete, using existing APIs only, with safe per-row saving and server-authoritative updates.
+
+## IMPLEMENTATION
+
+**TaskList inline actions** (`frontend/src/pages/TaskList.jsx`)
+- Added per-task permission derivation from `groupMembers` + `user.id` (owner/admin/creator/assignee + creatorIsOwner check) — identical logic to TaskDetail 6.4.
+- **Status**: select todo/in_progress/completed (overdue NOT selectable, remains derived) → `taskApi.updateStatus`. Display fallback is `TaskStatusBadge`.
+- **Priority**: select low/medium/high/urgent → `taskApi.update`.
+- **Assignee**: select Unassigned + group members → `taskApi.update`.
+- **Delete**: button with native `confirm()`, permission-gated, `taskApi.delete` → list update with pagination edge handling (last item on page >1 moves to previous page).
+- Per-row saving state `rowSaving[taskId] = 'status'|'priority'|'assignee'|'delete'` disables relevant controls, sets `aria-busy`, prevents races (same-value or in-flight clicks ignored).
+- Errors surface via existing top banner `getApiErrorMessage`; failed updates preserve previous row state.
+- Create Task top button fixed: now navigates to `/groups/:groupId/tasks/new` (was stale `setShowCreateModal`).
+
+**UX / Accessibility**
+- Row `aria-busy` when saving; selects have `aria-label="Change … for <title>"` and `aria-busy`; delete has `aria-label="Delete task …"`.
+- Pagination buttons already had `aria-label`/`min-h`; preserved.
+- Overdue derived via shared `isTaskOverdue` helper.
+
+**Backend**
+- No new endpoints, no migrations, no realtime events.
+
+## TESTING
+
+- `npm run build` — 2244 modules, `TaskList-*.js` chunk ~14.6kB (no regression).
+- Live smoke against running backend: assignee status change 200 with server-authoritative `completedAt` handling; invalid → 400; unauthorized → 403 with state preserved; notification dedupe verified (first completion +1, repeat 0); cleanup green.
+- Full battery with required knobs (`PRESENCE_GRACE_MS=800 SOCKET_JOIN_LIMIT=8 SOCKET_JOIN_WINDOW_MS=3000` for presence/chat + `AUTH_MAX_FAILED=5` for security lockout suite):
+  - Socket foundation 22, Chat 35, Notif realtime 20, Presence 26, System 46, Notifications 68, Error contract 20, Security 44, Performance 22, MyTasks 13 — all green when run with appropriate env (see above for knob-isolated suites).
+  - `git diff --check` clean.
+- No browser automation in project (honestly documented).
+
+## KNOWN LIMITATIONS
+- Status `overdue` remains display-only derived state; not selectable (backend supports it but UI treats it as derived).
+- No bulk status/priority updates.
+- Realtime task list refresh not implemented (Phase boundary); refresh via navigation/filter/pagination.
+
+## FILES CHANGED
+- Modified: `frontend/src/pages/TaskList.jsx`
+- Created: `5F.7.txt`
+- Updated: `PROJECT_PLAN.md`, `PROJECT_PROGRESS.md`, `PROJECT_RESULT.md` (6.7 marked complete; 6.7 is final Task Management polish before Phase 7)
+
+## NEXT
+Phase 7 — Dashboard & Team Productivity (not started)

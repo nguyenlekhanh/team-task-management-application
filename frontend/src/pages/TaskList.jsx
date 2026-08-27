@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from 'react'
 import { useParams, useNavigate, Link } from 'react-router-dom'
 import { useAuth } from '../contexts/AuthContext'
-import { taskApi, groupApi } from '../services/api'
+import { taskApi, groupApi, getApiErrorMessage } from '../services/api'
 import { TaskFilter } from '../components/TaskFilter'
 import { TaskStatusBadge } from '../components/TaskStatusBadge'
 import { PriorityBadge } from '../components/PriorityBadge'
@@ -17,6 +17,7 @@ export function TaskList() {
   const [loading, setLoading] = useState(true)
   const [initialLoading, setInitialLoading] = useState(true)
   const [error, setError] = useState('')
+  const [rowSaving, setRowSaving] = useState({})
   const [filters, setFilters] = useState({
     status: '',
     priority: '',
@@ -33,9 +34,8 @@ export function TaskList() {
   const [pagination, setPagination] = useState({ total: 0, page: 1, limit: 20, totalPages: 1 })
   const [groupMembers, setGroupMembers] = useState([])
 
-  // Debounced search (5E-phase UX): typing must not fire a request per keystroke.
+  // Debounced search: typing must not fire a request per keystroke.
   const [searchInput, setSearchInput] = useState('')
-  const debounceRef = useRef(null)
 
   useEffect(() => {
     if (!isAuthenticated) {
@@ -83,7 +83,7 @@ export function TaskList() {
         window.location.href = '/login'
         return
       }
-      setError(err.response?.data?.error || 'Failed to fetch tasks')
+      setError(getApiErrorMessage(err, 'Failed to fetch tasks'))
     } finally {
       setLoading(false)
       setInitialLoading(false)
@@ -130,15 +130,112 @@ export function TaskList() {
     })
   }
 
+  const getTaskPermissions = (task) => {
+    const myRole = groupMembers.find(m => m.userId === user?.id)?.role
+    const isOwner = myRole === 'owner'
+    const isAdmin = myRole === 'admin'
+    const isCreator = task.creatorId === user?.id
+    const isAssignee = task.assigneeId === user?.id
+    const creatorIsOwner = groupMembers.find(m => m.userId === task.creatorId)?.role === 'owner'
+    return {
+      canUpdateStatus: isOwner || isAdmin || isCreator || isAssignee,
+      canEdit: isOwner || isAdmin || isCreator,
+      canAssign: isOwner || isAdmin,
+      canDelete: (isOwner || isAdmin || isCreator) && !(isAdmin && creatorIsOwner),
+    }
+  }
+
+  const handleStatusChange = async (task, newStatus) => {
+    if (task.status === newStatus || rowSaving[task.id]) return
+    setRowSaving(prev => ({ ...prev, [task.id]: 'status' }))
+    setError('')
+    try {
+      const response = await taskApi.updateStatus(task.id, { status: newStatus })
+      setTasks(prev => prev.map(t => t.id === task.id ? response.data.task : t))
+    } catch (err) {
+      setError(getApiErrorMessage(err, 'Failed to update status'))
+    } finally {
+      setRowSaving(prev => {
+        const next = { ...prev }
+        delete next[task.id]
+        return next
+      })
+    }
+  }
+
+  const handlePriorityChange = async (task, newPriority) => {
+    if (task.priority === newPriority || rowSaving[task.id]) return
+    setRowSaving(prev => ({ ...prev, [task.id]: 'priority' }))
+    setError('')
+    try {
+      const response = await taskApi.update(task.id, { priority: newPriority })
+      setTasks(prev => prev.map(t => t.id === task.id ? response.data.task : t))
+    } catch (err) {
+      setError(getApiErrorMessage(err, 'Failed to update priority'))
+    } finally {
+      setRowSaving(prev => {
+        const next = { ...prev }
+        delete next[task.id]
+        return next
+      })
+    }
+  }
+
+  const handleAssigneeChange = async (task, newAssigneeId) => {
+    const normalized = newAssigneeId ? Number(newAssigneeId) : null
+    const current = task.assigneeId || null
+    if (normalized === current || rowSaving[task.id]) return
+    setRowSaving(prev => ({ ...prev, [task.id]: 'assignee' }))
+    setError('')
+    try {
+      const response = await taskApi.update(task.id, { assigneeId: normalized })
+      setTasks(prev => prev.map(t => t.id === task.id ? response.data.task : t))
+    } catch (err) {
+      setError(getApiErrorMessage(err, 'Failed to update assignee'))
+    } finally {
+      setRowSaving(prev => {
+        const next = { ...prev }
+        delete next[task.id]
+        return next
+      })
+    }
+  }
+
+  const handleDelete = async (task) => {
+    if (rowSaving[task.id]) return
+    if (!confirm(`Delete task "${task.title}"?`)) return
+    setRowSaving(prev => ({ ...prev, [task.id]: 'delete' }))
+    setError('')
+    try {
+      await taskApi.delete(task.id)
+      const remaining = tasks.filter(t => t.id !== task.id)
+      // Pagination edge: last item on page beyond first page
+      if (remaining.length === 0 && pagination.page > 1) {
+        setFilters(prev => ({ ...prev, page: prev.page - 1 }))
+      } else {
+        setTasks(remaining)
+        setPagination(prev => ({ ...prev, total: Math.max(0, prev.total - 1), totalPages: Math.max(1, Math.ceil(Math.max(0, prev.total - 1) / prev.limit)) }))
+      }
+    } catch (err) {
+      setError(getApiErrorMessage(err, 'Failed to delete task'))
+    } finally {
+      setRowSaving(prev => {
+        const next = { ...prev }
+        delete next[task.id]
+        return next
+      })
+    }
+  }
+
   if (initialLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gray-50">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600" role="status" aria-label="Loading tasks"></div>
       </div>
     )
   }
 
-  if (error) {
+  if (error && tasks.length === 0 && !loading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gray-50">
         <div className="text-center">
@@ -146,7 +243,7 @@ export function TaskList() {
           <p className="text-gray-600 mb-8">{error}</p>
           <button
             onClick={() => fetchTasks()}
-            className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700"
+            className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 min-h-[44px]"
           >
             Retry
           </button>
@@ -163,7 +260,7 @@ export function TaskList() {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between h-16">
             <div className="flex items-center">
-              <Link to={`/groups/${groupId}`} className="text-blue-600 hover:text-blue-900 text-sm mb-2 inline-block">
+              <Link to={`/groups/${groupId}`} className="text-blue-600 hover:text-blue-900 text-sm mb-2 inline-block focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 rounded">
                 ← Back to Group
               </Link>
               <h1 className="text-2xl font-bold text-gray-900">Tasks</h1>
@@ -173,13 +270,13 @@ export function TaskList() {
               <span className="text-sm text-gray-700">
                 Logged in as <strong>{user?.displayName || user?.username}</strong>
               </span>
-              <Link to="/dashboard" className="px-4 py-2 bg-gray-600 text-white rounded-md hover:bg-gray-700 text-sm">
+              <Link to="/dashboard" className="px-4 py-2 bg-gray-600 text-white rounded-md hover:bg-gray-700 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500">
                 Dashboard
               </Link>
-              <Link to="/groups" className="px-4 py-2 bg-gray-600 text-white rounded-md hover:bg-gray-700 text-sm">
+              <Link to="/groups" className="px-4 py-2 bg-gray-600 text-white rounded-md hover:bg-gray-700 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500">
                 Groups
               </Link>
-              <Link to="/profile" className="px-4 py-2 bg-gray-600 text-white rounded-md hover:bg-gray-700 text-sm">
+              <Link to="/profile" className="px-4 py-2 bg-gray-600 text-white rounded-md hover:bg-gray-700 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500">
                 Profile
               </Link>
             </div>
@@ -194,17 +291,19 @@ export function TaskList() {
             <p className="text-gray-600 mt-1">Manage tasks for this group</p>
           </div>
           <button
-            onClick={() => setShowCreateModal(true)}
-            disabled={!groupMembers.some(m => m.userId === user.id)}
-            className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 text-sm disabled:opacity-50 disabled:cursor-not-allowed"
+            onClick={() => navigate(`/groups/${groupId}/tasks/new`)}
+            disabled={!canCreateTask}
+            aria-label="Create new task"
+            className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 text-sm disabled:opacity-50 disabled:cursor-not-allowed min-h-[44px] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500"
           >
             Create Task
           </button>
         </div>
 
-        {error && (
-          <div className="mb-4 p-3 bg-red-50 text-red-600 rounded text-sm">
-            {error}
+        {error && tasks.length > 0 && (
+          <div className="mb-4 p-3 bg-red-50 text-red-600 rounded text-sm flex justify-between items-center" role="alert">
+            <span>{error}</span>
+            <button onClick={() => setError('')} className="ml-2 text-red-700 hover:underline text-sm" aria-label="Dismiss error">Dismiss</button>
           </div>
         )}
 
@@ -225,7 +324,7 @@ export function TaskList() {
         />
 
         {!initialLoading && loading && (
-          <div className="flex items-center justify-center py-3 text-sm text-gray-500" role="status">
+          <div className="flex items-center justify-center py-3 text-sm text-gray-500" role="status" aria-live="polite">
             <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-600 mr-2"></div>
             Refreshing tasks…
           </div>
@@ -233,7 +332,7 @@ export function TaskList() {
 
         {!initialLoading && !loading && !error && tasks.length === 0 && (
           <div className="text-center py-12">
-            <svg className="mx-auto h-12 w-12 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <svg className="mx-auto h-12 w-12 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 000 4h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-1.429 5.618m-3.284 0A11.955 11.955 0 0112 2.944 11.955 11.955 0 018.574 10.556" />
             </svg>
             {filters.search || filters.status || filters.priority || filters.assigneeId || filters.creatorId || filters.startDate || filters.endDate ? (
@@ -242,7 +341,7 @@ export function TaskList() {
                 <p className="mt-1 text-sm text-gray-500">No tasks match your current filters or search.</p>
                 <button
                   onClick={() => { setSearchInput(''); handleClearFilters() }}
-                  className="mt-4 px-4 py-2 border border-gray-300 rounded-md text-gray-700 hover:bg-gray-50"
+                  className="mt-4 px-4 py-2 border border-gray-300 rounded-md text-gray-700 hover:bg-gray-50 min-h-[44px]"
                 >
                   Clear filters
                 </button>
@@ -254,7 +353,7 @@ export function TaskList() {
                 {canCreateTask && (
                   <button
                     onClick={() => navigate(`/groups/${groupId}/tasks/new`)}
-                    className="mt-4 px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700"
+                    className="mt-4 px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 min-h-[44px]"
                   >
                     Create Task
                   </button>
@@ -282,8 +381,10 @@ export function TaskList() {
               <tbody className="bg-white divide-y divide-gray-200">
                 {tasks.map(task => {
                   const overdue = isTaskOverdue(task)
+                  const perms = getTaskPermissions(task)
+                  const savingField = rowSaving[task.id]
                   return (
-                    <tr key={task.id} className="hover:bg-gray-50">
+                    <tr key={task.id} className="hover:bg-gray-50" aria-busy={savingField ? 'true' : 'false'}>
                       <td className="px-6 py-4">
                         <Link to={`/groups/${groupId}/tasks/${task.id}`} className="text-blue-600 hover:text-blue-900 font-medium focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 rounded">
                           {task.title}
@@ -293,13 +394,58 @@ export function TaskList() {
                         )}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
-                        <TaskStatusBadge status={task.status} />
+                        {perms.canUpdateStatus ? (
+                          <select
+                            value={task.status}
+                            disabled={!!savingField}
+                            aria-label={`Change status for ${task.title}`}
+                            aria-busy={savingField === 'status' ? 'true' : 'false'}
+                            onChange={(e) => handleStatusChange(task, e.target.value)}
+                            className="text-xs font-medium rounded-full border border-gray-300 px-2 py-1 focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-50 min-h-[32px]"
+                          >
+                            <option value="todo">To Do</option>
+                            <option value="in_progress">In Progress</option>
+                            <option value="completed">Completed</option>
+                          </select>
+                        ) : (
+                          <TaskStatusBadge status={task.status} />
+                        )}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
-                        <PriorityBadge priority={task.priority} />
+                        {perms.canEdit ? (
+                          <select
+                            value={task.priority}
+                            disabled={!!savingField}
+                            aria-label={`Change priority for ${task.title}`}
+                            aria-busy={savingField === 'priority' ? 'true' : 'false'}
+                            onChange={(e) => handlePriorityChange(task, e.target.value)}
+                            className="text-xs font-medium rounded-full border border-gray-300 px-2 py-1 focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-50 min-h-[32px]"
+                          >
+                            <option value="low">Low</option>
+                            <option value="medium">Medium</option>
+                            <option value="high">High</option>
+                            <option value="urgent">Urgent</option>
+                          </select>
+                        ) : (
+                          <PriorityBadge priority={task.priority} />
+                        )}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
-                        {task.assignee ? (
+                        {perms.canAssign ? (
+                          <select
+                            value={task.assigneeId || ''}
+                            disabled={!!savingField}
+                            aria-label={`Change assignee for ${task.title}`}
+                            aria-busy={savingField === 'assignee' ? 'true' : 'false'}
+                            onChange={(e) => handleAssigneeChange(task, e.target.value)}
+                            className="text-xs border border-gray-300 rounded px-2 py-1 focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-50 min-h-[32px]"
+                          >
+                            <option value="">Unassigned</option>
+                            {groupMembers.map(m => (
+                              <option key={m.userId} value={m.userId}>{m.user.displayName || m.user.username}</option>
+                            ))}
+                          </select>
+                        ) : task.assignee ? (
                           <span className="text-sm font-medium text-gray-900">{task.assignee.displayName || task.assignee.username}</span>
                         ) : (
                           <span className="text-sm text-gray-500">Unassigned</span>
@@ -335,9 +481,21 @@ export function TaskList() {
                         {formatTaskDate(task.createdAt)}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-right">
-                        <Link to={`/groups/${groupId}/tasks/${task.id}`} className="text-blue-600 hover:text-blue-900 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 rounded">
-                          View
-                        </Link>
+                        <div className="flex items-center justify-end gap-2">
+                          <Link to={`/groups/${groupId}/tasks/${task.id}`} className="text-blue-600 hover:text-blue-900 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 rounded px-1">
+                            View
+                          </Link>
+                          {perms.canDelete && (
+                            <button
+                              onClick={() => handleDelete(task)}
+                              disabled={!!savingField}
+                              aria-label={`Delete task ${task.title}`}
+                              className="text-red-600 hover:text-red-800 text-sm disabled:opacity-50 disabled:cursor-not-allowed min-h-[32px] px-1 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-500 rounded"
+                            >
+                              {savingField === 'delete' ? '…' : 'Delete'}
+                            </button>
+                          )}
+                        </div>
                       </td>
                     </tr>
                   )

@@ -1518,5 +1518,19 @@ Phase 5A–5E.5 all COMPLETED. The currently implemented project scope is featur
 - ✅ Backend battery re-run green (9 suites) — frontend-only changes, no backend regression expected
 - Static inspection and responsive review performed; no browser automation in project
 
+## Phase Status: PHASE 6.7 - COMPLETED (Task List Actions & Coverage)
+
+### Implementation
+- TaskList inline Status/Priority/Assignee selects + Delete button, all permission-aware per task (owner/admin/creator/assignee checks, admin cannot delete owner's tasks)
+- Per-row `rowSaving` state disables controls, sets aria-busy, prevents races; server responses replace row state (authoritative)
+- Overdue excluded from Status options (remains derived via isTaskOverdue)
+- Pagination edge: deleting last item on page >1 moves to previous page
+- Fixed stale Create Task top button (was setShowCreateModal)
+
+### Verification
+- ✅ Frontend build succeeds
+- ✅ Backend battery green (9 suites + mytasks)
+- Static inspection only (no browser automation)
+
 ### Next Phase
-Begin **6.7** (per roadmap, not started)
+Begin **Phase 7** (Dashboard & Team Productivity — not started)

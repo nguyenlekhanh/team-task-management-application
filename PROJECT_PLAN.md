@@ -382,6 +382,8 @@ project-root/
 
 ## Current Phase
 
+**Phase 6.7: Task List Actions & Coverage** - **COMPLETED** (Task List inline Status/Priority/Assignee selects + Delete, permission-aware per-row saving, server-authoritative updates, pagination edge handling; no new endpoints; build + battery green)
+
 **Phase 6.6: Task UX Polish** - **COMPLETED** (shared taskDisplay helpers, aria enhancements for TaskForm/Checklist/pagination, consistent overdue/date formatting, responsive polish; frontend-only changes; build green)
 
 **Phase 6.5: My Tasks** - **COMPLETED** (cross-group view at /tasks via existing GET /api/tasks + new server-derived scope param [assigned|created]; fixed crash-level missing Link import, triple headers, wrong view semantics; debounced search, overdue indicator, differentiated empty states; new 13-assertion mytasks suite incl. forged-identity override checks. Full battery green.)
@@ -401,9 +403,12 @@ A revised roadmap now numbers the Task Management Frontend & Workflow effort as 
 All phases through 5E.5 are COMPLETED (foundation/auth/groups/tasks backend/checklist/chat/notifications/realtime/integration/error/security/performance/docs), and revised **Phase 6.1–6.6** are COMPLETED (Task List → Detail → Create/Edit → Workflow → My Tasks → UX Polish) on top of that foundation. Final test state: 9 suites green + REST regression sweep; production build passing; docs consolidated under docs/.
 
 ## Recommended Next Steps (future work, NOT started)
-- **Phase 6.7** (next — per revised roadmap)
+- **Phase 7: Dashboard & Team Productivity** (next — not started)
 - Later Phase 6 sub-phases per revised roadmap
 - Phase 9 candidates: refresh tokens/token revocation, broader REST rate limiting, HTTPS/HSTS/CSP at proxy, email/push channels
+
+## Phase 6.7 Update
+**Phase 6.7: Task List Actions & Coverage** - **COMPLETED** (Task List inline row actions: Status via PUT /tasks/:id/status (overdue excluded), Priority/Assignee via PUT /tasks/:id, Delete with confirm; per-row saving, aria-busy/labels, overdue derived via shared helper; no new backend endpoints or realtime events)
 
 ## Phase 6.6 Update
 **Phase 6.6: Task UX Polish** - **COMPLETED** (shared taskDisplay helpers, aria improvements for TaskForm/Checklist/pagination, consistent overdue/date formatting across TaskList/MyTasks/TaskDetail, responsive polish; no backend changes; build green)
