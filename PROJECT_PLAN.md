@@ -382,6 +382,8 @@ project-root/
 
 ## Current Phase
 
+**Phase 7.1: Dashboard & Team Productivity Overview** - **COMPLETED** (read-only overview above existing cards; 4 parallel fetches from assigned/created/notifications/groups/health; derived overdue/dueSoon via isTaskOverdue; no new backend route; 10-assertion dashboard suite green)
+
 **Phase 6.7: Task List Actions & Coverage** - **COMPLETED** (Task List inline Status/Priority/Assignee selects + Delete, permission-aware per-row saving, server-authoritative updates, pagination edge handling; no new endpoints; build + battery green)
 
 **Phase 6.6: Task UX Polish** - **COMPLETED** (shared taskDisplay helpers, aria enhancements for TaskForm/Checklist/pagination, consistent overdue/date formatting, responsive polish; frontend-only changes; build green)

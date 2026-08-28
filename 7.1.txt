@@ -1,0 +1,61 @@
+# Phase 7.1 - Dashboard & Team Productivity Overview
+
+## STATUS
+COMPLETED
+
+## OBJECTIVE
+Enhance the existing /dashboard page with a read-only productivity overview that gives an authenticated user an at-a-glance view of their own work across groups. Preserve existing User Info, Health, and Quick Actions cards; add the overview ABOVE them. Reuse existing APIs only; no new backend route, no migration, no new dependency, no realtime work.
+
+## IMPLEMENTATION
+
+**Dashboard productivity overview** (`frontend/src/pages/Dashboard.jsx`)
+
+Read-only, derived from 5 authoritative sources fetched in parallel via `Promise.allSettled`:
+
+- `GET /tasks?scope=assigned` (limit 100) — assigned tasks for counts + overdue/dueSoon derivation
+- `GET /tasks?scope=created` (limit 5, sorted by updatedAt DESC) — created count
+- `GET /notifications?limit=5`, `GET /notifications/unread-count`, `GET /groups`
+
+Derived metrics (client-side, no fake analytics):
+- Assigned to me (total count + overdue sub-count)
+- Due Soon (24h) — `dueDate - now <= 24h && dueDate > now && status != completed`
+- Created by me (total)
+- Unread notifications (authoritative count)
+- Recent Tasks (5 most recently updated, sorted client-side)
+- Recent Notifications (5 newest)
+- My Groups (first 8 + "+N more")
+
+Helper reuse: `isTaskOverdue` / `TaskStatusBadge` already present; `formatTaskDate` not needed here (list shows badge only).
+
+UI: stat strip (grid 2/4), recent tasks/notifications (2-col), groups summary — loading skeletons, error banner with Retry, empty states ("No recent tasks", etc.), Tailwind cards matching existing style. All links are read-only navigations to existing routes.
+
+Existing cards preserved verbatim below the overview.
+
+## API REUSE
+No new backend endpoint. Every metric reuses contracts verified in docs/API.md:
+- `taskApi.getMyTasks({scope, limit, sortBy, sortOrder})` — restored missing `getMyTasks: (params) => api.get('/tasks', {params})` that MyTasks already depended on (fix for regression where it had been removed)
+- `groupApi.list()`, `notificationApi.list/unreadCount`, `healthApi.check()`
+`Promise.allSettled` ensures partial failure does not blank the whole overview.
+
+## TESTS
+
+**New:** `backend/tests/dashboard.test.js` (+ `test:dashboard`) — 10 assertions, ALL PASSED:
+- unauthenticated rejected, assigned/created scopes return correct shapes, overdue derived matches helper, dueSoon subset, groups/notifications/health for dashboard, completed never overdue, cleanup
+
+**Existing battery re-run green:**
+- Socket foundation 22, Chat 35, Notif realtime 20, Presence 26 (knobbed), System 46, Notifications 68, Error 20, Performance 22, MyTasks 13 (separate default-server run), REST sweep 15
+- Security suite 45/45 when run isolated with `AUTH_MAX_FAILED=5` (combined `test:all` with that knob shows 44/45 due to shared-IP lockout window — documented, not a code bug)
+- `npm run build` — 18 chunks, Dashboard chunk 11.39 kB (growth from 4.61 kB due to overview logic, initial bundle 265.85 kB unchanged)
+
+## KNOWN LIMITATIONS
+- Dashboard counts are derived from `limit:100` assigned fetch — truncated if a user has >100 assigned tasks (documented; acceptable at MVP scale).
+- No realtime dashboard refresh; data on mount only (consistent with read-only intent).
+- No charts/burndown/velocity — requires new aggregation tables, explicitly out of scope.
+
+## FILES CHANGED
+- Modified: `frontend/src/pages/Dashboard.jsx`, `frontend/src/services/api.js` (restored getMyTasks)
+- Modified: `backend/package.json` (test:dashboard, test:all now includes mytasks+dashboard)
+- Created: `backend/tests/dashboard.test.js`, `7.1.txt` (this file)
+
+## NEXT
+Phase 7.2 — Team Productivity Detail (or as roadmap evolves) — not started

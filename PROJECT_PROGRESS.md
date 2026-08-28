@@ -1533,4 +1533,23 @@ Phase 5A–5E.5 all COMPLETED. The currently implemented project scope is featur
 - Static inspection only (no browser automation)
 
 ### Next Phase
-Begin **Phase 7** (Dashboard & Team Productivity — not started)
+Begin **Phase 7.1** (Dashboard & Team Productivity Overview — not started)
+
+## Phase Status: PHASE 7.1 - COMPLETED (Dashboard & Team Productivity Overview)
+
+### What Was Done
+- Enhanced /dashboard: preserved User Info, Health, Quick Actions cards; added read-only productivity overview ABOVE them
+- New overview fetches assigned (100) / created (5) / notifications (5) / unreadCount / groups in parallel via Promise.allSettled; derives overdue/dueSoon via isTaskOverdue helper
+- Stat strip (Assigned + overdue, Due Soon 24h, Created by me, Unread) linked to /tasks; Recent Tasks/Notifications lists; My Groups summary
+- Fixed regression: restored missing `taskApi.getMyTasks` in api.js (MyTasks depended on it)
+- No new backend endpoint, migration, dependency, or realtime work
+
+### Files Created/Modified
+- Created: backend/tests/dashboard.test.js, 7.1.txt
+- Modified: frontend/src/pages/Dashboard.jsx, frontend/src/services/api.js, backend/package.json (test:dashboard, test:all)
+
+### Verification
+- ✅ Dashboard suite 10/10, MyTasks suite 13/13, existing battery green, build green
+
+### Next Phase
+Begin **Phase 7.2** (Team Productivity Detail — not started)

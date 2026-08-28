@@ -79,6 +79,7 @@ export const groupApi = {
 
 export const taskApi = {
   list: (groupId, params) => api.get(`/groups/${groupId}/tasks`, { params }),
+  getMyTasks: (params) => api.get('/tasks', { params }),
   create: (groupId, data) => api.post(`/groups/${groupId}/tasks`, data),
   get: (id) => api.get(`/tasks/${id}`),
   update: (id, data) => api.put(`/tasks/${id}`, data),

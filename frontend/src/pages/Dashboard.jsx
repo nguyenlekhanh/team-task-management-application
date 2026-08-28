@@ -1,7 +1,9 @@
 import { useEffect, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { useAuth } from '../contexts/AuthContext'
-import { healthApi } from '../services/api'
+import { healthApi, taskApi, groupApi, notificationApi, getApiErrorMessage } from '../services/api'
+import { isTaskOverdue } from '../utils/taskDisplay'
+import { TaskStatusBadge } from '../components/TaskStatusBadge'
 import { NotificationBell } from '../components/NotificationBell'
 
 export function Dashboard() {
@@ -10,6 +12,9 @@ export function Dashboard() {
   const [health, setHealth] = useState(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
+  const [overview, setOverview] = useState(null)
+  const [overviewLoading, setOverviewLoading] = useState(true)
+  const [overviewError, setOverviewError] = useState('')
 
   useEffect(() => {
     if (!isAuthenticated) {
@@ -28,7 +33,48 @@ export function Dashboard() {
       }
     }
 
+    const fetchOverview = async () => {
+      setOverviewLoading(true)
+      setOverviewError('')
+      try {
+        const [assignedRes, createdRes, notifRes, unreadRes, groupsRes] = await Promise.allSettled([
+          taskApi.getMyTasks({ scope: 'assigned', limit: 100 }),
+          taskApi.getMyTasks({ scope: 'created', limit: 5, sortBy: 'updatedAt', sortOrder: 'DESC' }),
+          notificationApi.list({ limit: 5 }),
+          notificationApi.unreadCount(),
+          groupApi.list(),
+        ])
+        const assignedTasks = assignedRes.status === 'fulfilled' ? (assignedRes.value.data.tasks || []) : []
+        const assignedTotal = assignedRes.status === 'fulfilled' ? (assignedRes.value.data.pagination?.total ?? assignedTasks.length) : 0
+        const createdTasks = createdRes.status === 'fulfilled' ? (createdRes.value.data.tasks || []) : []
+        const createdTotal = createdRes.status === 'fulfilled' ? (createdRes.value.data.pagination?.total ?? createdTasks.length) : 0
+        const notifications = notifRes.status === 'fulfilled' ? (notifRes.value.data.items || []) : []
+        const unreadCount = unreadRes.status === 'fulfilled' ? (unreadRes.value.data.unreadCount ?? 0) : 0
+        const groups = groupsRes.status === 'fulfilled' ? (groupsRes.value.data.groups || groupsRes.value.data || []) : []
+
+        const overdueCount = assignedTasks.filter(isTaskOverdue).length
+        const dueSoonCount = assignedTasks.filter(t => {
+          if (!t.dueDate || t.status === 'completed') return false
+          const diff = new Date(t.dueDate) - new Date()
+          return diff > 0 && diff <= 24 * 60 * 60 * 1000
+        }).length
+        const recentTasks = [...assignedTasks].sort((a, b) => new Date(b.updatedAt) - new Date(a.updatedAt)).slice(0, 5)
+
+        const hasAnyFailure = [assignedRes, createdRes, notifRes, unreadRes, groupsRes].some(r => r.status === 'rejected')
+        if (hasAnyFailure && assignedTasks.length === 0 && notifications.length === 0 && groups.length === 0) {
+          throw new Error('Failed to load overview')
+        }
+
+        setOverview({ assignedTasks, assignedTotal, createdTasks, createdTotal, notifications, unreadCount, groups, overdueCount, dueSoonCount, recentTasks })
+      } catch (err) {
+        setOverviewError(getApiErrorMessage(err, 'Failed to load overview'))
+      } finally {
+        setOverviewLoading(false)
+      }
+    }
+
     fetchHealth()
+    fetchOverview()
   }, [isAuthenticated, navigate])
 
   const handleLogout = async () => {
@@ -69,6 +115,123 @@ export function Dashboard() {
           <h2 className="text-2xl font-bold text-gray-900">Dashboard</h2>
           <p className="text-gray-600 mt-1">Welcome back, {user?.displayName || user?.username}!</p>
         </div>
+
+        {/* Productivity Overview — read-only, derived from existing APIs */}
+        {overviewLoading ? (
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6" role="status" aria-label="Loading overview">
+            {[1, 2, 3, 4].map(i => (
+              <div key={i} className="bg-white shadow rounded-lg p-4 animate-pulse">
+                <div className="h-4 bg-gray-200 rounded w-1/2 mb-3"></div>
+                <div className="h-6 bg-gray-200 rounded w-1/3"></div>
+              </div>
+            ))}
+          </div>
+        ) : overviewError ? (
+          <div className="bg-red-50 border border-red-200 rounded-lg p-4 mb-6 flex justify-between items-center" role="alert">
+            <p className="text-sm text-red-700">{overviewError}</p>
+            <button
+              onClick={() => window.location.reload()}
+              className="ml-4 px-3 py-1 bg-red-600 text-white rounded-md hover:bg-red-700 text-sm min-h-[36px]"
+            >
+              Retry
+            </button>
+          </div>
+        ) : overview ? (
+          <>
+            <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+              <Link to="/tasks" className="bg-white shadow rounded-lg p-4 hover:shadow-md transition-shadow focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500">
+                <p className="text-sm font-medium text-gray-500">Assigned to me</p>
+                <p className="text-2xl font-bold text-gray-900 mt-1">{overview.assignedTotal}</p>
+                {overview.overdueCount > 0 && (
+                  <p className="text-xs text-red-600 mt-1" aria-label={`${overview.overdueCount} overdue`}>{overview.overdueCount} overdue</p>
+                )}
+              </Link>
+              <Link to="/tasks" className="bg-white shadow rounded-lg p-4 hover:shadow-md transition-shadow focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500">
+                <p className="text-sm font-medium text-gray-500">Due Soon (24h)</p>
+                <p className="text-2xl font-bold text-gray-900 mt-1">{overview.dueSoonCount}</p>
+                <p className="text-xs text-gray-500 mt-1">from assigned tasks</p>
+              </Link>
+              <Link to="/tasks" className="bg-white shadow rounded-lg p-4 hover:shadow-md transition-shadow focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500">
+                <p className="text-sm font-medium text-gray-500">Created by me</p>
+                <p className="text-2xl font-bold text-gray-900 mt-1">{overview.createdTotal}</p>
+                <p className="text-xs text-gray-500 mt-1">open tasks</p>
+              </Link>
+              <div className="bg-white shadow rounded-lg p-4">
+                <p className="text-sm font-medium text-gray-500">Unread Notifications</p>
+                <p className="text-2xl font-bold text-gray-900 mt-1">{overview.unreadCount}</p>
+                <Link to="/profile" className="text-xs text-blue-600 hover:text-blue-800">Manage preferences →</Link>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
+              <div className="bg-white shadow rounded-lg p-6">
+                <div className="flex justify-between items-center mb-4">
+                  <h3 className="text-lg font-semibold text-gray-900">Recent Tasks</h3>
+                  <Link to="/tasks" className="text-sm text-blue-600 hover:text-blue-800">View all →</Link>
+                </div>
+                {overview.recentTasks.length === 0 ? (
+                  <p className="text-sm text-gray-500">No recent tasks.</p>
+                ) : (
+                  <ul className="space-y-3">
+                    {overview.recentTasks.map(task => (
+                      <li key={task.id} className="flex justify-between items-center">
+                        <Link to={`/groups/${task.groupId}/tasks/${task.id}`} className="text-sm font-medium text-blue-600 hover:text-blue-900 truncate focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 rounded">
+                          {task.title}
+                        </Link>
+                        <span className="ml-2 flex items-center gap-2">
+                          <TaskStatusBadge status={task.status} />
+                          {isTaskOverdue(task) && (
+                            <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-700" aria-label="Overdue">Overdue</span>
+                          )}
+                        </span>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </div>
+
+              <div className="bg-white shadow rounded-lg p-6">
+                <div className="flex justify-between items-center mb-4">
+                  <h3 className="text-lg font-semibold text-gray-900">Recent Notifications</h3>
+                  <span className="text-xs text-gray-500">{overview.unreadCount} unread</span>
+                </div>
+                {overview.notifications.length === 0 ? (
+                  <p className="text-sm text-gray-500">No notifications.</p>
+                ) : (
+                  <ul className="space-y-2">
+                    {overview.notifications.map(n => (
+                      <li key={n.id} className={`text-sm p-2 rounded ${!n.isRead ? 'bg-blue-50 font-medium' : ''}`}>
+                        <p className="truncate text-gray-900">{n.title}</p>
+                        <p className="text-xs text-gray-500 truncate">{n.message}</p>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </div>
+            </div>
+
+            <div className="bg-white shadow rounded-lg p-6 mb-6">
+              <div className="flex justify-between items-center mb-3">
+                <h3 className="text-lg font-semibold text-gray-900">My Groups</h3>
+                <Link to="/groups" className="text-sm text-blue-600 hover:text-blue-800">View all →</Link>
+              </div>
+              {overview.groups.length === 0 ? (
+                <p className="text-sm text-gray-500">You are not a member of any group yet.</p>
+              ) : (
+                <div className="flex flex-wrap gap-2">
+                  {overview.groups.slice(0, 8).map(g => (
+                    <Link key={g.id} to={`/groups/${g.id}`} className="px-3 py-1 bg-gray-100 hover:bg-gray-200 rounded-full text-sm text-gray-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500">
+                      {g.name}
+                    </Link>
+                  ))}
+                  {overview.groups.length > 8 && (
+                    <span className="px-3 py-1 text-sm text-gray-500">+{overview.groups.length - 8} more</span>
+                  )}
+                </div>
+              )}
+            </div>
+          </>
+        ) : null}
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           <div className="bg-white shadow rounded-lg p-6">

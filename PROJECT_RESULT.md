@@ -540,6 +540,8 @@
 **Phase 6.3: Task Create/Edit** - **COMPLETED** (page-based create/edit at /tasks/new and /tasks/:id/edit via shared react-hook-form TaskForm; membership-gated create, group-context-guarded edit; legacy modals retired; status deliberately excluded from form — dedicated endpoint owns it; live payload smoke + full battery green)
 **Phase 6.4: Task Workflow** - **COMPLETED** (Task Detail status control now server-authoritative: response-driven state incl. server-managed completedAt, saving/duplicate guards, errors surfaced; transition-based notification dedupe verified live; realtime task sync intentionally deferred)
 **Phase 6.5: My Tasks** - **COMPLETED** (cross-group view at /tasks; new server-derived scope param on GET /api/tasks with forged-identity override protection; frontend rewritten fixing crash-level missing Link import, triple headers, wrong semantics; debounced search, overdue indicator, differentiated empty states; new 13-assertion mytasks suite; full battery green)
+**Phase 7.1: Dashboard & Team Productivity Overview** - **COMPLETED** (read-only overview reusing assigned/created/notifications/groups/health APIs; derived overdue/dueSoon; no new backend route; 10-assertion dashboard suite green)
+
 **Phase 6.7: Task List Actions & Coverage** - **COMPLETED** (Task List inline Status/Priority/Assignee + Delete, per-row saving, server-authoritative, pagination edge handling, overdue derived — no new endpoints)
 **Phase 6.6: Task UX Polish** - **COMPLETED** (shared taskDisplay helpers, aria enhancements for TaskForm/Checklist/pagination, consistent overdue/date formatting, responsive polish; frontend-only changes; build green)
 
