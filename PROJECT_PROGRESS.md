@@ -1632,3 +1632,27 @@ Original roadmap (Phase 8: UI Improvement = responsive design + mobile-friendly 
 
 ### Next Phase
 Begin **Phase 8.2** (table/card responsiveness — not started; Groups table lacks overflow-x wrapper, dashboard productivity tables reviewed for small-viewport behavior)
+
+## Phase Status: PHASE 8.2 - COMPLETED (Responsive Tables & Cards)
+
+### Audit Findings
+- 5 of 6 tables already wrapped in overflow-x-auto (Dashboard 7.2/7.3, GroupDetail, MyTasks, TaskList — established convention); **Groups table had NO wrapper inside an overflow-hidden card — Role/Actions columns were clipped/unreachable on phones (real defect, confirmed from 8.1 audit)**
+- Pagination footers (TaskList/MyTasks): "Showing X to Y…" + Prev/Next in one ~420px flex row — clips on phones
+- Page headers (Groups/TaskList): title/subtitle beside primary action button, non-stacking
+- Profile tab strip: 3 tabs ≈ 380px — third tab clips on ~375px phones
+- Verified already-responsive: Dashboard stat strip, overview grids, TaskDetail/GroupDetail/TaskForm grids, chat/comment inputs, description truncation, pagination aria/min-h targets
+
+### What Was Done (smallest strategy per component)
+- Groups table: overflow-x-auto wrapper (same convention as the other five tables; NOT card-ified)
+- Headers (Groups/TaskList): flex-col sm:flex-row stacking; Groups Create button gained standard focus-visible ring + min-h-[44px] (consistency with TaskList's button)
+- Pagination footers (TaskList/MyTasks): flex-col sm:flex-row stack; all aria-labels/aria-live/min-h preserved verbatim
+- Profile tabs: container overflow-x-auto (scroll, not clip)
+- No backend, API, table-semantics, or dependency changes; desktop (sm+) unchanged
+
+### Verification
+- ✅ `npm run build` green (bundle unchanged); programmatic check: every `<table>` now inside overflow-x-auto (6/6); diff review: only className lines changed (no attribute/semantic removals)
+- ✅ Full 13-suite battery green: 392 assertions, 0 failures (security 45/45 isolated knobbed run)
+- Static verification only for visual layout (no browser automation — documented)
+
+### Next Phase
+Begin **Phase 8.3** (forms/buttons/modal touch-target & spacing polish — not started; initial audit found these mostly adequate, focused standardization pass remains)

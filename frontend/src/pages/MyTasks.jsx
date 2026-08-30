@@ -239,7 +239,7 @@ export function MyTasks() {
 
           {/* Pagination */}
           {pagination.totalPages > 1 && (
-            <div className="px-6 py-4 border-t border-gray-200 flex items-center justify-between">
+            <div className="px-6 py-4 border-t border-gray-200 flex flex-col sm:flex-row items-center sm:items-center justify-center sm:justify-between gap-2">
               <div className="text-sm text-gray-700">
                 Showing {pagination.page * pagination.limit - pagination.limit + 1} to {Math.min(pagination.page * pagination.limit, pagination.total)} of {pagination.total} tasks
               </div>

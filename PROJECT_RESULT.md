@@ -550,12 +550,14 @@
 
 **Phase 8.1: Responsive Navigation** - **COMPLETED** (new shared Navbar with mobile hamburger menu replaces the 9 duplicated inline navs across all authenticated pages; desktop unchanged, mobile gains reachable navigation with Escape/outside-click close + full ARIA; back-link pages stack cleanly, titles truncate; frontend-only; build + battery green)
 
+**Phase 8.2: Responsive Tables & Cards** - **COMPLETED** (Groups table gained missing overflow-x-auto wrapper — columns were clipped by overflow-hidden on phones; pagination footers + page headers stack below sm; Profile tab strip scrolls; table semantics and all ARIA preserved; frontend-only; build + battery green)
+
 **Phase 6.7: Task List Actions & Coverage** - **COMPLETED** (Task List inline Status/Priority/Assignee + Delete, per-row saving, server-authoritative, pagination edge handling, overdue derived — no new endpoints)
 **Phase 6.6: Task UX Polish** - **COMPLETED** (shared taskDisplay helpers, aria enhancements for TaskForm/Checklist/pagination, consistent overdue/date formatting, responsive polish; frontend-only changes; build green)
 
 ## Recommended Next Steps
 
-1. **Begin Phase 8.2** (responsive tables/cards — not started; Groups table overflow-x wrapper, small-viewport table behavior)
+1. **Begin Phase 8.3** (forms/buttons/modal touch-target & spacing polish — not started)
    - Full regression sweep, cross-browser checks
    - API documentation, deployment guide, developer/user guides
    - Final PROJECT_* consolidation

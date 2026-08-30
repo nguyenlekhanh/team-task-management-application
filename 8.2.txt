@@ -1,0 +1,116 @@
+# Phase 8.2 - Responsive Tables & Cards
+
+## STATUS
+COMPLETED
+
+## OBJECTIVE
+Make dense tabular/card layouts usable on small screens with the smallest appropriate
+strategy per component: horizontal scrolling where tabular structure must stay intact,
+stacking where a flex row was the problem, and a scrollable tab strip where labels don't
+fit. Desktop behavior unchanged everywhere.
+
+## AUDIT FINDINGS (verified against actual sources before planning)
+- 5 of 6 tables already had `overflow-x-auto` wrappers (Dashboard 7.2 group table,
+  Dashboard 7.3 workload drill-down, GroupDetail members, MyTasks, TaskList — from the
+  5F.1/6.1/7.2/7.3 conventions).
+- **Groups table had NO scroll wrapper while its parent card used `overflow-hidden` —
+  the last columns (Your Role, Actions/View) were clipped and unreachable on narrow
+  viewports. Real defect; the known candidate from the 8.1 audit, now confirmed.**
+- Pagination footers (TaskList, MyTasks): "Showing X to Y of N tasks" + Previous /
+  "Page X of Y" / Next in one `flex justify-between` row ≈ 420px — overflows/clips on a
+  ~375px phone (the parent card has overflow-hidden).
+- Page header rows (Groups, TaskList): subtitle text beside the primary action button in
+  one non-stacking flex row — crowded on phones.
+- Profile tab strip: three tabs (`Profile` / `Change Password` / `Notifications`) at
+  px-6 ≈ 380px — third tab clips on ~375px phones (border-b card, no scroll).
+- Already responsive, verified, untouched: Dashboard stat strip (grid-cols-2 lg:grid-cols-4),
+  overview/recent grids, TaskDetail/GroupDetail column grids, TaskForm sm:grid-cols-2,
+  chat/comment/checklist inputs (flex-1), Groups description cell (max-w-xs truncate),
+  pagination buttons (aria-labels + min-h since 6.6), GroupDetail header (badge fits).
+
+## WHAT WAS IMPLEMENTED (per-component strategy)
+1. **Groups.jsx — table**: added `overflow-x-auto` wrapper (exact convention of the other
+   five tables). Tabular structure intact; touch scrolling natural; Role/Actions columns
+   reachable. NOT converted to cards (scroll is the established project pattern).
+2. **Groups.jsx + TaskList.jsx — page headers**: `flex flex-col sm:flex-row sm:justify-between
+   items-start sm:items-center gap-4 mb-8` — title/subtitle stack above the action button on
+   phones; identical side-by-side row restored at sm+.
+3. **Groups.jsx — Create Group button**: gained the project-standard
+   `focus-visible:ring-2 focus-visible:ring-blue-500` + `min-h-[44px]` (matching the
+   TaskList Create Task button, which already had both; consistency, not redesign).
+4. **TaskList.jsx + MyTasks.jsx — pagination footers**: `flex flex-col sm:flex-row
+   items-center justify-center sm:justify-between gap-2` — controls stack centered on
+   phones; desktop row unchanged at sm+. All existing aria-labels / aria-live page
+   indicator / min-h-[36px] targets preserved verbatim.
+5. **Profile.jsx — tab strip**: container `border-b` gained `overflow-x-auto` — the three
+   tabs scroll horizontally on narrow screens; `<nav aria-label="Tabs">` semantics and
+   tab classes untouched.
+
+## FILES CHANGED
+- Modified: `frontend/src/pages/Groups.jsx`, `frontend/src/pages/TaskList.jsx`,
+  `frontend/src/pages/MyTasks.jsx`, `frontend/src/pages/Profile.jsx`
+- Created: `8.2.txt`
+
+## API CHANGES
+None (frontend-only).
+
+## DATABASE CHANGES
+None.
+
+## ACCESSIBILITY VERIFICATION
+- Table semantics preserved: `<table>/<thead>/<th>` structure untouched everywhere
+  (verified by diff — only className lines and table re-indentation changed).
+- No aria-* attribute removed: pagination "Go to previous/next page" labels, aria-live
+  page indicator, Tabs aria-label all intact (diff-verified).
+- Touch targets unchanged or improved (Groups Create button → min-h-[44px]).
+- Focus visibility: only added (Groups Create ring); nothing removed.
+- Keyboard navigation unaffected (no elements reordered in DOM — only layout classes).
+
+## TESTS
+No new automated tests (no browser automation in project — standing documented caveat;
+layout classes cannot be asserted by HTTP suites). Verification per convention:
+- `npm run build` production build ✅
+- Static verification: programmatic check confirms every `<table>` in every page sits
+  inside an `overflow-x-auto` wrapper (6/6 wrapped); responsive classes grep-verified on
+  all four changed containers; diff review confirms ONLY className changes (no attribute
+  or semantic removals)
+- Full backend battery re-run green (frontend-only change; 6.6/8.1 convention)
+
+## TEST RESULTS (full 13-suite battery)
+sockets 22 · chat 35 · notif-realtime 20 · presence 26 (knobbed) · system 46 ·
+notifications 68 · errors 20 · security 45/45 (isolated knobbed run — documented env
+behavior) · performance 22 · mytasks 13 · dashboard 10 · productivity 21 ·
+member-workload 31 = **392 assertions, 0 failures**
+
+## BUILD RESULT
+✅ Frontend production build green; initial bundle 265.86 kB / 87.72 kB gzip unchanged
+(css/js class deltas only); all code-split chunks preserved.
+
+## SECURITY / BACKEND IMPACT
+None — no backend files, API, routing, or dependencies touched.
+
+## PHASE 7 / 8.1 REGRESSION CHECK
+- Phase 7 Dashboard tables + drill-down untouched this phase (their wrappers existed
+  already; verified 6/6 wrapped programmatically) — battery's dashboard/productivity/
+  member-workload suites all green.
+- Phase 8.1 Navbar untouched (no nav changes in diff).
+
+## KNOWN LIMITATIONS
+- Wide tables still require horizontal scrolling on phones (by design — the established
+  convention preserves tabular readability; card-ification deliberately rejected).
+- "Showing X to Y of N" text wraps to its own centered line on phones (acceptable; keeps
+  all controls visible).
+- Static verification only for visual layout (no browser automation in project —
+  documented honestly).
+
+## DEFERRED WORK (Phase 8 continuation candidates)
+- 8.3: forms/buttons/modal touch-target + spacing polish pass (initial audit found these
+  mostly adequate; a focused pass can standardize the remaining px-4 py-2 buttons)
+- 8.4: page-content headers/empty-states polish + Phase 8 wrap-up sweep
+
+## FINAL ACCEPTANCE STATUS
+All acceptance criteria met: Groups table columns reachable (scroll not clip); pagination
+fully usable on phones (TaskList + MyTasks); headers don't crowd primary actions; Profile
+third tab reachable (scroll not clip); desktop unchanged (sm+ classes restore current
+rows); build green; battery green; no backend change; no new dependency; no card
+redesigns. Phase 8.2 COMPLETE.

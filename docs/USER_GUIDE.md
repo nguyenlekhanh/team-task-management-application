@@ -48,6 +48,7 @@ Messages, comments, and notifications arrive instantly while you are logged in. 
 
 ## On small screens
 The top bar adapts to phones: the bell stays visible and the page links (and Logout) move into a menu behind the ☰ button. Tap it to open, tap outside or press Escape to close.
+Wide lists (tasks, groups, dashboards) scroll sideways inside their card instead of being cut off — swipe left/right to see the remaining columns. Pagination and page headers stack vertically so all buttons stay reachable.
 
 ## Logout
 Logging out clears your session on that browser tab/device and disconnects realtime updates.

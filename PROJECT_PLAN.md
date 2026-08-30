@@ -382,6 +382,8 @@ project-root/
 
 ## Current Phase
 
+**Phase 8.2: Responsive Tables & Cards** - **COMPLETED** (Groups table gained its missing overflow-x-auto wrapper — Role/Actions columns were clipped by overflow-hidden on phones; pagination footers (TaskList/MyTasks) and page headers (Groups/TaskList) stack below sm; Profile tab strip scrolls; Groups Create button gained standard focus ring + 44px target; table semantics and all ARIA preserved; frontend-only; build + full battery green)
+
 **Phase 8.1: Responsive Navigation** - **COMPLETED** (new shared Navbar component with mobile hamburger menu replaces 9 hand-duplicated inline navs; desktop appearance preserved; mobile gains reachable navigation with Escape/outside-click close, aria-expanded/controls, 44px touch targets; back-link pages stack cleanly; long titles truncate; frontend-only; build + full battery green)
 
 **Phase 7.4: Dashboard Regression Sweep & Documentation Consolidation** - **COMPLETED** (stabilization: full audit of 7.1–7.3, one real defect found & fixed — dangling assigneeId after member removal broke the 7.3 invariant; removeMember now unassigns the removed member's group tasks (best-effort); +6 regression assertions; full 13-suite battery 392 assertions green; docs consolidated. **Phase 7 COMPLETE**)

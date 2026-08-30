@@ -146,7 +146,7 @@ export function Profile() {
 
         <div className="max-w-2xl">
           <div className="bg-white shadow rounded-lg">
-            <div className="border-b border-gray-200">
+            <div className="border-b border-gray-200 overflow-x-auto">
               <nav className="flex -mb-px" aria-label="Tabs">
                 <button
                   onClick={() => setActiveTab('profile')}

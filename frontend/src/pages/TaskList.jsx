@@ -267,7 +267,7 @@ export function TaskList() {
       />
 
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        <div className="flex justify-between items-center mb-8">
+        <div className="flex flex-col sm:flex-row sm:justify-between items-start sm:items-center gap-4 mb-8">
           <div>
             <h2 className="text-2xl font-bold text-gray-900">Tasks</h2>
             <p className="text-gray-600 mt-1">Manage tasks for this group</p>
@@ -489,7 +489,7 @@ export function TaskList() {
 
         {/* Pagination */}
         {pagination.totalPages > 1 && (
-          <div className="px-6 py-4 border-t border-gray-200 flex items-center justify-between">
+          <div className="px-6 py-4 border-t border-gray-200 flex flex-col sm:flex-row items-center sm:items-center justify-center sm:justify-between gap-2">
             <div className="text-sm text-gray-700">
               Showing {pagination.page * pagination.limit - pagination.limit + 1} to {Math.min(pagination.page * pagination.limit, pagination.total)} of {pagination.total} tasks
             </div>

@@ -86,14 +86,14 @@ export function Groups() {
       />
 
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        <div className="flex justify-between items-center mb-8">
+        <div className="flex flex-col sm:flex-row sm:justify-between items-start sm:items-center gap-4 mb-8">
           <div>
             <h2 className="text-2xl font-bold text-gray-900">Groups</h2>
             <p className="text-gray-600 mt-1">Manage your groups and collaborations</p>
           </div>
           <button
             onClick={() => setShowCreateModal(true)}
-            className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 text-sm"
+            className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 text-sm min-h-[44px] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500"
           >
             Create Group
           </button>
@@ -106,8 +106,9 @@ export function Groups() {
         )}
 
         <div className="bg-white shadow rounded-lg overflow-hidden">
-          <table className="min-w-full divide-y divide-gray-200">
-            <thead className="bg-gray-50">
+          <div className="overflow-x-auto">
+            <table className="min-w-full divide-y divide-gray-200">
+              <thead className="bg-gray-50">
               <tr>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Group Name</th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Description</th>
@@ -151,7 +152,8 @@ export function Groups() {
                 ))
               )}
             </tbody>
-          </table>
+            </table>
+          </div>
         </div>
 
         {/* Create Group Modal */}
