@@ -382,6 +382,8 @@ project-root/
 
 ## Current Phase
 
+**Phase 7.2: Team Productivity Detail** - **COMPLETED** (per-group productivity stats via additive `GET /api/groups?include=stats` — single attributes-only aggregation query, no new route; Dashboard "My Groups" upgraded to per-group table with counts + completion progress bars; no-param response unchanged; 21-assertion productivity suite green)
+
 **Phase 7.1: Dashboard & Team Productivity Overview** - **COMPLETED** (read-only overview above existing cards; 4 parallel fetches from assigned/created/notifications/groups/health; derived overdue/dueSoon via isTaskOverdue; no new backend route; 10-assertion dashboard suite green)
 
 **Phase 6.7: Task List Actions & Coverage** - **COMPLETED** (Task List inline Status/Priority/Assignee selects + Delete, permission-aware per-row saving, server-authoritative updates, pagination edge handling; no new endpoints; build + battery green)

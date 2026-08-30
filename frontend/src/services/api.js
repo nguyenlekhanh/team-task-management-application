@@ -66,7 +66,7 @@ export const healthApi = {
 }
 
 export const groupApi = {
-  list: () => api.get('/groups'),
+  list: (params) => api.get('/groups', { params }),
   create: (data) => api.post('/groups', data),
   get: (id) => api.get(`/groups/${id}`),
   update: (id, data) => api.put(`/groups/${id}`, data),

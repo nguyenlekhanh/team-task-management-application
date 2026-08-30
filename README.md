@@ -2,7 +2,7 @@
 
 A collaboration platform combining **team groups, task management, checklists, group chat, task comments, notifications, and realtime updates** — built with React + Vite on the frontend and Node/Express + Sequelize (SQLite) + Socket.IO on the backend.
 
-**Status: feature-complete for implemented scope.** 318 automated assertions across 9 test suites, all passing.
+**Status: feature-complete for implemented scope.** 361 automated assertions across 12 test suites, all passing.
 
 ## Features
 - **Authentication** — register/login (JWT, bcrypt-hashed passwords), profile editing, password change, brute-force login lockout
@@ -26,7 +26,7 @@ REST is authoritative for all reads/writes; Socket.IO is a best-effort delivery 
 backend/
   src/{controllers,routes,middleware,models,services,socket,utils,jobs,jobs,config}
   migrations/          Sequelize migrations (Users…Notifications)
-  tests/               9 integration/security/perf suites (plain node scripts)
+  tests/               12 integration/security/perf suites (plain node scripts)
 frontend/
   src/{pages,components,contexts,hooks,services}
 docs/                  API.md · DEVELOPMENT.md · DEPLOYMENT.md · USER_GUIDE.md
@@ -49,9 +49,10 @@ Full configuration reference: [docs/DEVELOPMENT.md](docs/DEVELOPMENT.md)
 
 ## Test commands (backend/, server must be running)
 ```bash
-npm run test:all        # aggregate: all 9 suites
+npm run test:all        # aggregate: all 12 suites
 npm run test:sockets | test:chat | test:notification-realtime | test:presence
 npm run test:system | test:notifications | test:errors | test:security | test:performance
+npm run test:mytasks | test:dashboard | test:productivity
 ```
 Presence suite needs `PRESENCE_GRACE_MS=800 SOCKET_JOIN_LIMIT=8` env values; security lockout section needs `AUTH_MAX_FAILED<=8`. Frontend: `npm run build`.
 

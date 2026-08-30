@@ -542,12 +542,14 @@
 **Phase 6.5: My Tasks** - **COMPLETED** (cross-group view at /tasks; new server-derived scope param on GET /api/tasks with forged-identity override protection; frontend rewritten fixing crash-level missing Link import, triple headers, wrong semantics; debounced search, overdue indicator, differentiated empty states; new 13-assertion mytasks suite; full battery green)
 **Phase 7.1: Dashboard & Team Productivity Overview** - **COMPLETED** (read-only overview reusing assigned/created/notifications/groups/health APIs; derived overdue/dueSoon; no new backend route; 10-assertion dashboard suite green)
 
+**Phase 7.2: Team Productivity Detail** - **COMPLETED** (per-group productivity stats: additive `include=stats` on GET /api/groups — total/todo/inProgress/completed/overdue/dueSoon/unassigned/completionRate from one aggregation query; Dashboard per-group table with progress bars; backward compatible; 21-assertion productivity suite green)
+
 **Phase 6.7: Task List Actions & Coverage** - **COMPLETED** (Task List inline Status/Priority/Assignee + Delete, per-row saving, server-authoritative, pagination edge handling, overdue derived — no new endpoints)
 **Phase 6.6: Task UX Polish** - **COMPLETED** (shared taskDisplay helpers, aria enhancements for TaskForm/Checklist/pagination, consistent overdue/date formatting, responsive polish; frontend-only changes; build green)
 
 ## Recommended Next Steps
 
-1. **Begin Phase 7: Dashboard & Team Productivity** (next — not started)
+1. **Begin Phase 7.3** (per-member workload / productivity drill-down — not started)
    - Full regression sweep, cross-browser checks
    - API documentation, deployment guide, developer/user guides
    - Final PROJECT_* consolidation

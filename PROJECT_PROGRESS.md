@@ -1553,3 +1553,22 @@ Begin **Phase 7.1** (Dashboard & Team Productivity Overview — not started)
 
 ### Next Phase
 Begin **Phase 7.2** (Team Productivity Detail — not started)
+
+## Phase Status: PHASE 7.2 - COMPLETED (Team Productivity Detail)
+
+### What Was Done
+- Backend (additive, 6.5 "scope param" precedent): `GET /api/groups?include=stats` — each group in the user's membership-scoped list gains a `stats` object (total/todo/inProgress/completed/overdue/dueSoon/unassigned/completionRate), computed via ONE attributes-only Task.findAll over the user's groups (no per-group fan-out); without the param the response is byte-identical to before
+- Derivations consistent with 6.6/7.1 canonical rules: overdue/dueSoon from dueDate (completed never overdue/dueSoon), unassigned = open without assignee, completionRate = round(completed/total*100)
+- Frontend: `groupApi.list` accepts params; Dashboard "My Groups" chips upgraded to "Team Productivity by Group" table — group link + role badge, count columns (Overdue red, Due Soon orange), completion progress bar with aria attributes, defensive "—" when stats absent; all 7.1 cards preserved
+- New 21-assertion productivity suite incl. backward compat, fixture-verified counts, cross-user isolation, empty-group math, cleanup
+
+### Files Created/Modified
+- Created: backend/tests/productivity.test.js, 7.2.txt
+- Modified: backend/src/controllers/groupController.js, backend/package.json (test:productivity, test:all), frontend/src/services/api.js, frontend/src/pages/Dashboard.jsx
+
+### Verification
+- ✅ Productivity suite 21/21; dashboard 10/10; mytasks 13/13; full battery green (security 45/45 isolated knobbed run; 44/45 under shared test:all window — documented env behavior)
+- ✅ Frontend production build green (initial bundle unchanged)
+
+### Next Phase
+Begin **Phase 7.3** (per roadmap — not started; per-member workload breakdown is the natural candidate)

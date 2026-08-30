@@ -1,4 +1,47 @@
-const { Group, GroupMember, User } = require('../models');
+const { Group, GroupMember, User, Task } = require('../models');
+const { Op } = require('sequelize');
+
+// Productivity stats (7.2) derive overdue/dueSoon the same way the task UI
+// does (6.6/7.1): overdue/dueSoon are display derivations from dueDate, not
+// stored statuses; 'completed' tasks are never overdue or due soon.
+function computeGroupStats(tasks, now = Date.now()) {
+  const stats = {
+    total: tasks.length,
+    todo: 0,
+    inProgress: 0,
+    completed: 0,
+    overdue: 0,
+    dueSoon: 0,
+    unassigned: 0,
+    completionRate: 0
+  };
+
+  for (const task of tasks) {
+    if (task.status === 'completed') {
+      stats.completed++;
+    } else if (task.status === 'in_progress') {
+      stats.inProgress++;
+    } else {
+      stats.todo++;
+    }
+
+    if (task.status !== 'completed') {
+      if (task.dueDate) {
+        const due = new Date(task.dueDate).getTime();
+        if (!isNaN(due)) {
+          if (due < now) stats.overdue++;
+          else if (due - now <= 24 * 60 * 60 * 1000) stats.dueSoon++;
+        }
+      }
+      if (!task.assigneeId) stats.unassigned++;
+    }
+  }
+
+  stats.completionRate = stats.total > 0
+    ? Math.round((stats.completed / stats.total) * 100)
+    : 0;
+  return stats;
+}
 
 function sanitizeGroup(group) {
   return {
@@ -95,6 +138,28 @@ async function getUserGroups(req, res) {
       role: m.role,
       joinedAt: m.joinedAt
     }));
+
+    // Team productivity detail (7.2): optional additive stats. Computed only
+    // when requested via ?include=stats; without the param the response is
+    // unchanged for existing consumers. Stats aggregate ONLY over the groups
+    // the user is a member of (the list above is already membership-scoped),
+    // via a single attributes-only query - no per-group fan-out.
+    if (req.query.include === 'stats') {
+      const groupIds = memberships.map(m => m.groupId);
+      const tasks = await Task.findAll({
+        where: { groupId: { [Op.in]: groupIds } },
+        attributes: ['groupId', 'status', 'dueDate', 'assigneeId']
+      });
+      const byGroup = new Map();
+      for (const task of tasks) {
+        const list = byGroup.get(task.groupId) || [];
+        list.push(task);
+        byGroup.set(task.groupId, list);
+      }
+      for (const group of groups) {
+        group.stats = computeGroupStats(byGroup.get(group.id) || []);
+      }
+    }
 
     res.json({ groups });
   } catch (err) {
@@ -493,5 +558,6 @@ module.exports = {
   removeMember,
   updateMemberRole,
   sanitizeGroup,
-  sanitizeGroupMember
+  sanitizeGroupMember,
+  computeGroupStats
 };

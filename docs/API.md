@@ -31,7 +31,7 @@ Authentication: `Authorization: Bearer <JWT>` (15-minute expiry) or the httpOnly
 | Method | Path | Auth | Roles / notes |
 |---|---|---|---|
 | POST | / | Bearer | Create; creator becomes owner |
-| GET | / | Bearer | Own groups with role info |
+| GET | / | Bearer | Own groups with role info; `?include=stats` adds per-group `stats` (total/todo/inProgress/completed/overdue/dueSoon/unassigned/completionRate — overdue/dueSoon derived from dueDate, completed excluded) |
 | GET | /:id | member | Blind 404 otherwise |
 | PUT | /:id | owner/admin | name/description/avatarUrl (ownerId not assignable) |
 | DELETE | /:id | owner | Cascades tasks/messages/memberships; evicts realtime rooms |

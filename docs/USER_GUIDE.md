@@ -22,6 +22,10 @@ Open **Profile** from the navigation to edit your display name, avatar URL, "sho
 - Owners/admins assign tasks; assignees and creators can update them.
 - Use filters/search/sorting on the task list; large lists are paginated.
 
+## Dashboard
+- **Dashboard** shows your personal overview: assigned tasks (with overdue count), due within 24 hours, created by you, and unread notifications — each linking to your tasks.
+- **Team Productivity by Group** breaks down every group you belong to: total, to do, in progress, completed, overdue, due soon, unassigned, and a completion percentage bar. Click a group name to open it.
+
 ## Checklists
 On a task's detail page, add checklist items, tick them off (shows who completed and when), rename, reorder by editing the order number, or delete them. A progress counter tracks completion.
 

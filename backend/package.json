@@ -13,12 +13,13 @@
     "test:notification-realtime": "node tests/notification-realtime.test.js",
     "test:presence": "node tests/presence-integration.test.js",
     "test:system": "node tests/system-integration.test.js",
-    "test:all": "node tests/socket-foundation.test.js && node tests/chat-realtime.test.js && node tests/notification-realtime.test.js && node tests/presence-integration.test.js && node tests/system-integration.test.js && node tests/notification-integration.js && node tests/error-contract.test.js && node tests/security.test.js && node tests/performance.test.js && node tests/mytasks.test.js && node tests/dashboard.test.js",
+    "test:all": "node tests/socket-foundation.test.js && node tests/chat-realtime.test.js && node tests/notification-realtime.test.js && node tests/presence-integration.test.js && node tests/system-integration.test.js && node tests/notification-integration.js && node tests/error-contract.test.js && node tests/security.test.js && node tests/performance.test.js && node tests/mytasks.test.js && node tests/dashboard.test.js && node tests/productivity.test.js",
     "test:errors": "node tests/error-contract.test.js",
     "test:security": "node tests/security.test.js",
     "test:performance": "node tests/performance.test.js",
     "test:mytasks": "node tests/mytasks.test.js",
-    "test:dashboard": "node tests/dashboard.test.js"
+    "test:dashboard": "node tests/dashboard.test.js",
+    "test:productivity": "node tests/productivity.test.js"
   },
   "keywords": [],
   "author": "",

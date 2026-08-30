@@ -3,6 +3,7 @@ import { Link, useNavigate } from 'react-router-dom'
 import { useAuth } from '../contexts/AuthContext'
 import { healthApi, taskApi, groupApi, notificationApi, getApiErrorMessage } from '../services/api'
 import { isTaskOverdue } from '../utils/taskDisplay'
+import { getRoleColor } from '../utils/permissions'
 import { TaskStatusBadge } from '../components/TaskStatusBadge'
 import { NotificationBell } from '../components/NotificationBell'
 
@@ -42,7 +43,7 @@ export function Dashboard() {
           taskApi.getMyTasks({ scope: 'created', limit: 5, sortBy: 'updatedAt', sortOrder: 'DESC' }),
           notificationApi.list({ limit: 5 }),
           notificationApi.unreadCount(),
-          groupApi.list(),
+          groupApi.list({ include: 'stats' }),
         ])
         const assignedTasks = assignedRes.status === 'fulfilled' ? (assignedRes.value.data.tasks || []) : []
         const assignedTotal = assignedRes.status === 'fulfilled' ? (assignedRes.value.data.pagination?.total ?? assignedTasks.length) : 0
@@ -212,21 +213,79 @@ export function Dashboard() {
 
             <div className="bg-white shadow rounded-lg p-6 mb-6">
               <div className="flex justify-between items-center mb-3">
-                <h3 className="text-lg font-semibold text-gray-900">My Groups</h3>
-                <Link to="/groups" className="text-sm text-blue-600 hover:text-blue-800">View all →</Link>
+                <h3 className="text-lg font-semibold text-gray-900">Team Productivity by Group</h3>
+                <Link to="/groups" className="text-sm text-blue-600 hover:text-blue-800">View all groups →</Link>
               </div>
               {overview.groups.length === 0 ? (
                 <p className="text-sm text-gray-500">You are not a member of any group yet.</p>
               ) : (
-                <div className="flex flex-wrap gap-2">
-                  {overview.groups.slice(0, 8).map(g => (
-                    <Link key={g.id} to={`/groups/${g.id}`} className="px-3 py-1 bg-gray-100 hover:bg-gray-200 rounded-full text-sm text-gray-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500">
-                      {g.name}
-                    </Link>
-                  ))}
-                  {overview.groups.length > 8 && (
-                    <span className="px-3 py-1 text-sm text-gray-500">+{overview.groups.length - 8} more</span>
-                  )}
+                <div className="overflow-x-auto">
+                  <table className="min-w-full divide-y divide-gray-200">
+                    <thead>
+                      <tr>
+                        <th scope="col" className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wide">Group</th>
+                        <th scope="col" className="px-3 py-2 text-center text-xs font-medium text-gray-500 uppercase tracking-wide">Total</th>
+                        <th scope="col" className="px-3 py-2 text-center text-xs font-medium text-gray-500 uppercase tracking-wide">To Do</th>
+                        <th scope="col" className="px-3 py-2 text-center text-xs font-medium text-gray-500 uppercase tracking-wide">In Progress</th>
+                        <th scope="col" className="px-3 py-2 text-center text-xs font-medium text-gray-500 uppercase tracking-wide">Completed</th>
+                        <th scope="col" className="px-3 py-2 text-center text-xs font-medium text-gray-500 uppercase tracking-wide">Overdue</th>
+                        <th scope="col" className="px-3 py-2 text-center text-xs font-medium text-gray-500 uppercase tracking-wide">Due Soon</th>
+                        <th scope="col" className="px-3 py-2 text-center text-xs font-medium text-gray-500 uppercase tracking-wide">Unassigned</th>
+                        <th scope="col" className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wide">Completion</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-gray-100">
+                      {overview.groups.map(g => {
+                        const stats = g.stats || {}
+                        const total = stats.total ?? '—'
+                        const rate = stats.completionRate ?? null
+                        return (
+                          <tr key={g.id} className="hover:bg-gray-50">
+                            <td className="px-3 py-2 whitespace-nowrap">
+                              <div className="flex items-center gap-2">
+                                <Link to={`/groups/${g.id}`} className="text-sm font-medium text-blue-600 hover:text-blue-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 rounded">
+                                  {g.name}
+                                </Link>
+                                <span className={`inline-flex px-2 py-0.5 text-xs font-semibold rounded-full ${getRoleColor(g.role)}`}>
+                                  {g.role}
+                                </span>
+                              </div>
+                            </td>
+                            <td className="px-3 py-2 text-center text-sm text-gray-900">{total}</td>
+                            <td className="px-3 py-2 text-center text-sm text-gray-900">{stats.todo ?? '—'}</td>
+                            <td className="px-3 py-2 text-center text-sm text-blue-700">{stats.inProgress ?? '—'}</td>
+                            <td className="px-3 py-2 text-center text-sm text-green-700">{stats.completed ?? '—'}</td>
+                            <td className={`px-3 py-2 text-center text-sm ${stats.overdue > 0 ? 'text-red-600 font-semibold' : 'text-gray-900'}`}>
+                              {stats.overdue ?? '—'}
+                            </td>
+                            <td className={`px-3 py-2 text-center text-sm ${stats.dueSoon > 0 ? 'text-orange-600 font-semibold' : 'text-gray-900'}`}>
+                              {stats.dueSoon ?? '—'}
+                            </td>
+                            <td className="px-3 py-2 text-center text-sm text-gray-900">{stats.unassigned ?? '—'}</td>
+                            <td className="px-3 py-2">
+                              {rate === null ? (
+                                <span className="text-sm text-gray-400">—</span>
+                              ) : (
+                                <div className="flex items-center gap-2 min-w-[120px]">
+                                  <div
+                                    className="flex-1 h-2 bg-gray-200 rounded-full overflow-hidden"
+                                    role="progressbar"
+                                    aria-valuenow={rate}
+                                    aria-valuemin={0}
+                                    aria-valuemax={100}
+                                    aria-label={`${g.name} completion ${rate}%`}
+                                  >
+                                    <div className={`h-full rounded-full ${rate === 100 ? 'bg-green-500' : 'bg-blue-500'}`} style={{ width: `${rate}%` }}></div>
+                                  </div>
+                                  <span className="text-xs text-gray-500 tabular-nums w-9 text-right">{rate}%</span>
+                                </div>
+                              )}
+                            </td>
+                          </tr>
+                        )
+                      })}
+                    </tbody>
+                  </table>
                 </div>
               )}
             </div>
