@@ -382,6 +382,8 @@ project-root/
 
 ## Current Phase
 
+**Phase 7.3: Per-Member Workload Drill-Down** - **COMPLETED** (per-member assigned-task stats + unassigned bucket via additive `GET /api/groups/:id/members?include=stats` — one aggregation query, 3 queries total, blind-404 preserved, forged identity ignored; Dashboard accordion drill-down with nested workload table + ARIA; shared computeTaskStats refactor keeps 7.2 group-stats output identical; 25-assertion suite green)
+
 **Phase 7.2: Team Productivity Detail** - **COMPLETED** (per-group productivity stats via additive `GET /api/groups?include=stats` — single attributes-only aggregation query, no new route; Dashboard "My Groups" upgraded to per-group table with counts + completion progress bars; no-param response unchanged; 21-assertion productivity suite green)
 
 **Phase 7.1: Dashboard & Team Productivity Overview** - **COMPLETED** (read-only overview above existing cards; 4 parallel fetches from assigned/created/notifications/groups/health; derived overdue/dueSoon via isTaskOverdue; no new backend route; 10-assertion dashboard suite green)

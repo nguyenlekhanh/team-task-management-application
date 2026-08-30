@@ -1572,3 +1572,22 @@ Begin **Phase 7.2** (Team Productivity Detail — not started)
 
 ### Next Phase
 Begin **Phase 7.3** (per roadmap — not started; per-member workload breakdown is the natural candidate)
+
+## Phase Status: PHASE 7.3 - COMPLETED (Per-Member Workload Drill-Down)
+
+### What Was Done
+- Backend (7.2 `?include=stats` precedent on the members endpoint): `GET /api/groups/:id/members?include=stats` — every member gains assigned-task `stats` (total/todo/inProgress/completed/overdue/dueSoon/completionRate) plus a top-level `unassigned` bucket; ONE attributes-only Task aggregation query bucketed in JS by assigneeId (endpoint stays at exactly 3 queries regardless of member/task count — no N+1); zero-task members show zeros; without the param the response shape is unchanged
+- Refactor: extracted shared `computeTaskStats` from `computeGroupStats` so group (7.2) and member (7.3) derivations use identical rules; group-stats output shape/key order preserved exactly (productivity suite strict JSON equality re-run green)
+- Frontend: `groupApi.getMembers(id, params)`; Dashboard "Team Productivity by Group" rows gained an accordion drill-down — chevron toggle (aria-expanded/controls/label), nested member workload table (name + role badge, counts with red/orange emphasis, completion progress bars with ARIA) and an italic "Unassigned tasks" bucket row; loading/error+retry/empty/defensive states; fetched once per expansion, cached; all 7.1/7.2 UI preserved
+- New 25-assertion member-workload suite incl. blind-404 non-member, forged userId ignored, cross-group isolation, cross-endpoint consistency (member+unassigned totals === 7.2 group totals), cleanup
+
+### Files Created/Modified
+- Created: backend/tests/member-workload.test.js, 7.3.txt
+- Modified: backend/src/controllers/groupController.js, backend/package.json (test:member-workload, test:all), frontend/src/services/api.js, frontend/src/pages/Dashboard.jsx
+
+### Verification
+- ✅ Member-workload suite 25/25; productivity 21/21 (refactor safe); full 13-suite battery green (security 45/45 isolated knobbed run — documented env behavior)
+- ✅ Frontend production build green (initial bundle unchanged)
+
+### Next Phase
+Begin **Phase 7.4** (per roadmap — not started; candidate: phase wrap-up items per roadmap evolution)

@@ -69,7 +69,7 @@ PRESENCE_GRACE_MS=800 SOCKET_JOIN_LIMIT=8 SOCKET_JOIN_WINDOW_MS=3000 npm start
 ```
 Then (from `backend/`):
 ```bash
-npm run test:all                  # aggregate: all 12 suites in order
+npm run test:all                  # aggregate: all 13 suites in order
 npm run test:sockets              # foundation
 npm run test:chat                 # realtime chat/comments
 npm run test:notification-realtime
@@ -82,6 +82,7 @@ npm run test:performance          # statement-bound & cleanup guards
 npm run test:mytasks              # /tasks scope param contract (6.5)
 npm run test:dashboard            # dashboard data sources (7.1)
 npm run test:productivity         # per-group stats include=stats (7.2)
+npm run test:member-workload      # per-member stats include=stats (7.3)
 ```
 Frontend: `npm run build` must succeed; there is no browser automation framework.
 

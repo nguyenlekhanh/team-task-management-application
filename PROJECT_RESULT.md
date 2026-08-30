@@ -544,12 +544,14 @@
 
 **Phase 7.2: Team Productivity Detail** - **COMPLETED** (per-group productivity stats: additive `include=stats` on GET /api/groups — total/todo/inProgress/completed/overdue/dueSoon/unassigned/completionRate from one aggregation query; Dashboard per-group table with progress bars; backward compatible; 21-assertion productivity suite green)
 
+**Phase 7.3: Per-Member Workload Drill-Down** - **COMPLETED** (per-member assigned-task stats + unassigned bucket: additive `include=stats` on GET /api/groups/:id/members — one aggregation query, 3 total, blind-404 + server-derived identity preserved, cross-group isolation verified; Dashboard accordion drill-down with nested workload table; shared computeTaskStats refactor keeps 7.2 output identical; 25-assertion member-workload suite green)
+
 **Phase 6.7: Task List Actions & Coverage** - **COMPLETED** (Task List inline Status/Priority/Assignee + Delete, per-row saving, server-authoritative, pagination edge handling, overdue derived — no new endpoints)
 **Phase 6.6: Task UX Polish** - **COMPLETED** (shared taskDisplay helpers, aria enhancements for TaskForm/Checklist/pagination, consistent overdue/date formatting, responsive polish; frontend-only changes; build green)
 
 ## Recommended Next Steps
 
-1. **Begin Phase 7.3** (per-member workload / productivity drill-down — not started)
+1. **Begin Phase 7.4** (per roadmap — not started)
    - Full regression sweep, cross-browser checks
    - API documentation, deployment guide, developer/user guides
    - Final PROJECT_* consolidation

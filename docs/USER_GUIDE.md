@@ -25,6 +25,7 @@ Open **Profile** from the navigation to edit your display name, avatar URL, "sho
 ## Dashboard
 - **Dashboard** shows your personal overview: assigned tasks (with overdue count), due within 24 hours, created by you, and unread notifications — each linking to your tasks.
 - **Team Productivity by Group** breaks down every group you belong to: total, to do, in progress, completed, overdue, due soon, unassigned, and a completion percentage bar. Click a group name to open it.
+- Click the chevron next to a group to expand its **member workload** — each member's assigned-task counts and completion rate, plus an "Unassigned tasks" row, so you can see how work is distributed (and who has overdue items). Click again to collapse.
 
 ## Checklists
 On a task's detail page, add checklist items, tick them off (shows who completed and when), rename, reorder by editing the order number, or delete them. A progress counter tracks completion.

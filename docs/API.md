@@ -35,7 +35,7 @@ Authentication: `Authorization: Bearer <JWT>` (15-minute expiry) or the httpOnly
 | GET | /:id | member | Blind 404 otherwise |
 | PUT | /:id | owner/admin | name/description/avatarUrl (ownerId not assignable) |
 | DELETE | /:id | owner | Cascades tasks/messages/memberships; evicts realtime rooms |
-| GET | /:id/members | member | Members + roles |
+| GET | /:id/members | member | Members + roles; `?include=stats` adds per-member assigned-task `stats` (total/todo/inProgress/completed/overdue/dueSoon/completionRate) + top-level `unassigned` bucket |
 | POST | /:id/members | owner/admin | userId, role(member/admin) |
 | DELETE | /:id/members/:userId | owner/admin | Cannot remove owner; admin cannot remove admin; evicts sockets |
 | PUT | /:id/members/:userId | owner | Change role (admin/member) |

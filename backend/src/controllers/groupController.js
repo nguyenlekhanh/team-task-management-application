@@ -1,10 +1,11 @@
 const { Group, GroupMember, User, Task } = require('../models');
 const { Op } = require('sequelize');
 
-// Productivity stats (7.2) derive overdue/dueSoon the same way the task UI
-// does (6.6/7.1): overdue/dueSoon are display derivations from dueDate, not
-// stored statuses; 'completed' tasks are never overdue or due soon.
-function computeGroupStats(tasks, now = Date.now()) {
+// Shared task-stats derivation (7.3): used for BOTH group-level (7.2) and
+// per-member (7.3) aggregations so the rules can never drift. Overdue and
+// dueSoon are display derivations from dueDate (not stored statuses), matching
+// the task UI (6.6/7.1); 'completed' tasks are never overdue or due soon.
+function computeTaskStats(tasks, now = Date.now()) {
   const stats = {
     total: tasks.length,
     todo: 0,
@@ -12,7 +13,6 @@ function computeGroupStats(tasks, now = Date.now()) {
     completed: 0,
     overdue: 0,
     dueSoon: 0,
-    unassigned: 0,
     completionRate: 0
   };
 
@@ -33,7 +33,6 @@ function computeGroupStats(tasks, now = Date.now()) {
           else if (due - now <= 24 * 60 * 60 * 1000) stats.dueSoon++;
         }
       }
-      if (!task.assigneeId) stats.unassigned++;
     }
   }
 
@@ -41,6 +40,29 @@ function computeGroupStats(tasks, now = Date.now()) {
     ? Math.round((stats.completed / stats.total) * 100)
     : 0;
   return stats;
+}
+
+// Group-level stats (7.2): adds the open-unassigned count on top of the
+// shared derivations. Output shape/key order are pinned by the productivity
+// suite's strict JSON equality - do not reorder.
+function computeGroupStats(tasks, now = Date.now()) {
+  const stats = computeTaskStats(tasks, now);
+  const unassigned = {
+    unassigned: 0
+  };
+  for (const task of tasks) {
+    if (task.status !== 'completed' && !task.assigneeId) unassigned.unassigned++;
+  }
+  return {
+    total: stats.total,
+    todo: stats.todo,
+    inProgress: stats.inProgress,
+    completed: stats.completed,
+    overdue: stats.overdue,
+    dueSoon: stats.dueSoon,
+    ...unassigned,
+    completionRate: stats.completionRate
+  };
 }
 
 function sanitizeGroup(group) {
@@ -348,8 +370,41 @@ async function getGroupMembers(req, res) {
       order: [['role', 'DESC'], ['joinedAt', 'ASC']]
     });
 
+    const sanitized = members.map(sanitizeGroupMember);
+
+    // Per-member workload drill-down (7.3): optional additive stats. The
+    // membership check above has already run (blind 404 for non-members),
+    // so this branch only ever serves group members. ONE attributes-only
+    // Task query for the whole group, bucketed in JS by assigneeId - the
+    // endpoint stays at exactly 3 queries regardless of member/task count.
+    // Without the param the response shape is unchanged.
+    if (req.query.include === 'stats') {
+      const tasks = await Task.findAll({
+        where: { groupId },
+        attributes: ['assigneeId', 'status', 'dueDate']
+      });
+      const byAssignee = new Map();
+      let unassignedTasks = [];
+      for (const task of tasks) {
+        if (task.assigneeId == null) {
+          unassignedTasks.push(task);
+        } else {
+          const list = byAssignee.get(task.assigneeId) || [];
+          list.push(task);
+          byAssignee.set(task.assigneeId, list);
+        }
+      }
+      for (const member of sanitized) {
+        member.stats = computeTaskStats(byAssignee.get(member.userId) || []);
+      }
+      return res.json({
+        members: sanitized,
+        unassigned: computeTaskStats(unassignedTasks)
+      });
+    }
+
     res.json({
-      members: members.map(sanitizeGroupMember)
+      members: sanitized
     });
   } catch (err) {
     return res.status(500).json({ error: 'Failed to fetch members' });
@@ -559,5 +614,6 @@ module.exports = {
   updateMemberRole,
   sanitizeGroup,
   sanitizeGroupMember,
-  computeGroupStats
+  computeGroupStats,
+  computeTaskStats
 };

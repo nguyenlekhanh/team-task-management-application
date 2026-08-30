@@ -1,5 +1,6 @@
-import { useEffect, useState } from 'react'
+import { Fragment, useEffect, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
+import { ChevronDown, ChevronRight } from 'lucide-react'
 import { useAuth } from '../contexts/AuthContext'
 import { healthApi, taskApi, groupApi, notificationApi, getApiErrorMessage } from '../services/api'
 import { isTaskOverdue } from '../utils/taskDisplay'
@@ -16,6 +17,12 @@ export function Dashboard() {
   const [overview, setOverview] = useState(null)
   const [overviewLoading, setOverviewLoading] = useState(true)
   const [overviewError, setOverviewError] = useState('')
+
+  // Per-member workload drill-down (7.3): one group expanded at a time,
+  // fetched once per expansion and cached for the page lifetime (read-only
+  // mount-time view, consistent with the 7.1/7.2 overview posture).
+  const [expandedGroupId, setExpandedGroupId] = useState(null)
+  const [memberWorkload, setMemberWorkload] = useState({}) // { [groupId]: { loading, error, members, unassigned } }
 
   useEffect(() => {
     if (!isAuthenticated) {
@@ -81,6 +88,40 @@ export function Dashboard() {
   const handleLogout = async () => {
     await logout()
     navigate('/login')
+  }
+
+  // 7.3 drill-down toggle: expanding fetches member workload (cached);
+  // collapsing just closes. Errors retry by toggling again (cache cleared).
+  const toggleMemberWorkload = async (groupId) => {
+    if (expandedGroupId === groupId) {
+      setExpandedGroupId(null)
+      return
+    }
+    setExpandedGroupId(groupId)
+    if (memberWorkload[groupId]?.members) return
+    setMemberWorkload(prev => ({ ...prev, [groupId]: { loading: true, error: '', members: null, unassigned: null } }))
+    try {
+      const response = await groupApi.getMembers(groupId, { include: 'stats' })
+      setMemberWorkload(prev => ({
+        ...prev,
+        [groupId]: {
+          loading: false,
+          error: '',
+          members: response.data.members || [],
+          unassigned: response.data.unassigned || null
+        }
+      }))
+    } catch (err) {
+      setMemberWorkload(prev => ({
+        ...prev,
+        [groupId]: {
+          loading: false,
+          error: getApiErrorMessage(err, 'Failed to load member workload'),
+          members: null,
+          unassigned: null
+        }
+      }))
+    }
   }
 
   if (!isAuthenticated) {
@@ -223,6 +264,7 @@ export function Dashboard() {
                   <table className="min-w-full divide-y divide-gray-200">
                     <thead>
                       <tr>
+                        <th scope="col" className="px-3 py-2 w-8"><span className="sr-only">Expand member workload</span></th>
                         <th scope="col" className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wide">Group</th>
                         <th scope="col" className="px-3 py-2 text-center text-xs font-medium text-gray-500 uppercase tracking-wide">Total</th>
                         <th scope="col" className="px-3 py-2 text-center text-xs font-medium text-gray-500 uppercase tracking-wide">To Do</th>
@@ -239,8 +281,23 @@ export function Dashboard() {
                         const stats = g.stats || {}
                         const total = stats.total ?? '—'
                         const rate = stats.completionRate ?? null
+                        const expanded = expandedGroupId === g.id
+                        const workload = memberWorkload[g.id]
                         return (
-                          <tr key={g.id} className="hover:bg-gray-50">
+                          <Fragment key={g.id}>
+                          <tr className="hover:bg-gray-50">
+                            <td className="px-3 py-2">
+                              <button
+                                type="button"
+                                onClick={() => toggleMemberWorkload(g.id)}
+                                aria-expanded={expanded}
+                                aria-controls={`member-workload-${g.id}`}
+                                aria-label={expanded ? `Hide member workload for ${g.name}` : `Show member workload for ${g.name}`}
+                                className="p-1.5 rounded text-gray-500 hover:text-blue-600 hover:bg-blue-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 min-h-[36px] min-w-[36px] flex items-center justify-center"
+                              >
+                                {expanded ? <ChevronDown size={16} aria-hidden="true" /> : <ChevronRight size={16} aria-hidden="true" />}
+                              </button>
+                            </td>
                             <td className="px-3 py-2 whitespace-nowrap">
                               <div className="flex items-center gap-2">
                                 <Link to={`/groups/${g.id}`} className="text-sm font-medium text-blue-600 hover:text-blue-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 rounded">
@@ -282,6 +339,112 @@ export function Dashboard() {
                               )}
                             </td>
                           </tr>
+                          {expanded && (
+                            <tr id={`member-workload-${g.id}`}>
+                              <td colSpan={10} className="px-3 py-3 bg-gray-50">
+                                <div className="pl-4">
+                                  <p className="text-sm font-semibold text-gray-700 mb-2">Member workload — {g.name}</p>
+                                  {workload?.loading ? (
+                                    <div className="flex justify-center py-4" role="status" aria-label="Loading member workload">
+                                      <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-blue-600"></div>
+                                    </div>
+                                  ) : workload?.error ? (
+                                    <div className="mb-2 p-2 bg-red-50 text-red-600 rounded text-sm flex justify-between items-center gap-3" role="alert">
+                                      <span>{workload.error}</span>
+                                      <button
+                                        type="button"
+                                        onClick={() => { setMemberWorkload(prev => ({ ...prev, [g.id]: undefined })); toggleMemberWorkload(g.id) }}
+                                        className="px-3 py-1 bg-red-600 text-white rounded-md hover:bg-red-700 text-sm min-h-[36px]"
+                                      >
+                                        Retry
+                                      </button>
+                                    </div>
+                                  ) : workload?.members ? (
+                                    <div className="overflow-x-auto">
+                                      <table className="min-w-full divide-y divide-gray-200">
+                                        <thead>
+                                          <tr>
+                                            <th scope="col" className="px-3 py-1.5 text-left text-xs font-medium text-gray-500 uppercase tracking-wide">Member</th>
+                                            <th scope="col" className="px-3 py-1.5 text-center text-xs font-medium text-gray-500 uppercase tracking-wide">Total</th>
+                                            <th scope="col" className="px-3 py-1.5 text-center text-xs font-medium text-gray-500 uppercase tracking-wide">To Do</th>
+                                            <th scope="col" className="px-3 py-1.5 text-center text-xs font-medium text-gray-500 uppercase tracking-wide">In Progress</th>
+                                            <th scope="col" className="px-3 py-1.5 text-center text-xs font-medium text-gray-500 uppercase tracking-wide">Completed</th>
+                                            <th scope="col" className="px-3 py-1.5 text-center text-xs font-medium text-gray-500 uppercase tracking-wide">Overdue</th>
+                                            <th scope="col" className="px-3 py-1.5 text-center text-xs font-medium text-gray-500 uppercase tracking-wide">Due Soon</th>
+                                            <th scope="col" className="px-3 py-1.5 text-left text-xs font-medium text-gray-500 uppercase tracking-wide">Completion</th>
+                                          </tr>
+                                        </thead>
+                                        <tbody className="divide-y divide-gray-100 bg-white">
+                                          {workload.members.length === 0 && (
+                                            <tr><td colSpan={8} className="px-3 py-3 text-sm text-gray-500">No members.</td></tr>
+                                          )}
+                                          {workload.members.map(m => {
+                                            const ms = m.stats || {}
+                                            const mrate = ms.completionRate ?? null
+                                            const mName = m.user?.displayName || m.user?.username || `User #${m.userId}`
+                                            return (
+                                              <tr key={m.id} className="hover:bg-gray-50">
+                                                <td className="px-3 py-1.5 whitespace-nowrap">
+                                                  <div className="flex items-center gap-2">
+                                                    <span className="text-sm text-gray-900">{mName}</span>
+                                                    <span className={`inline-flex px-2 py-0.5 text-xs font-semibold rounded-full ${getRoleColor(m.role)}`}>
+                                                      {m.role}
+                                                    </span>
+                                                  </div>
+                                                </td>
+                                                <td className="px-3 py-1.5 text-center text-sm text-gray-900">{ms.total ?? '—'}</td>
+                                                <td className="px-3 py-1.5 text-center text-sm text-gray-900">{ms.todo ?? '—'}</td>
+                                                <td className="px-3 py-1.5 text-center text-sm text-blue-700">{ms.inProgress ?? '—'}</td>
+                                                <td className="px-3 py-1.5 text-center text-sm text-green-700">{ms.completed ?? '—'}</td>
+                                                <td className={`px-3 py-1.5 text-center text-sm ${ms.overdue > 0 ? 'text-red-600 font-semibold' : 'text-gray-900'}`}>{ms.overdue ?? '—'}</td>
+                                                <td className={`px-3 py-1.5 text-center text-sm ${ms.dueSoon > 0 ? 'text-orange-600 font-semibold' : 'text-gray-900'}`}>{ms.dueSoon ?? '—'}</td>
+                                                <td className="px-3 py-1.5">
+                                                  {mrate === null ? (
+                                                    <span className="text-sm text-gray-400">—</span>
+                                                  ) : (
+                                                    <div className="flex items-center gap-2 min-w-[100px]">
+                                                      <div
+                                                        className="flex-1 h-1.5 bg-gray-200 rounded-full overflow-hidden"
+                                                        role="progressbar"
+                                                        aria-valuenow={mrate}
+                                                        aria-valuemin={0}
+                                                        aria-valuemax={100}
+                                                        aria-label={`${mName} in ${g.name} completion ${mrate}%`}
+                                                      >
+                                                        <div className={`h-full rounded-full ${mrate === 100 ? 'bg-green-500' : 'bg-blue-500'}`} style={{ width: `${mrate}%` }}></div>
+                                                      </div>
+                                                      <span className="text-xs text-gray-500 tabular-nums w-9 text-right">{mrate}%</span>
+                                                    </div>
+                                                  )}
+                                                </td>
+                                              </tr>
+                                            )
+                                          })}
+                                          {workload.unassigned && (workload.unassigned.total ?? 0) > 0 && (
+                                            <tr className="bg-gray-50">
+                                              <td className="px-3 py-1.5 whitespace-nowrap">
+                                                <span className="text-sm text-gray-600 italic">Unassigned tasks</span>
+                                              </td>
+                                              <td className="px-3 py-1.5 text-center text-sm text-gray-600">{workload.unassigned.total ?? '—'}</td>
+                                              <td className="px-3 py-1.5 text-center text-sm text-gray-600">{workload.unassigned.todo ?? '—'}</td>
+                                              <td className="px-3 py-1.5 text-center text-sm text-gray-600">{workload.unassigned.inProgress ?? '—'}</td>
+                                              <td className="px-3 py-1.5 text-center text-sm text-gray-600">{workload.unassigned.completed ?? '—'}</td>
+                                              <td className={`px-3 py-1.5 text-center text-sm ${workload.unassigned.overdue > 0 ? 'text-red-600 font-semibold' : 'text-gray-600'}`}>{workload.unassigned.overdue ?? '—'}</td>
+                                              <td className={`px-3 py-1.5 text-center text-sm ${workload.unassigned.dueSoon > 0 ? 'text-orange-600 font-semibold' : 'text-gray-600'}`}>{workload.unassigned.dueSoon ?? '—'}</td>
+                                              <td className="px-3 py-1.5">
+                                                <span className="text-xs text-gray-500">{workload.unassigned.completionRate ?? '—'}%</span>
+                                              </td>
+                                            </tr>
+                                          )}
+                                        </tbody>
+                                      </table>
+                                    </div>
+                                  ) : null}
+                                </div>
+                              </td>
+                            </tr>
+                          )}
+                          </Fragment>
                         )
                       })}
                     </tbody>

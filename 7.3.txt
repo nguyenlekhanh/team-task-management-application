@@ -1,0 +1,122 @@
+# Phase 7.3 - Per-Member Workload Drill-Down
+
+## STATUS
+COMPLETED
+
+## OBJECTIVE
+Extend the Dashboard's per-group productivity (7.2) with a per-member workload drill-down:
+for every member of a group, their assigned-task stats (total / to do / in progress /
+completed / overdue / due soon / completion rate) plus an "Unassigned tasks" bucket —
+computed server-side in one aggregation query, shown as an expandable inline sub-table.
+
+## WHAT WAS IMPLEMENTED
+
+### Backend (7.2 `?include=stats` precedent, applied to the members endpoint)
+`GET /api/groups/:id/members?include=stats` →
+```json
+{ "members": [ { ..., "role": "member", "user": {...},
+                 "stats": { "total": 6, "todo": 3, "inProgress": 1, "completed": 2,
+                            "overdue": 1, "dueSoon": 1, "completionRate": 33 } } ],
+  "unassigned": { "total": 3, "todo": 2, "inProgress": 0, "completed": 1,
+                   "overdue": 1, "dueSoon": 0, "completionRate": 33 } }
+```
+- `groupController.getGroupMembers`: the existing membership check runs FIRST (unchanged,
+  blind 404); after the members query, when `include=stats`, ONE additional
+  `Task.findAll({ where: { groupId }, attributes: ['assigneeId','status','dueDate'] })`
+  is bucketed in JS by assigneeId (null → unassigned bucket). **The endpoint stays at
+  exactly 3 queries regardless of member/task count — no per-member or per-task query loops.**
+- Zero-task members appear with zero stats (the point: see who has no work).
+- `unassigned` (top-level, only with the param) uses the same derivation; its `todo`
+  equals the 7.2 group-level open-unassigned count (cross-endpoint consistency asserted).
+- **Refactor**: extracted shared `computeTaskStats(tasks, now)` from `computeGroupStats`;
+  group stats now = computeTaskStats + open-unassigned count. Output shape/key order of
+  `computeGroupStats` preserved EXACTLY (the 7.2 productivity suite asserts strict JSON
+  equality — re-run green).
+- Without the param the response shape is byte-identical to before (GroupDetail member
+  management and every existing consumer unaffected).
+
+### Frontend
+- `services/api.js`: `groupApi.getMembers(id, params)` accepts optional params.
+- `pages/Dashboard.jsx`: accordion drill-down in the "Team Productivity by Group" table —
+  one group expanded at a time (bounded state/requests), fetched once per expansion and
+  cached for the page lifetime. Chevron toggle (lucide-react, already a dependency) with
+  `aria-expanded`/`aria-controls`/dynamic `aria-label`; full-width colSpan=10 detail row
+  contains the nested "Member workload — <group>" table: member name + role badge
+  (getRoleColor), counts (Overdue red when > 0, Due Soon orange when > 0), completion
+  progress bar (`role="progressbar"` + aria-valuenow/min/max/label per member per group),
+  and a distinct italic gray "Unassigned tasks" bucket row shown only when it has tasks.
+- States: inline loading spinner (role="status"), inline error + Retry (role="alert") that
+  clears the cache and refetches, "No members." defensive empty, "—" cells when stats
+  absent (older backend). All 7.1/7.2 cards, columns, links, and progress bars preserved.
+
+## FILES CHANGED
+- Modified: `backend/src/controllers/groupController.js` (computeTaskStats extraction,
+  computeGroupStats rebuild on top of it, getGroupMembers stats branch, exports),
+  `backend/package.json` (test:member-workload; test:all), `frontend/src/services/api.js`
+  (getMembers params), `frontend/src/pages/Dashboard.jsx` (accordion drill-down)
+- Created: `backend/tests/member-workload.test.js`, `7.3.txt` (this file)
+
+## API CHANGES
+- `GET /api/groups/:id/members?include=stats` — additive optional per-member `stats` +
+  top-level `unassigned` (documented in docs/API.md). No new routes; no other endpoints touched.
+
+## DATABASE CHANGES
+None. Read-only aggregation over existing columns (Tasks.groupId / Tasks.assigneeId
+indexes exist since Phase 4A).
+
+## TESTS ADDED
+`backend/tests/member-workload.test.js` (+ `npm run test:member-workload`; in `test:all`) —
+25 assertions: 401s (plain + stats variants); backward compat (no stats / no unassigned key /
+member shape preserved); invalid id 400; nonexistent 404; **non-member blind 404 with no
+data leak**; **client `userId` param ignored** (forged identity immunity); all 7 stats keys
+per member; exact member stats vs mirrored derivation (incl. completed-past-due NOT
+overdue, 12h dueSoon); zero-task member zeros; exact unassigned bucket; **cross-endpoint
+consistency** (member totals + unassigned total === 7.2 group total; unassigned.todo ===
+group open-unassigned count); **cross-group isolation** (alice's other-group task counted
+only in that group's drill-down); cleanup.
+
+## TEST RESULTS
+- New member-workload suite: **25/25** (first run; no app-code fixes needed)
+- Full battery green (13 suites):
+  sockets 22 · chat 35 · notif-realtime 20 · presence 26 (knobbed) · system 46 ·
+  notifications 68 · errors 20 · security 45/45 (isolated `AUTH_MAX_FAILED=5` +
+  `AUTH_FAILURE_WINDOW_MS=2500` server run — same documented env behavior as 7.1/7.2) ·
+  performance 22 · mytasks 13 · dashboard 10 · productivity 21 (refactor verified:
+  group-stats JSON equality holds)
+- Frontend production build ✅ — Dashboard chunk 21.53 kB (gzip 4.49 kB), initial bundle
+  265.87 kB / 87.73 kB gzip unchanged; code-split chunks preserved
+
+## SECURITY / AUTHORIZATION VERIFICATION
+- Blind-404 membership contract preserved: the existing check runs before anything new;
+  non-members get 404 with zero member/task data (asserted).
+- Identity fully server-derived: stats computed for ALL group members from DB rows; the
+  endpoint accepts no user identity — forged `userId` param ignored (asserted).
+- Cross-group isolation: member stats in group A count only group A tasks, even for users
+  in multiple groups (asserted via two-group fixture).
+- Aggregated data is the same the user could already page through via
+  GET /api/groups/:id/tasks — no new exposure surface.
+- Unauthenticated → 401 on both param variants (asserted).
+
+## PERFORMANCE / QUERY STRATEGY
+- Drill-down endpoint: exactly 3 queries total (membership check + members query + ONE
+  attributes-only Task aggregation query), independent of member/task count — same bounded
+  strategy as 7.2 (single query, JS bucketing). No N+1, no per-member loops.
+- Frontend: one request per group expansion, cached; one group open at a time.
+
+## KNOWN LIMITATIONS
+- Snapshot only (mount-time); no realtime workload updates (consistent with 7.1/7.2).
+- Per-group by design — no combined cross-group per-member view (out of scope).
+- Server member order preserved (role DESC, joinedAt ASC); no client-side member sorting.
+- Unassigned bucket row hidden when it has zero tasks (declutters; totals remain consistent).
+- Tables scroll horizontally on narrow viewports (overflow-x convention; Phase 9 for redesign).
+
+## DEFERRED WORK
+- Charts/burndown/velocity/history (needs aggregation tables — still excluded)
+- Realtime dashboard/workload refresh
+- Combined cross-group member workload
+
+## FINAL ACCEPTANCE STATUS
+All acceptance criteria met: correct aggregates in one query (3 total); no-param response
+unchanged; drill-down integrated without regressing 7.1/7.2 UI; 25/25 new assertions + full
+13-suite battery green; build green; no new dependencies/migrations/routes beyond plan.
+Phase 7.3 COMPLETE.
