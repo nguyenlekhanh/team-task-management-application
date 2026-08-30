@@ -1590,4 +1590,26 @@ Begin **Phase 7.3** (per roadmap — not started; per-member workload breakdown 
 - ✅ Frontend production build green (initial bundle unchanged)
 
 ### Next Phase
-Begin **Phase 7.4** (per roadmap — not started; candidate: phase wrap-up items per roadmap evolution)
+Begin **Phase 7.4** (Dashboard Regression Sweep & Documentation Consolidation — not started)
+
+## Phase Status: PHASE 7.4 - COMPLETED (Dashboard Regression Sweep & Documentation Consolidation)
+
+### Audit Performed
+- Code walk of Dashboard.jsx vs 7.1/7.2/7.3 records (all cards/tables/drill-down intact); live cross-endpoint invariant probe; shared-semantics verification (7.2+7.3 both use computeTaskStats); security walk (blind-404/forged identity/isolation); performance walk (bounded queries); UX/ARIA walk; docs walk (no stale Phase 7 text)
+
+### Real Defect Found & Fixed
+- **Dangling assigneeId after member removal**: removeMember destroyed the membership but left Task.assigneeId pointing at the removed user — those tasks counted toward the 7.2 group total but appeared in no 7.3 member bucket nor the unassigned bucket, breaking the documented invariant "member totals + unassigned = group total" (reproduced live before fix). Fix: groupController.removeMember now clears assigneeId on the removed member's still-assigned tasks in that group (best-effort, post-destroy, logged — matches Task.assigneeId SET-NULL FK semantics; work surfaces under "Unassigned"). Eviction/auth paths untouched.
+
+### Tests Added
+- member-workload suite +6 assertions (removal-invariant section): removal succeeds, invariant holds after removal, removed member unlisted, tasks move to unassigned bucket (exact totals), group total unchanged. Suite now 31/31.
+
+### Verification
+- ✅ Full 13-suite battery green: 22/35/20/26/46/68/20/45(security isolated knobbed run)/22/13/10/21/31 = 392 assertions, 0 failures
+- ✅ Frontend production build green (no frontend changes needed)
+- ✅ Presence suite confirms removeMember eviction (5D.5) undisturbed; system integration confirms removed-member authorization matrix unchanged
+
+### Project Status
+**Phase 7 (Dashboard & Team Productivity) COMPLETE** — 7.1 Overview, 7.2 Group Detail, 7.3 Member Drill-Down, 7.4 Sweep & Consolidation.
+
+### Next Phase
+Begin **Phase 8 / next roadmap item** (not started; see PROJECT_RESULT.md Recommended Next Steps)

@@ -2,7 +2,7 @@
 
 A collaboration platform combining **team groups, task management, checklists, group chat, task comments, notifications, and realtime updates** — built with React + Vite on the frontend and Node/Express + Sequelize (SQLite) + Socket.IO on the backend.
 
-**Status: feature-complete for implemented scope.** 386 automated assertions across 13 test suites, all passing.
+**Status: feature-complete for implemented scope.** 392 automated assertions across 13 test suites, all passing.
 
 ## Features
 - **Authentication** — register/login (JWT, bcrypt-hashed passwords), profile editing, password change, brute-force login lockout

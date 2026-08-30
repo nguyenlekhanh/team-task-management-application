@@ -1,0 +1,137 @@
+# Phase 7.4 - Dashboard Regression Sweep & Documentation Consolidation
+
+## STATUS
+COMPLETED
+
+## OBJECTIVE
+Stabilization phase for the complete Dashboard/Productivity work (7.1–7.3): full regression
+audit (Dashboard UI, both aggregation endpoints, shared derivation logic), focused security
+and performance reviews, UX/accessibility walk, correction of REAL defects only, and
+documentation consolidation making the Phase 7 state unambiguous. No new analytics features.
+
+## AUDIT PERFORMED
+1. **Code walk** — Dashboard.jsx (529 lines) against 7.1/7.2/7.3 records: all 7.1 stat
+   cards, Recent Tasks/Notifications, 7.2 productivity table, 7.3 accordion drill-down
+   present and unchanged in shape; loading/error/empty states correct; Promise.allSettled
+   partial-failure posture intact; User Info / Health / Quick Actions preserved.
+2. **Cross-endpoint invariant probe (live server, two-user fixture)** — group total vs
+   Σ member totals + unassigned: held before member removal, **BROKEN after removeMember**
+   (defect below).
+3. **Shared-semantics verification** — 7.2 group stats and 7.3 member stats both derive
+   from the same `computeTaskStats` (7.3 refactor): identical overdue/dueSoon rules,
+   completed-past-due handling, zero-task and empty-group rate math. No drift possible.
+4. **Security walk** — blind-404 ordering, forged-identity immunity, cross-group isolation
+   all previously asserted (7.3 suite) and re-verified green in this battery. No changes
+   needed; nothing weakened.
+5. **Performance walk** — getUserGroups+stats: 2 queries; getGroupMembers+stats: 3 queries;
+   both independent of group/member/task counts. The new fix adds ONE bounded
+   `Task.update ... WHERE groupId AND assigneeId = ?` (indexed columns) executed only on
+   member removal. No N+1, no loops, no new migrations/dependencies.
+6. **UX/accessibility walk** — chevron buttons focusable with focus-visible rings,
+   aria-expanded/controls present, progressbar ARIA complete, role=status/alert states
+   present, defensive "—" cells intact, overflow-x responsive convention intact.
+   No real issues found; no cosmetic changes made.
+7. **Docs walk** — no stale "Phase 7 not started" text anywhere; suite counts accurate;
+   PROJECT_RESULT "Recommended Next Steps" pointed at 7.4 (updated to post-7.4 wording).
+
+## ISSUES FOUND
+**One real defect** (the regression sweep's purpose fulfilled):
+
+### Dangling assigneeId after group-member removal
+- **Symptom (reproduced live)**: remove a member who has assigned tasks → 7.2 group total
+  still counts those tasks (correct — they belong to the group), but they appear in NO 7.3
+  member bucket (the user is no longer listed) and NOT in the unassigned bucket
+  (assigneeId non-null) → the documented 7.3 invariant
+  "member totals + unassigned total = group total" broke, and a manager could not see
+  where that work went. Pre-existing data-level gap since Phase 3 (removeMember never
+  touched assignments); only became observable/diagnosable once 7.3 exposed the invariant.
+- **Fix (smallest safe change at the source)**: `groupController.removeMember` now clears
+  `assigneeId` (sets NULL) on the removed member's still-assigned tasks in that group,
+  after the authoritative membership destroy. Rationale: a group-scoped assignment ends
+  with membership; the work becomes visible under "Unassigned tasks" (exactly what a
+  manager needs after removing someone) and matches the app's existing FK semantics
+  (Task.assigneeId is SET NULL on user deletion since Phase 4A).
+  Best-effort like the 5D.5 eviction (logged, never blocks removal). Untouched: group
+  deletion (cascades tasks), user deletion (FK handles it), REST contract, realtime
+  events, notifications.
+
+## FIXES MADE
+- `backend/src/controllers/groupController.js` — removeMember: post-destroy, best-effort
+  group-scoped unassignment (`Task.update({ assigneeId: null }, { where: { groupId,
+  assigneeId: targetUserId } })`) + log line, before the existing eviction block.
+
+## TESTS ADDED/CHANGED
+- `backend/tests/member-workload.test.js`: new "Removal invariant (7.4 regression fix)"
+  section — 6 assertions: removal succeeds; invariant holds after removal; removed member
+  no longer listed; their tasks move to the unassigned bucket (exact total); unassigned
+  todo reflects reopened tasks; group total unchanged (tasks stay in the group).
+  One assertion constant corrected during development (fixture has 7 tasks in group 1 —
+  test-harness fix, not an app change).
+
+## FINAL TEST RESULTS (full 13-suite battery)
+| Suite | Result |
+|---|---|
+| Socket foundation | 22/22 |
+| Chat realtime | 35/35 |
+| Notification realtime | 20/20 |
+| Presence/membership/rate-limit (knobbed) | 26/26 |
+| System integration | 46/46 |
+| Notification integration | 68/68 |
+| Error contract | 20/20 |
+| Security (isolated `AUTH_MAX_FAILED=5` + `AUTH_FAILURE_WINDOW_MS=2500` server run) | 45/45 |
+| Performance regression | 22/22 |
+| MyTasks | 13/13 |
+| Dashboard | 10/10 |
+| Productivity | 21/21 |
+| Member workload (5 new assertions) | 31/31 |
+| **Total** | **392 assertions, 0 failures** |
+
+Presence suite green specifically confirms removeMember eviction (5D.5) is undisturbed by
+the fix; system integration confirms the removed-member authorization matrix unchanged.
+
+## BUILD RESULT
+Frontend production build ✅ — initial bundle 265.87 kB / 87.73 kB gzip unchanged;
+no frontend changes required this phase (audit only).
+
+## SECURITY VERIFICATION
+PASS — no authorization code modified (removeMember's checks untouched; the fix runs
+strictly AFTER the authoritative destroy and cannot alter any 4xx path). Blind-404,
+forged-identity immunity, and cross-group isolation re-verified green via the existing
+suites. Unassignment writes only within the acting user's own group (membership verified
+earlier in the same handler) and touches only rows already governed by that group.
+
+## PERFORMANCE VERIFICATION
+PASS — all Phase 7 aggregations remain bounded (2 / 3 queries). The fix adds one indexed,
+bounded UPDATE executed only on member removal. No N+1, no per-member/per-task loops, no
+new migrations, no new dependencies, no analytics infrastructure.
+
+## DOCUMENTATION CHANGES
+- 7.4.txt → this final record (plan + results)
+- PROJECT_PROGRESS.md — Phase 7.4 section
+- PROJECT_PLAN.md — Current Phase entry for 7.4; Roadmap Note that Phase 7 is complete
+- PROJECT_RESULT.md — Phase 7.4 entry; Recommended Next Steps updated to post-7.4
+- README.md + docs/DEVELOPMENT.md — suite/assertion counts updated (13 suites / 392)
+- docs/API.md, docs/USER_GUIDE.md — verified accurate, no changes needed (endpoint
+  contracts and user-facing behavior unchanged by the fix)
+- 7.1/7.2/7.3.txt — historical records, untouched
+
+## KNOWN LIMITATIONS
+- Historical dangling-assigneeId rows (created by pre-7.4 removals) are not backfilled —
+  the fix is forward-looking. Such rows are inert (they render as ordinary group tasks;
+  the affected users are already gone), and a one-off cleanup script was judged
+  out-of-scope for a stabilization phase. Can be revisited if ever needed.
+- All prior Phase 7 limitations stand (no realtime dashboard refresh; no charts/trends;
+  snapshot-on-mount; horizontal scroll on narrow viewports per table convention).
+- Browser-level E2E still manual (no browser automation in project — standing caveat).
+
+## DEFERRED WORK
+- Phase 8 / next roadmap item (see PROJECT_RESULT.md Recommended Next Steps)
+- Optional one-off data cleanup for historical dangling assigneeId rows
+- Phase 9 candidates unchanged (refresh tokens, broader REST rate limiting, HTTPS/CSP,
+  email/push)
+
+## FINAL ACCEPTANCE STATUS
+All acceptance criteria met: invariant regression test passes (and previously failed
+before the fix); full 13-suite battery green; build green; docs consolidated with Phase 7
+state unambiguous (7.1 → 7.2 → 7.3 → 7.4 COMPLETE); exactly one real defect fixed; no
+features/migrations/dependencies added. Phase 7.4 COMPLETE — **Phase 7 COMPLETE**.

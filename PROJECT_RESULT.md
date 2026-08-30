@@ -546,12 +546,14 @@
 
 **Phase 7.3: Per-Member Workload Drill-Down** - **COMPLETED** (per-member assigned-task stats + unassigned bucket: additive `include=stats` on GET /api/groups/:id/members — one aggregation query, 3 total, blind-404 + server-derived identity preserved, cross-group isolation verified; Dashboard accordion drill-down with nested workload table; shared computeTaskStats refactor keeps 7.2 output identical; 25-assertion member-workload suite green)
 
+**Phase 7.4: Dashboard Regression Sweep & Documentation Consolidation** - **COMPLETED** (stabilization: full audit of 7.1–7.3; one real defect found & fixed — removeMember left dangling assigneeId, breaking the 7.3 invariant "member totals + unassigned = group total"; removal now unassigns those group tasks (best-effort, matches SET-NULL FK semantics); +6 removal-invariant regression assertions; full 13-suite battery green at 392 assertions; docs consolidated. **PHASE 7 COMPLETE**)
+
 **Phase 6.7: Task List Actions & Coverage** - **COMPLETED** (Task List inline Status/Priority/Assignee + Delete, per-row saving, server-authoritative, pagination edge handling, overdue derived — no new endpoints)
 **Phase 6.6: Task UX Polish** - **COMPLETED** (shared taskDisplay helpers, aria enhancements for TaskForm/Checklist/pagination, consistent overdue/date formatting, responsive polish; frontend-only changes; build green)
 
 ## Recommended Next Steps
 
-1. **Begin Phase 7.4** (per roadmap — not started)
+1. **Begin Phase 8 / next roadmap item** (not started; e.g. responsive/mobile polish pass, or Phase 9 security/deployment candidates: refresh tokens, broader REST rate limiting, HTTPS/CSP)
    - Full regression sweep, cross-browser checks
    - API documentation, deployment guide, developer/user guides
    - Final PROJECT_* consolidation

@@ -162,6 +162,23 @@ function expectedStats(tasks, now = Date.now()) {
   const g2Alice = g2Members.data.members.find(m => m.userId === alice.id);
   assert('alice has 1 task in g2 (isolation verified)', g2Alice && g2Alice.stats.total === 1, `got ${JSON.stringify(g2Alice?.stats)}`);
 
+  console.log('\n--- Removal invariant (7.4 regression fix) ---');
+  // bob has 2 assigned tasks in the group. Removing bob must unassign them:
+  // the 7.3 invariant (member totals + unassigned === group total) must hold
+  // afterwards, and the tasks must surface in the unassigned bucket instead
+  // of dangling on a departed member.
+  const rem = await rest('DELETE', `/api/groups/${groupId}/members/${bob.id}`, { token: alice.token });
+  assert('member removal succeeds', rem.status === 200);
+  const afterDrill = await rest('GET', `/api/groups/${groupId}/members?include=stats`, { token: alice.token });
+  const afterGroups = await rest('GET', '/api/groups?include=stats', { token: alice.token });
+  const afterGStats = afterGroups.data.groups.find(x => x.id === groupId).stats;
+  const afterSum = afterDrill.data.members.reduce((s, m) => s + (m.stats?.total || 0), 0) + afterDrill.data.unassigned.total;
+  assert('invariant holds after removal (member+unassigned === group total)', afterSum === afterGStats.total, `sum=${afterSum} group=${afterGStats.total}`);
+  assert('removed member no longer listed', !afterDrill.data.members.some(m => m.userId === bob.id));
+  assert("removed member's tasks move to unassigned bucket", afterDrill.data.unassigned.total === 4, `got ${afterDrill.data.unassigned.total}`);
+  assert('unassigned bucket todo reflects reopened tasks', afterDrill.data.unassigned.todo === 3, `got ${afterDrill.data.unassigned.todo}`);
+  assert('group total unchanged by removal (tasks stay in group)', afterGStats.total === 7, `got ${afterGStats.total}`);
+
   console.log('\n--- Cleanup ---');
   await rest('DELETE', `/api/groups/${groupId}`, { token: alice.token });
   await rest('DELETE', `/api/groups/${g2.data.group.id}`, { token: alice.token });

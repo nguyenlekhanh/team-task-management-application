@@ -382,6 +382,8 @@ project-root/
 
 ## Current Phase
 
+**Phase 7.4: Dashboard Regression Sweep & Documentation Consolidation** - **COMPLETED** (stabilization: full audit of 7.1–7.3, one real defect found & fixed — dangling assigneeId after member removal broke the 7.3 invariant; removeMember now unassigns the removed member's group tasks (best-effort); +6 regression assertions; full 13-suite battery 392 assertions green; docs consolidated. **Phase 7 COMPLETE**)
+
 **Phase 7.3: Per-Member Workload Drill-Down** - **COMPLETED** (per-member assigned-task stats + unassigned bucket via additive `GET /api/groups/:id/members?include=stats` — one aggregation query, 3 queries total, blind-404 preserved, forged identity ignored; Dashboard accordion drill-down with nested workload table + ARIA; shared computeTaskStats refactor keeps 7.2 group-stats output identical; 25-assertion suite green)
 
 **Phase 7.2: Team Productivity Detail** - **COMPLETED** (per-group productivity stats via additive `GET /api/groups?include=stats` — single attributes-only aggregation query, no new route; Dashboard "My Groups" upgraded to per-group table with counts + completion progress bars; no-param response unchanged; 21-assertion productivity suite green)

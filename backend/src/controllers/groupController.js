@@ -521,6 +521,25 @@ async function removeMember(req, res) {
 
     await targetMember.destroy();
 
+    // Group-scoped unassignment (7.4 regression fix): the removed member's
+    // assignments in THIS group end with their membership. Without this, the
+    // tasks keep a dangling assigneeId - they still count toward the 7.2
+    // group total but appear in no 7.3 member bucket nor the unassigned
+    // bucket, breaking the documented cross-endpoint invariant. Unassigning
+    // surfaces them under "Unassigned" instead. Best-effort (like eviction):
+    // membership removal above remains authoritative; failure is logged only.
+    try {
+      const [unassignedCount] = await Task.update(
+        { assigneeId: null },
+        { where: { groupId, assigneeId: targetUserId } }
+      );
+      if (unassignedCount > 0) {
+        console.log(`[TASK] unassigned ${unassignedCount} task(s) of removed user #${targetUserId} in group #${groupId}`);
+      }
+    } catch (unassignErr) {
+      console.error('[ERROR] member task unassignment:', unassignErr.message);
+    }
+
     // Realtime room eviction (5D.5): the removed member's connected sockets
     // must leave the group room across all their tabs/devices. Best-effort -
     // membership removal itself is already authoritative in the database.
