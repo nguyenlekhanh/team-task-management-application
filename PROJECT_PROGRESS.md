@@ -1613,3 +1613,22 @@ Begin **Phase 7.4** (Dashboard Regression Sweep & Documentation Consolidation �
 
 ### Next Phase
 Begin **Phase 8 / next roadmap item** (not started; see PROJECT_RESULT.md Recommended Next Steps)
+
+## Phase Status: PHASE 8.1 - COMPLETED (Responsive Navigation)
+
+### Phase 8 Scope Determination
+Original roadmap (Phase 8: UI Improvement = responsive design + mobile-friendly layout + enhanced dashboard): "Enhanced dashboard" was completed by Phase 7, leaving responsive/mobile work as the remaining scope — consistent with every historical deferral note (5F.1/5F.2/7.2/7.3). First sub-phase chosen from an actual frontend audit: navigation, because every authenticated page duplicated an inline nav with ZERO responsive classes anywhere (grep-verified), making navigation unusable on phones.
+
+### What Was Done
+- Audit: 9 hand-duplicated inline navs with drift (Logout only on Dashboard/Profile; TaskList/TaskDetail text-2xl titles + mb-2 back-link hack; TaskDetail unclipped task titles); no responsive visibility classes in the entire frontend
+- New shared `components/Navbar.jsx`: desktop (md+) identical layout; mobile (<md) hamburger menu (lucide Menu/X) with dropdown panel — greeting + full-width link rows + Logout; Escape + outside-click close (NotificationDropdown pattern); aria-expanded/controls/label; 44px touch targets; truncate+min-w-0 titles; back-link pages get a proper stacked back-link+title column
+- All 9 authenticated pages converted to per-page Navbar configs preserving their exact previous links/styling; removed now-unused NotificationBell imports (bell now rendered inside Navbar) and unused `user` destructuring in Groups/MyTasks
+- Frontend-only: no backend, API, routing, context, or dependency changes
+
+### Verification
+- ✅ `npm run build` green (Navbar shared chunk; initial bundle unchanged 265.86 kB / 87.73 kB gzip); zero leftover inline navs (grep); ARIA attributes verified
+- ✅ Full 13-suite battery green: 392 assertions, 0 failures (security 45/45 isolated knobbed run — documented env behavior)
+- Static verification only for interactive behaviors (no browser automation in project — documented)
+
+### Next Phase
+Begin **Phase 8.2** (table/card responsiveness — not started; Groups table lacks overflow-x wrapper, dashboard productivity tables reviewed for small-viewport behavior)

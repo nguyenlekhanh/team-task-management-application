@@ -382,6 +382,8 @@ project-root/
 
 ## Current Phase
 
+**Phase 8.1: Responsive Navigation** - **COMPLETED** (new shared Navbar component with mobile hamburger menu replaces 9 hand-duplicated inline navs; desktop appearance preserved; mobile gains reachable navigation with Escape/outside-click close, aria-expanded/controls, 44px touch targets; back-link pages stack cleanly; long titles truncate; frontend-only; build + full battery green)
+
 **Phase 7.4: Dashboard Regression Sweep & Documentation Consolidation** - **COMPLETED** (stabilization: full audit of 7.1–7.3, one real defect found & fixed — dangling assigneeId after member removal broke the 7.3 invariant; removeMember now unassigns the removed member's group tasks (best-effort); +6 regression assertions; full 13-suite battery 392 assertions green; docs consolidated. **Phase 7 COMPLETE**)
 
 **Phase 7.3: Per-Member Workload Drill-Down** - **COMPLETED** (per-member assigned-task stats + unassigned bucket via additive `GET /api/groups/:id/members?include=stats` — one aggregation query, 3 queries total, blind-404 preserved, forged identity ignored; Dashboard accordion drill-down with nested workload table + ARIA; shared computeTaskStats refactor keeps 7.2 group-stats output identical; 25-assertion suite green)

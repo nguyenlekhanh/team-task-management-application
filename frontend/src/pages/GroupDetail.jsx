@@ -5,7 +5,7 @@ import { useAuth } from '../contexts/AuthContext'
 import { groupApi, messageApi } from '../services/api'
 import { AddMemberModal } from '../components/AddMemberModal'
 import { ChatPanel } from '../components/ChatPanel'
-import { NotificationBell } from '../components/NotificationBell'
+import { Navbar } from '../components/Navbar'
 
 export function GroupDetail() {
   const { id } = useParams()
@@ -154,33 +154,15 @@ export function GroupDetail() {
 
   return (
     <div className="min-h-screen bg-gray-50">
-      <nav className="bg-white shadow-sm border-b">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex justify-between h-16">
-            <div className="flex items-center">
-              <h1 className="text-xl font-bold text-gray-900">Team Task Management</h1>
-            </div>
-            <div className="flex items-center space-x-4">
-              <NotificationBell />
-              <span className="text-sm text-gray-700">
-                Logged in as <strong>{user?.displayName || user?.username}</strong>
-              </span>
-              <Link to="/dashboard" className="px-4 py-2 bg-gray-600 text-white rounded-md hover:bg-gray-700 text-sm">
-                Dashboard
-              </Link>
-              <Link to="/groups" className="px-4 py-2 bg-gray-600 text-white rounded-md hover:bg-gray-700 text-sm">
-                Groups
-              </Link>
-              <Link to={`/groups/${id}/tasks`} className="px-4 py-2 bg-purple-600 text-white rounded-md hover:bg-purple-700 text-sm">
-                Tasks
-              </Link>
-              <Link to="/profile" className="px-4 py-2 bg-gray-600 text-white rounded-md hover:bg-gray-700 text-sm">
-                Profile
-              </Link>
-            </div>
-          </div>
-        </div>
-      </nav>
+      <Navbar
+        title="Team Task Management"
+        links={[
+          { to: '/dashboard', label: 'Dashboard' },
+          { to: '/groups', label: 'Groups' },
+          { to: `/groups/${id}/tasks`, label: 'Tasks', className: 'bg-purple-600 text-white hover:bg-purple-700' },
+          { to: '/profile', label: 'Profile' },
+        ]}
+      />
 
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         {error && (

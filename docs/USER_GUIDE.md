@@ -46,5 +46,8 @@ The bell icon shows unread count and opens your notifications:
 ## Realtime behaviour
 Messages, comments, and notifications arrive instantly while you are logged in. If your connection drops, the app reconnects automatically and refreshes data from the server — nothing is lost, duplicates are filtered.
 
+## On small screens
+The top bar adapts to phones: the bell stays visible and the page links (and Logout) move into a menu behind the ☰ button. Tap it to open, tap outside or press Escape to close.
+
 ## Logout
 Logging out clears your session on that browser tab/device and disconnects realtime updates.

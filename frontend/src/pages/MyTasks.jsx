@@ -5,7 +5,7 @@ import { taskApi, getApiErrorMessage } from '../services/api'
 import { TaskFilter } from '../components/TaskFilter'
 import { TaskStatusBadge } from '../components/TaskStatusBadge'
 import { PriorityBadge } from '../components/PriorityBadge'
-import { NotificationBell } from '../components/NotificationBell'
+import { Navbar } from '../components/Navbar'
 import { formatTaskDate, isTaskOverdue } from '../utils/taskDisplay'
 
 const EMPTY_FILTERS = {
@@ -20,7 +20,7 @@ const EMPTY_FILTERS = {
 }
 
 export function MyTasks() {
-  const { isAuthenticated, user } = useAuth()
+  const { isAuthenticated } = useAuth()
   const navigate = useNavigate()
 
   const [tasks, setTasks] = useState([])
@@ -84,30 +84,14 @@ export function MyTasks() {
 
   return (
     <div className="min-h-screen bg-gray-50">
-      <nav className="bg-white shadow-sm border-b">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex justify-between h-16">
-            <div className="flex items-center">
-              <h1 className="text-xl font-bold text-gray-900">My Tasks</h1>
-            </div>
-            <div className="flex items-center space-x-4">
-              <NotificationBell />
-              <span className="text-sm text-gray-700">
-                Logged in as <strong>{user?.displayName || user?.username}</strong>
-              </span>
-              <Link to="/dashboard" className="px-4 py-2 bg-gray-600 text-white rounded-md hover:bg-gray-700 text-sm">
-                Dashboard
-              </Link>
-              <Link to="/groups" className="px-4 py-2 bg-gray-600 text-white rounded-md hover:bg-gray-700 text-sm">
-                Groups
-              </Link>
-              <Link to="/profile" className="px-4 py-2 bg-gray-600 text-white rounded-md hover:bg-gray-700 text-sm">
-                Profile
-              </Link>
-            </div>
-          </div>
-        </div>
-      </nav>
+      <Navbar
+        title="My Tasks"
+        links={[
+          { to: '/dashboard', label: 'Dashboard' },
+          { to: '/groups', label: 'Groups' },
+          { to: '/profile', label: 'Profile' },
+        ]}
+      />
 
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         <div className="flex justify-between items-center mb-8">

@@ -1,0 +1,122 @@
+# Phase 8.1 - Responsive Navigation
+
+## STATUS
+COMPLETED
+
+## OBJECTIVE
+Make the top navigation usable on small viewports across ALL authenticated pages by
+introducing ONE shared `Navbar` component with a mobile hamburger menu, replacing the nine
+hand-duplicated inline navs. Desktop appearance preserved; mobile gains a working,
+accessible menu. First sub-phase of Phase 8 (responsive design + mobile-friendly layout —
+the original roadmap items remaining after "Enhanced dashboard" was completed by Phase 7).
+
+## CURRENT-STATE AUDIT (findings that drove this sub-phase)
+- 9 authenticated pages each carried a private copy of
+  `<nav>…<div className="flex justify-between h-16">…</div></nav>` with per-page drift
+  (only Dashboard/Profile had Logout; TaskList/TaskDetail used a `text-2xl` title +
+  back-link `mb-2` hack; TaskDetail rendered full task titles unclipped).
+- ZERO responsive visibility classes existed anywhere in the frontend (grep-verified) —
+  the nav's right cluster (bell + "Logged in as <name>" + up to 4 `px-4 py-2` buttons
+  ≈ 400–600px) cannot fit a ~375px phone, so mobile users had no working navigation.
+- Login/Register have no nav (already mobile-fine) — untouched.
+
+## WHAT WAS IMPLEMENTED
+
+### New shared component: `frontend/src/components/Navbar.jsx`
+- Props: `title`, `backTo { to, label }`, `links [{ to, label, className? }]`, `onLogout`.
+- Desktop (md+): identical layout to the previous inline navs — brand/page title left;
+  right cluster NotificationBell + greeting + page links (+ red Logout where present).
+- Mobile (<md): bell + hamburger (lucide `Menu`/`X`); toggling opens a dropdown panel
+  (border-t, inside nav) with greeting, full-width link rows, and Logout where present.
+- Accessibility: `aria-expanded`/`aria-controls="nav-menu"`/dynamic `aria-label` on the
+  hamburger; focus-visible rings everywhere; mobile link rows `min-h-[44px]` touch
+  targets; menu closes on Escape + outside click (document listeners, NotificationDropdown
+  pattern) and unmounts on navigation.
+- Title handling: `truncate` + `min-w-0` + `title` attribute everywhere; pages with a
+  back link get a proper two-line stacked column (back-link above, title below) —
+  replaces the `mb-2` overlap hack in TaskList/TaskDetail and the `ml-4` cramping in
+  TaskCreate/TaskEdit.
+
+### Per-page config (each page preserves its exact previous links/styling)
+| Page | title | backTo | links | onLogout |
+|---|---|---|---|---|
+| Dashboard | Team Task Management | — | — | ✓ (red) |
+| Groups | Team Task Management | — | Dashboard, Profile | — |
+| GroupDetail | Team Task Management | — | Dashboard, Groups, Tasks (purple), Profile | — |
+| TaskList | Tasks | ← Back to Group | Dashboard, Groups, Profile | — |
+| TaskDetail | {task.title} (truncating) | ← Back to Group | — | — |
+| MyTasks | My Tasks | — | Dashboard, Groups, Profile | — |
+| Profile | Team Task Management | — | — | ✓ (red) |
+| TaskCreatePage | Create Task | ← Back to Tasks | — | — |
+| TaskEditPage | Edit Task | ← Back to Task | — | — |
+
+### Cleanup
+- Removed the nine inline nav blocks (grep confirms zero `flex justify-between h-16`
+  remain in pages) and the now-unused `NotificationBell` imports from the nine pages
+  (bell still rendered — inside Navbar).
+- Removed `user` from the `useAuth()` destructuring in Groups.jsx and MyTasks.jsx (greeting
+  moved into Navbar; these two pages no longer reference it). All other pages still
+  legitimately use `user` (permission checks) — verified per-page before removal.
+
+## FILES CHANGED
+- Created: `frontend/src/components/Navbar.jsx`, `8.1.txt`
+- Modified (nav block + imports only): `frontend/src/pages/Dashboard.jsx`, `Groups.jsx`,
+  `GroupDetail.jsx`, `TaskList.jsx`, `TaskDetail.jsx`, `MyTasks.jsx`, `Profile.jsx`,
+  `TaskCreatePage.jsx`, `TaskEditPage.jsx`
+
+## API CHANGES
+None (frontend-only).
+
+## DATABASE CHANGES
+None.
+
+## TESTS
+No new automated tests (project has no browser automation — standing documented caveat;
+UI-interaction behaviors cannot be asserted by the HTTP-level suites). Verification per
+project convention:
+- `npm run build` production build ✅ (Navbar code-splits as its own chunk 27.41 kB,
+  shared with bell; initial bundle 265.86 kB / 87.73 kB gzip unchanged)
+- Static verification: zero leftover inline navs; aria-expanded/controls present;
+  min-h-[44px] mobile targets present; every page's link list matches its pre-8.1 links
+  (table above cross-checked against git history)
+- Full backend battery re-run green (frontend-only change; same convention as 6.6)
+
+## TEST RESULTS (full 13-suite battery)
+sockets 22 · chat 35 · notif-realtime 20 · presence 26 (knobbed) · system 46 ·
+notifications 68 · errors 20 · security 45/45 (isolated knobbed run — documented env
+behavior) · performance 22 · mytasks 13 · dashboard 10 · productivity 21 ·
+member-workload 31 = **392 assertions, 0 failures**
+
+## BUILD RESULT
+✅ Frontend production build green; 18 chunks; initial JS 265.86 kB / 87.73 kB gzip
+(unchanged); Dashboard chunk down 0.68 kB (nav markup deduplicated).
+
+## SECURITY / AUTHORIZATION
+No backend, API, auth, or routing changes. Navbar is purely presentational and derives
+everything from props + existing useAuth context. No identity data leaves the page.
+
+## PERFORMANCE
+No new dependency (lucide-react already present). Nav markup deduplicated 9x → single
+shared chunk. No effect on backend query counts.
+
+## KNOWN LIMITATIONS
+- Menu state is per-mount (component-local); pages unmount on navigation so the menu
+  always closes on route change — intentional, no global state introduced.
+- Mobile menu contains the same links as the desktop cluster; no deep nesting/graph
+  redesign (smallest coherent responsive fix).
+- Static/manual verification only for interactive behaviors (no browser automation in
+  project — documented honestly).
+- Tables/cards/forms responsiveness remain for later 8.x sub-phases (Groups table lacks
+  overflow-x wrapper — noted in audit, deliberately deferred to the tables sub-phase).
+
+## DEFERRED WORK (Phase 8 continuation candidates)
+- 8.2: table/card responsiveness (Groups table overflow-x, dashboard table mobile
+  behavior, sticky column patterns)
+- 8.3: forms/buttons/modal touch-target + spacing polish pass
+- 8.4: page-content headers/empty-states polish + Phase 8 wrap-up sweep
+
+## FINAL ACCEPTANCE STATUS
+All acceptance criteria met: all 9 pages use the shared Navbar with their exact previous
+links; mobile menu fully reachable/keyboard-closable; back-link pages stack cleanly;
+titles truncate; build green; battery green; no backend touched; no new dependencies.
+Phase 8.1 COMPLETE.

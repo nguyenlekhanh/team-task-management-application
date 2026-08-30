@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../contexts/AuthContext'
 import { userApi } from '../services/api'
 import { NotificationSettings } from '../components/NotificationSettings'
-import { NotificationBell } from '../components/NotificationBell'
+import { Navbar } from '../components/Navbar'
 
 export function Profile() {
   const { user, logout, isAuthenticated, checkAuth } = useAuth()
@@ -136,27 +136,7 @@ export function Profile() {
 
   return (
     <div className="min-h-screen bg-gray-50">
-      <nav className="bg-white shadow-sm border-b">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex justify-between h-16">
-            <div className="flex items-center">
-              <h1 className="text-xl font-bold text-gray-900">Team Task Management</h1>
-            </div>
-            <div className="flex items-center space-x-4">
-              <NotificationBell />
-              <span className="text-sm text-gray-700">
-                Logged in as <strong>{user?.displayName || user?.username}</strong>
-              </span>
-              <button
-                onClick={handleLogout}
-                className="px-4 py-2 bg-red-600 text-white rounded-md hover:bg-red-700 text-sm"
-              >
-                Logout
-              </button>
-            </div>
-          </div>
-        </div>
-      </nav>
+      <Navbar title="Team Task Management" onLogout={handleLogout} />
 
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         <div className="mb-8">

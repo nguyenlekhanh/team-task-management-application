@@ -7,7 +7,7 @@ import { PriorityBadge } from '../components/PriorityBadge'
 import { Checklist } from '../components/Checklist'
 import { CommentSection } from '../components/CommentSection'
 import { getRoleColor } from '../utils/permissions'
-import { NotificationBell } from '../components/NotificationBell'
+import { Navbar } from '../components/Navbar'
 import { formatTaskDate, formatTaskDateTime, isTaskOverdue } from '../utils/taskDisplay'
 
 export function TaskDetail() {
@@ -203,24 +203,10 @@ export function TaskDetail() {
 
   return (
     <div className="min-h-screen bg-gray-50">
-      <nav className="bg-white shadow-sm border-b">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex justify-between h-16">
-            <div className="flex items-center">
-              <Link to={`/groups/${task.groupId}`} className="text-blue-600 hover:text-blue-800 text-sm mb-2 inline-block">
-                ← Back to Group
-              </Link>
-              <h1 className="text-2xl font-bold text-gray-900 ml-4">{task.title}</h1>
-            </div>
-            <div className="flex items-center space-x-4">
-              <NotificationBell />
-              <span className="text-sm text-gray-700">
-                Logged in as <strong>{user?.displayName || user?.username}</strong>
-              </span>
-            </div>
-          </div>
-        </div>
-      </nav>
+      <Navbar
+        title={task.title}
+        backTo={{ to: `/groups/${task.groupId}`, label: '← Back to Group' }}
+      />
 
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         {error && (

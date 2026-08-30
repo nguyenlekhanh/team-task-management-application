@@ -2,10 +2,10 @@ import { useState, useEffect } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { useAuth } from '../contexts/AuthContext'
 import { groupApi } from '../services/api'
-import { NotificationBell } from '../components/NotificationBell'
+import { Navbar } from '../components/Navbar'
 
 export function Groups() {
-  const { isAuthenticated, checkAuth, user } = useAuth()
+  const { isAuthenticated, checkAuth } = useAuth()
   const navigate = useNavigate()
   const [groups, setGroups] = useState([])
   const [loading, setLoading] = useState(true)
@@ -77,27 +77,13 @@ export function Groups() {
 
   return (
     <div className="min-h-screen bg-gray-50">
-      <nav className="bg-white shadow-sm border-b">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex justify-between h-16">
-            <div className="flex items-center">
-              <h1 className="text-xl font-bold text-gray-900">Team Task Management</h1>
-            </div>
-            <div className="flex items-center space-x-4">
-              <NotificationBell />
-              <span className="text-sm text-gray-700">
-                Logged in as <strong>{user?.displayName || user?.username}</strong>
-              </span>
-              <Link to="/dashboard" className="px-4 py-2 bg-gray-600 text-white rounded-md hover:bg-gray-700 text-sm">
-                Dashboard
-              </Link>
-              <Link to="/profile" className="px-4 py-2 bg-gray-600 text-white rounded-md hover:bg-gray-700 text-sm">
-                Profile
-              </Link>
-            </div>
-          </div>
-        </div>
-      </nav>
+      <Navbar
+        title="Team Task Management"
+        links={[
+          { to: '/dashboard', label: 'Dashboard' },
+          { to: '/profile', label: 'Profile' },
+        ]}
+      />
 
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         <div className="flex justify-between items-center mb-8">

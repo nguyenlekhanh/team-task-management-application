@@ -3,7 +3,7 @@ import { useParams, useNavigate, Link } from 'react-router-dom'
 import { useAuth } from '../contexts/AuthContext'
 import { taskApi, groupApi, getApiErrorMessage } from '../services/api'
 import { TaskForm } from '../components/TaskForm'
-import { NotificationBell } from '../components/NotificationBell'
+import { Navbar } from '../components/Navbar'
 
 export function TaskCreatePage() {
   const { groupId } = useParams()
@@ -61,21 +61,10 @@ export function TaskCreatePage() {
 
   return (
     <div className="min-h-screen bg-gray-50">
-      <nav className="bg-white shadow-sm border-b">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex justify-between h-16">
-            <div className="flex items-center">
-              <Link to={`/groups/${groupId}/tasks`} className="text-sm text-blue-600 hover:text-blue-900">
-                ← Back to Tasks
-              </Link>
-              <h1 className="text-xl font-bold text-gray-900 ml-4">Create Task</h1>
-            </div>
-            <div className="flex items-center space-x-4">
-              <NotificationBell />
-            </div>
-          </div>
-        </div>
-      </nav>
+      <Navbar
+        title="Create Task"
+        backTo={{ to: `/groups/${groupId}/tasks`, label: '← Back to Tasks' }}
+      />
 
       <main className="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         {!isMember ? (

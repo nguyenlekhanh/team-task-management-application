@@ -5,7 +5,7 @@ import { taskApi, groupApi, getApiErrorMessage } from '../services/api'
 import { TaskFilter } from '../components/TaskFilter'
 import { TaskStatusBadge } from '../components/TaskStatusBadge'
 import { PriorityBadge } from '../components/PriorityBadge'
-import { NotificationBell } from '../components/NotificationBell'
+import { Navbar } from '../components/Navbar'
 import { formatTaskDate, isTaskOverdue } from '../utils/taskDisplay'
 
 export function TaskList() {
@@ -256,33 +256,15 @@ export function TaskList() {
 
   return (
     <div className="min-h-screen bg-gray-50">
-      <nav className="bg-white shadow-sm border-b">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex justify-between h-16">
-            <div className="flex items-center">
-              <Link to={`/groups/${groupId}`} className="text-blue-600 hover:text-blue-900 text-sm mb-2 inline-block focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 rounded">
-                ← Back to Group
-              </Link>
-              <h1 className="text-2xl font-bold text-gray-900">Tasks</h1>
-            </div>
-            <div className="flex items-center space-x-4">
-              <NotificationBell />
-              <span className="text-sm text-gray-700">
-                Logged in as <strong>{user?.displayName || user?.username}</strong>
-              </span>
-              <Link to="/dashboard" className="px-4 py-2 bg-gray-600 text-white rounded-md hover:bg-gray-700 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500">
-                Dashboard
-              </Link>
-              <Link to="/groups" className="px-4 py-2 bg-gray-600 text-white rounded-md hover:bg-gray-700 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500">
-                Groups
-              </Link>
-              <Link to="/profile" className="px-4 py-2 bg-gray-600 text-white rounded-md hover:bg-gray-700 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500">
-                Profile
-              </Link>
-            </div>
-          </div>
-        </div>
-      </nav>
+      <Navbar
+        title="Tasks"
+        backTo={{ to: `/groups/${groupId}`, label: '← Back to Group' }}
+        links={[
+          { to: '/dashboard', label: 'Dashboard' },
+          { to: '/groups', label: 'Groups' },
+          { to: '/profile', label: 'Profile' },
+        ]}
+      />
 
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         <div className="flex justify-between items-center mb-8">

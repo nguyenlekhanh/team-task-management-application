@@ -548,12 +548,14 @@
 
 **Phase 7.4: Dashboard Regression Sweep & Documentation Consolidation** - **COMPLETED** (stabilization: full audit of 7.1–7.3; one real defect found & fixed — removeMember left dangling assigneeId, breaking the 7.3 invariant "member totals + unassigned = group total"; removal now unassigns those group tasks (best-effort, matches SET-NULL FK semantics); +6 removal-invariant regression assertions; full 13-suite battery green at 392 assertions; docs consolidated. **PHASE 7 COMPLETE**)
 
+**Phase 8.1: Responsive Navigation** - **COMPLETED** (new shared Navbar with mobile hamburger menu replaces the 9 duplicated inline navs across all authenticated pages; desktop unchanged, mobile gains reachable navigation with Escape/outside-click close + full ARIA; back-link pages stack cleanly, titles truncate; frontend-only; build + battery green)
+
 **Phase 6.7: Task List Actions & Coverage** - **COMPLETED** (Task List inline Status/Priority/Assignee + Delete, per-row saving, server-authoritative, pagination edge handling, overdue derived — no new endpoints)
 **Phase 6.6: Task UX Polish** - **COMPLETED** (shared taskDisplay helpers, aria enhancements for TaskForm/Checklist/pagination, consistent overdue/date formatting, responsive polish; frontend-only changes; build green)
 
 ## Recommended Next Steps
 
-1. **Begin Phase 8 / next roadmap item** (not started; e.g. responsive/mobile polish pass, or Phase 9 security/deployment candidates: refresh tokens, broader REST rate limiting, HTTPS/CSP)
+1. **Begin Phase 8.2** (responsive tables/cards — not started; Groups table overflow-x wrapper, small-viewport table behavior)
    - Full regression sweep, cross-browser checks
    - API documentation, deployment guide, developer/user guides
    - Final PROJECT_* consolidation
