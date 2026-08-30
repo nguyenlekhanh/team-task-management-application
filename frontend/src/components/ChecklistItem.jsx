@@ -78,10 +78,11 @@ export function ChecklistItem({ item, onToggle, onUpdate, onDelete, canManage })
             {canManage && (
               <button
                 onClick={() => setIsEditing(true)}
-                className="p-1 text-gray-400 hover:text-gray-600 transition-colors"
+                aria-label={`Edit checklist item ${item.title}`}
                 title="Edit"
+                className="p-1.5 rounded text-gray-400 hover:text-gray-600 hover:bg-gray-100 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 min-h-[36px] min-w-[36px] flex items-center justify-center"
               >
-                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
                 </svg>
               </button>
@@ -101,10 +102,11 @@ export function ChecklistItem({ item, onToggle, onUpdate, onDelete, canManage })
         <button
           onClick={handleDelete}
           disabled={deleting}
-          className="p-1 text-gray-400 hover:text-red-600 transition-colors"
+          aria-label={`Delete checklist item ${item.title}`}
           title="Delete"
+          className="p-1.5 rounded text-gray-400 hover:text-red-600 hover:bg-red-50 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-500 min-h-[36px] min-w-[36px] flex items-center justify-center disabled:opacity-50"
         >
-          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5.034 7H11.5a2 2 0 010 4H5a2 2 0 01-2-2V7a2 2 0 012-2h14a2 2 0 012 2v4a2 2 0 01-2 2h-2.5" />
           </svg>
         </button>

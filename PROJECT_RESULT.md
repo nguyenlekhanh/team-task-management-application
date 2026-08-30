@@ -552,12 +552,14 @@
 
 **Phase 8.2: Responsive Tables & Cards** - **COMPLETED** (Groups table gained missing overflow-x-auto wrapper — columns were clipped by overflow-hidden on phones; pagination footers + page headers stack below sm; Profile tab strip scrolls; table semantics and all ARIA preserved; frontend-only; build + battery green)
 
+**Phase 8.3: Forms, Buttons, Modal Touch-Target & Spacing Polish** - **COMPLETED** (audit found + fixed a REAL functional bug: TaskDetail "Delete Task" no-oped — dead confirm state, real handler never called; now wired with confirm() + client-side navigate; modal action rows stack <sm with 44px buttons; modal close/checklist icon buttons ≥36px with aria-labels + rings; Login/Register controls ≥44px; adequate components deliberately untouched; frontend-only; build + battery green)
+
 **Phase 6.7: Task List Actions & Coverage** - **COMPLETED** (Task List inline Status/Priority/Assignee + Delete, per-row saving, server-authoritative, pagination edge handling, overdue derived — no new endpoints)
 **Phase 6.6: Task UX Polish** - **COMPLETED** (shared taskDisplay helpers, aria enhancements for TaskForm/Checklist/pagination, consistent overdue/date formatting, responsive polish; frontend-only changes; build green)
 
 ## Recommended Next Steps
 
-1. **Begin Phase 8.3** (forms/buttons/modal touch-target & spacing polish — not started)
+1. **Begin Phase 8.4** (page-content headers/empty-states polish + Phase 8 wrap-up sweep — not started)
    - Full regression sweep, cross-browser checks
    - API documentation, deployment guide, developer/user guides
    - Final PROJECT_* consolidation

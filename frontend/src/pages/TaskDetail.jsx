@@ -18,7 +18,6 @@ export function TaskDetail() {
   const [task, setTask] = useState(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
-  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false)
   const [groupMembers, setGroupMembers] = useState([])
   const [loadingMembers, setLoadingMembers] = useState(false)
   const [checklistItems, setChecklistItems] = useState([])
@@ -151,7 +150,7 @@ export function TaskDetail() {
 
     try {
       await taskApi.delete(id)
-      window.location.href = `/groups/${task.groupId}/tasks`
+      navigate(`/groups/${task.groupId}/tasks`)
     } catch (err) {
       console.error('Failed to delete task:', err)
     }
@@ -402,8 +401,8 @@ export function TaskDetail() {
 
               {canDelete && (
                 <button
-                  onClick={() => setShowDeleteConfirm(true)}
-                  className="w-full px-4 py-2 bg-red-600 text-white rounded-md hover:bg-red-700"
+                  onClick={handleDelete}
+                  className="w-full px-4 py-2 bg-red-600 text-white rounded-md hover:bg-red-700 min-h-[44px] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-500"
                 >
                   Delete Task
                 </button>

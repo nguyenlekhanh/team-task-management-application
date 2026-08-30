@@ -291,7 +291,7 @@ export function GroupDetail() {
                 <p className="text-gray-600 mb-4">Once you delete this group, there is no going back. All members will be removed and all group data will be permanently deleted.</p>
                 <button
                   onClick={handleDeleteGroup}
-                  className="px-4 py-2 bg-red-600 text-white rounded-md hover:bg-red-700"
+                  className="px-4 py-2 bg-red-600 text-white rounded-md hover:bg-red-700 min-h-[44px] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-500"
                 >
                   Delete Group
                 </button>
@@ -374,7 +374,7 @@ export function GroupDetail() {
                             {canManageMember(member) && (
                               <button
                                 onClick={() => handleRemoveMember(member.userId)}
-                                className="px-2 py-1 text-red-600 hover:text-red-900 text-sm"
+                                className="px-2 py-1 text-red-600 hover:text-red-900 text-sm min-h-[36px] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-500 rounded"
                               >
                                 Remove
                               </button>

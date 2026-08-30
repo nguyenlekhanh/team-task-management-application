@@ -40,9 +40,10 @@ export function AddMemberModal({
             <h3 className="text-lg font-semibold text-gray-900">Add Member</h3>
             <button
               onClick={onClose}
-              className="text-gray-400 hover:text-gray-500"
+              aria-label="Close"
+              className="p-1.5 rounded text-gray-400 hover:text-gray-500 hover:bg-gray-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 min-h-[36px] min-w-[36px] flex items-center justify-center"
             >
-              <svg className="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <svg className="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
               </svg>
             </button>
@@ -87,18 +88,18 @@ export function AddMemberModal({
               </select>
             </div>
 
-            <div className="flex space-x-3 pt-4">
+            <div className="flex flex-col sm:flex-row gap-2 sm:gap-3 sm:space-x-3 pt-4">
               <button
                 type="button"
                 onClick={onClose}
-                className="flex-1 px-4 py-2 bg-gray-600 text-white rounded-md hover:bg-gray-700"
+                className="flex-1 px-4 py-2 bg-gray-600 text-white rounded-md hover:bg-gray-700 min-h-[44px] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500"
               >
                 Cancel
               </button>
               <button
                 type="submit"
                 disabled={addingMember}
-                className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:opacity-50"
+                className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:opacity-50 min-h-[44px] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500"
               >
                 {addingMember ? 'Adding...' : 'Add Member'}
               </button>

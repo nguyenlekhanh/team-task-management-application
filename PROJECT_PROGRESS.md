@@ -1656,3 +1656,30 @@ Begin **Phase 8.2** (table/card responsiveness — not started; Groups table lac
 
 ### Next Phase
 Begin **Phase 8.3** (forms/buttons/modal touch-target & spacing polish — not started; initial audit found these mostly adequate, focused standardization pass remains)
+
+## Phase Status: PHASE 8.3 - COMPLETED (Forms, Buttons, Modal Touch-Target & Spacing Polish)
+
+### Audit Findings
+- **REAL FUNCTIONAL BUG: TaskDetail "Delete Task" no-oped** — button called setShowDeleteConfirm(true) but no confirmation UI was ever rendered (dead state), and the real confirm()-guarded handleDelete had zero callers; broken interaction left over from the 6.x sidebar restructure
+- Modal action rows (AddMemberModal, Create Group, TaskForm): flex space-x-3 two-button rows ≈ 96px-per-button at 320px, 36px height
+- Modal close buttons: 24px icon-only, no aria-label, no ring (Groups modal, AddMemberModal)
+- ChecklistItem edit/delete icon buttons: ~22–24px targets, title= only (not accessible names)
+- GroupDetail "Remove" (~28px) and "Delete Group" (36px, no ring) lacked targets/rings
+- Login/Register inputs+submit at 36px — inconsistent with the project's own 44px convention (Checklist input got min-h-[44px] in 6.6)
+- Verified adequate, LEFT UNCHANGED: TaskList row selects + Delete, TaskDetail sidebar selects, pagination, NotificationBell/Dropdown/Item (delete already had p-1.5+aria-label+ring), chat/comment rows, dropdown menus, Navbar, Dashboard
+
+### What Was Done
+- P0: Delete Task wired to the existing confirm()-guarded handler; dead state removed; post-delete hard reload replaced with client-side navigate(); button gained min-h-[44px] + focus ring
+- One consistent pattern for 3 modal action rows: flex-col sm:flex-row stacking + min-h-[44px] buttons
+- Modal close buttons: 36px target + aria-label="Close" + ring + hover surface (Navbar-hamburger pattern)
+- ChecklistItem edit/delete: p-1.5 (≥36px) + aria-labels + rings + hover surfaces
+- GroupDetail Remove + Delete Group: min-h-[36px]/[44px] + rings; confirm() preserved
+- Login/Register: all 7 controls min-h-[44px]; NO global min-h sweep (documented decision)
+
+### Verification
+- ✅ `npm run build` green (bundle unchanged); grep: showDeleteConfirm 0 occurrences, handler wired, aria-labels/rings present
+- ✅ Full 13-suite battery green: 392 assertions, 0 failures (security 45/45 isolated knobbed run)
+- Static verification only for interactive behaviors (no browser automation — documented)
+
+### Next Phase
+Begin **Phase 8.4** (page-content headers/empty-states polish + Phase 8 wrap-up sweep — not started)
