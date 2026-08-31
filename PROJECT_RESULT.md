@@ -556,13 +556,15 @@
 
 **Phase 8.4: Page-Content Headers, Empty States & Phase 8 Wrap-Up** - **COMPLETED** (content headers audited and verified consistent — left untouched; 7 fixes: error/not-member back buttons to 44px+ring standard on 4 pages, Groups rich empty state with working Create Group CTA, MyTasks empty-state CTAs to 44px+ring + decorative SVG aria-hidden, GroupDetail defensive members empty row, long-title break-words on TaskDetail/GroupDetail; frontend-only; build + battery green). **PHASE 8 COMPLETE** (8.1–8.4)
 
+**Phase 9.1: Refresh Tokens & Token Revocation** - **COMPLETED** (closes 5E.3 known-limitation #1: bearer tokens stayed valid ≤15 min after logout. In-memory session store: 7-day families, single-use rotating refresh tokens (httpOnly cookie transport, sha256-hashed at rest, never persisted client-side), replay-theft detection (reuse revokes family + live access tokens), logout revokes server-side; access tokens carry sid checked O(1) in the shared REST+socket verifier; pre-9.1 tokens accepted for rolling restarts; POST /api/auth/refresh; frontend single-flight silent-refresh + retry and socket reconnect-once; 5E.1 posture test flipped to secure behavior; 28-assertion refresh-auth suite; full 14-suite battery green at 420 assertions; REFRESH_TOKEN_TTL_MS documented)
+
 **Phase 6.7: Task List Actions & Coverage** - **COMPLETED** (Task List inline Status/Priority/Assignee + Delete, per-row saving, server-authoritative, pagination edge handling, overdue derived — no new endpoints)
 **Phase 6.6: Task UX Polish** - **COMPLETED** (shared taskDisplay helpers, aria enhancements for TaskForm/Checklist/pagination, consistent overdue/date formatting, responsive polish; frontend-only changes; build green)
 
 ## Recommended Next Steps
 
-1. **Begin Phase 9** (not started; security/deployment candidates per roadmap notes: refresh tokens/token revocation, broader REST rate limiting, HTTPS/HSTS/CSP at proxy)
-   - Scope to be determined from PROJECT_PLAN.md / PROJECT_RESULT.md / docs/DEPLOYMENT.md when started
+1. **Begin Phase 9.2** (broader REST rate limiting — not started; the next documented Phase 9 candidate)
+   - Then 9.3: HTTPS/HSTS/CSP proxy/deployment posture; optional: email/push, HTTP caching/ETags
 
 (End of file)
 ## Final Feature Matrix (Phase 5E.5)

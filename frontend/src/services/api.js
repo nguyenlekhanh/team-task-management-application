@@ -27,12 +27,57 @@ api.interceptors.request.use(
 // must NOT trigger the wipe/reload - the login page surfaces its own error.
 const AUTH_ENDPOINTS = ['/auth/login', '/auth/register']
 
+// Token refresh (9.1): when a protected request fails with 'Token expired',
+// attempt ONE silent refresh and retry the original request. Single-flight:
+// concurrent 401s share one refresh call. Refresh failure falls through to
+// the existing wipe-and-redirect behavior. The refresh token itself is never
+// persisted here — it lives in the httpOnly cookie; the body value from
+// login/register/refresh is held in memory only for the explicit call below.
+let refreshTokenPromise = null
+
+async function performSilentRefresh() {
+  if (!refreshTokenPromise) {
+    refreshTokenPromise = api.post('/auth/refresh', {})
+      .then((response) => {
+        const { token } = response.data
+        if (token) localStorage.setItem('token', token)
+        return token
+      })
+      .catch((err) => {
+        throw err
+      })
+      .finally(() => {
+        refreshTokenPromise = null
+      })
+  }
+  return refreshTokenPromise
+}
+
 api.interceptors.response.use(
   (response) => response,
-  (error) => {
+  async (error) => {
     const url = error.config?.url || ''
     const isAuthEndpoint = AUTH_ENDPOINTS.some((p) => url.includes(p))
-    if (error.response?.status === 401 && !isAuthEndpoint) {
+    const status = error.response?.status
+    const message = error.response?.data?.error
+    const isTokenExpired = status === 401 && message === 'Token expired'
+    const isRefreshCall = url.includes('/auth/refresh')
+
+    if (isTokenExpired && !isAuthEndpoint && !isRefreshCall && !error.config?._retried) {
+      try {
+        const newToken = await performSilentRefresh()
+        if (newToken) {
+          error.config._retried = true
+          error.config.headers = error.config.headers || {}
+          error.config.headers.Authorization = `Bearer ${newToken}`
+          return api.request(error.config)
+        }
+      } catch {
+        // refresh failed - fall through to the standard 401 wipe/redirect
+      }
+    }
+
+    if (status === 401 && !isAuthEndpoint && !isRefreshCall) {
       localStorage.removeItem('token')
       localStorage.removeItem('user')
       window.location.href = '/login'
@@ -51,9 +96,14 @@ export function getApiErrorMessage(error, fallback) {
 export const authApi = {
   register: (data) => api.post('/auth/register', data),
   login: (data) => api.post('/auth/login', data),
-  logout: () => api.post('/auth/logout'),
+  logout: (data) => api.post('/auth/logout', data),
+  refresh: () => api.post('/auth/refresh', {}),
   getMe: () => api.get('/auth/me'),
 }
+
+// Exported for SocketContext: single-flight silent refresh, returns the fresh
+// access token or throws. Reuses the same interceptor machinery (9.1).
+export { performSilentRefresh }
 
 export const userApi = {
   getProfile: () => api.get('/users/me'),

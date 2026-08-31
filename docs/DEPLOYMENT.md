@@ -25,6 +25,7 @@ npm ci
 | PRESENCE_GRACE_MS | no | offline grace (default 5000) |
 | SOCKET_JOIN_LIMIT / SOCKET_JOIN_WINDOW_MS | no | join throttle (default 20 / 10 s) |
 | AUTH_MAX_FAILED / AUTH_FAILURE_WINDOW_MS | no | login lockout (default 30 failures / 15 min per IP) |
+| REFRESH_TOKEN_TTL_MS | no | session/refresh family lifetime (default 7 days); restart clears all sessions |
 
 Frontend build-time: `VITE_API_URL` (e.g. `https://api.example.com/api`) — `VITE_SOCKET_URL` optional override.
 
@@ -44,7 +45,7 @@ Serve `frontend/dist/` from a static host or the same Node process (add static m
 - Deleting/recreating the file loses everything (there is no external store)
 
 ## Security posture & limitations
-- JWT: HS256, 15-min expiry, HttpOnly+SameSite=Lax cookie AND localStorage bearer transport; logout clears the cookie but stateless tokens stay valid until expiry (no revocation list)
+- JWT: HS256, 15-min expiry, HttpOnly+SameSite=Lax cookie AND localStorage bearer transport. Sessions (9.1): single-use refresh tokens (7-day families, `REFRESH_TOKEN_TTL_MS`) with rotation and replay-based theft detection; logout with the refresh token revokes the session server-side so its access tokens die immediately. Session store is in-memory single-process — restart logs all users out; pre-upgrade tokens stay valid ≤15 min without revocation
 - Login brute-force lockout is per-IP, in-memory (resets on restart)
 - Presence + join limiter are in-memory and reset on restart
 - Set `JWT_SECRET`, `CLIENT_ORIGIN`, `NODE_ENV=production` before exposing publicly; put HTTPS/TLS termination in front (not handled in-app)

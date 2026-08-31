@@ -2,7 +2,7 @@
 
 A collaboration platform combining **team groups, task management, checklists, group chat, task comments, notifications, and realtime updates** — built with React + Vite on the frontend and Node/Express + Sequelize (SQLite) + Socket.IO on the backend.
 
-**Status: feature-complete for implemented scope.** 392 automated assertions across 13 test suites, all passing.
+**Status: feature-complete for implemented scope.** 420 automated assertions across 14 test suites, all passing.
 
 ## Features
 - **Authentication** — register/login (JWT, bcrypt-hashed passwords), profile editing, password change, brute-force login lockout
@@ -12,6 +12,7 @@ A collaboration platform combining **team groups, task management, checklists, g
 - **Chat & comments** — group chat + per-task comments with edit/delete and role-based deletion
 - **Notifications** — TASK_ASSIGNED, TASK_COMPLETED, NEW_MESSAGE, DEADLINE_APPROACHING, MENTION; unread badge; mark read/all-read/delete; per-type user preferences
 - **Realtime** — Socket.IO: instant messages/comments, pushed notifications, connection-derived presence with multi-tab support, automatic reconnect + REST resync
+- **Sessions** — 15-minute access tokens + single-use refresh tokens with rotation and theft detection; logout revokes the session server-side (9.1)
 - **Security** — CORS allowlist, HS256-pinned JWTs, HttpOnly+SameSite cookies, security headers, rate limiting (logins + socket joins), validated/sanitized inputs, blind-404 authorization, safe error envelopes
 
 ## Architecture
@@ -26,7 +27,7 @@ REST is authoritative for all reads/writes; Socket.IO is a best-effort delivery 
 backend/
   src/{controllers,routes,middleware,models,services,socket,utils,jobs,jobs,config}
   migrations/          Sequelize migrations (Users…Notifications)
-  tests/               13 integration/security/perf suites (plain node scripts)
+  tests/               14 integration/security/perf suites (plain node scripts)
 frontend/
   src/{pages,components,contexts,hooks,services}
 docs/                  API.md · DEVELOPMENT.md · DEPLOYMENT.md · USER_GUIDE.md
@@ -49,10 +50,10 @@ Full configuration reference: [docs/DEVELOPMENT.md](docs/DEVELOPMENT.md)
 
 ## Test commands (backend/, server must be running)
 ```bash
-npm run test:all        # aggregate: all 13 suites
+npm run test:all        # aggregate: all 14 suites
 npm run test:sockets | test:chat | test:notification-realtime | test:presence
 npm run test:system | test:notifications | test:errors | test:security | test:performance
-npm run test:mytasks | test:dashboard | test:productivity | test:member-workload
+npm run test:mytasks | test:dashboard | test:productivity | test:member-workload | test:refresh-auth
 ```
 Presence suite needs `PRESENCE_GRACE_MS=800 SOCKET_JOIN_LIMIT=8` env values; security lockout section needs `AUTH_MAX_FAILED<=8`. Frontend: `npm run build`.
 
@@ -63,7 +64,7 @@ Presence suite needs `PRESENCE_GRACE_MS=800 SOCKET_JOIN_LIMIT=8` env values; sec
 - [docs/USER_GUIDE.md](docs/USER_GUIDE.md) — end-user walkthrough
 
 ## Security notes
-JWTs expire after 15 minutes (HttpOnly SameSite cookie + bearer transport); passwords are bcrypt-hashed and never returned; CORS is an allowlist; logins and socket joins are rate-limited; error responses are sanitized envelopes. See 5E.3.txt for the full review. Production checklist: set a strong `JWT_SECRET`, exact `CLIENT_ORIGIN`, `NODE_ENV=production`, HTTPS in front.
+JWTs expire after 15 minutes (HttpOnly SameSite cookie + bearer transport) and are backed by single-use refresh tokens (7-day families, rotation + replay revocation; logout revokes the session — 9.1); passwords are bcrypt-hashed and never returned; CORS is an allowlist; logins and socket joins are rate-limited; error responses are sanitized envelopes. See 5E.3.txt for the security review and 9.1.txt for the session work. Production checklist: set a strong `JWT_SECRET`, exact `CLIENT_ORIGIN`, `NODE_ENV=production`, HTTPS in front.
 
 ## Known limitations
 Single-node only (SQLite + in-memory presence/rate-limiters/rooms; no Redis adapter); no token revocation list (stateless 15-min tokens); scheduler runs in-process daily at 09:00 UTC; no email/push delivery; no mobile-native client.

@@ -26,6 +26,7 @@ Copy `.env.example` to `backend/.env` (and set frontend vars in `frontend/.env`)
 | PRESENCE_GRACE_MS | backend | 5000 | Offline grace period after last socket disconnect |
 | SOCKET_JOIN_LIMIT / SOCKET_JOIN_WINDOW_MS | backend | 20 / 10000 | Socket room-join rate limit |
 | AUTH_MAX_FAILED / AUTH_FAILURE_WINDOW_MS | backend | 30 / 900000 | Login brute-force lockout (failed attempts per IP) |
+| REFRESH_TOKEN_TTL_MS | backend | 604800000 (7 days) | Session/refresh-token family lifetime; restart clears all sessions |
 | VITE_API_URL | frontend | /api | e.g. `http://localhost:3000/api` in dev |
 | VITE_SOCKET_URL | frontend | derived from VITE_API_URL origin | Explicit socket endpoint override |
 
@@ -69,7 +70,7 @@ PRESENCE_GRACE_MS=800 SOCKET_JOIN_LIMIT=8 SOCKET_JOIN_WINDOW_MS=3000 npm start
 ```
 Then (from `backend/`):
 ```bash
-npm run test:all                  # aggregate: all 13 suites in order
+npm run test:all                  # aggregate: all 14 suites in order
 npm run test:sockets              # foundation
 npm run test:chat                 # realtime chat/comments
 npm run test:notification-realtime
@@ -83,6 +84,7 @@ npm run test:mytasks              # /tasks scope param contract (6.5)
 npm run test:dashboard            # dashboard data sources (7.1)
 npm run test:productivity         # per-group stats include=stats (7.2)
 npm run test:member-workload      # per-member stats include=stats (7.3)
+npm run test:refresh-auth         # refresh rotation + revocation (9.1)
 ```
 Frontend: `npm run build` must succeed; there is no browser automation framework.
 

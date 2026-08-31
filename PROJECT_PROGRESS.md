@@ -1708,3 +1708,28 @@ Begin **Phase 8.4** (page-content headers/empty-states polish + Phase 8 wrap-up 
 
 ### Next Phase
 Begin **Phase 9** (not started; security/deployment candidates per roadmap notes: refresh tokens/token revocation, broader REST rate limiting, HTTPS/HSTS/CSP at proxy — scope to be determined from PROJECT_PLAN.md/PROJECT_RESULT.md when started)
+
+## Phase Status: PHASE 9.1 - COMPLETED (Refresh Tokens & Token Revocation)
+
+### Phase 9 Scope Determination (from documentation)
+Official name: "Testing and Deployment" (original roadmap). Original items already completed earlier: unit/integration tests (13-suite battery, 5C.5→8.4), error handling (5E.2), deployment guide (5E.5 docs/DEPLOYMENT.md). Remaining documented candidates in order: (1) refresh tokens/token revocation, (2) broader REST rate limiting, (3) HTTPS/HSTS/CSP at proxy, (4) optional email/push + HTTP caching. 9.1 = the first item, 5E.3 known-limitation #1.
+
+### What Was Done
+- NEW in-memory session store `src/services/tokenStore.js` (single-node pattern like presence/limiters): 7-day session families (`REFRESH_TOKEN_TTL_MS` knob), single-use rotating refresh tokens (256-bit ids, sha256-hashed at rest), replay-theft detection (reusing a consumed token revokes the family and kills its live access tokens), tombstone pruning + 10k hard cap (loginLimiter memory discipline)
+- `utils/tokenAuth.js` (shared REST+socket verifier): access tokens carry `sid`; revoked/dead family ⇒ 401 'Invalid token'; pre-9.1 sid-less tokens still accepted (rolling-restart compatibility, documented)
+- `authController`: login/register create sessions and set dual httpOnly cookies (token 15m, refreshToken 7d, SameSite=Lax, Secure in prod) + body values; NEW `refresh()` — single-use rotation, fresh 15-min access token (now with `jti` uniqueness claim), uniform 401 'Invalid refresh token' on any failure (no enumeration); `logout()` revokes the family when a refresh token is presented (cookie-only logout unchanged); NEW route POST /api/auth/refresh
+- Frontend: api.js interceptor does ONE silent refresh + retry on protected-request 401 'Token expired' (single-flight, loop-guarded; failure falls through to wipe/redirect); AuthContext keeps the refresh token in an in-memory ref ONLY (never localStorage) and sends it on logout; SocketContext attempts one silent refresh + reconnect on 'Token expired' before falling back to wipe/redirect
+- 5E.1's pinned stateless-posture system test flipped to assert the SECURE behavior (the documented purpose of this phase) and re-uses a fresh token afterwards
+
+### Defects Found & Fixed During Development
+- Initial store lacked true replay detection (consumed tokens simply vanished) — rewritten with consumed-hash tombstones per family; HTTP test caught it
+- Same-second access tokens were byte-identical — added `jti` uniqueness claim
+
+### Verification
+- ✅ New refresh-auth suite 28/28: issuance (login/register), rotation single-use, replay→family revoked (live access token dies), logout revocation (access 401 — the closed gap), uniform 401s, cookie-only refresh, backward compat (cookie-only logout; pre-9.1 token shape), login-limiter path, cleanup
+- ✅ Full 14-suite battery green: 420 assertions, 0 failures (security 45/45 isolated knobbed run — documented env behavior)
+- ✅ Frontend production build green; static greps: refreshToken never logged, never in localStorage
+- Limitations: single-node store (restart = re-login); pre-upgrade tokens valid ≤15 min unrevoked; other tabs' stale access tokens die within ≤15 min or on next refresh failure
+
+### Next Phase
+Begin **Phase 9.2** (broader REST rate limiting — not started). Phase 9 overall: IN PROGRESS.

@@ -1,6 +1,7 @@
 import { createContext, useContext, useState, useEffect, useRef } from 'react'
 import { useAuth } from './AuthContext'
 import { createSocket } from '../services/socket'
+import { performSilentRefresh } from '../services/api'
 
 const SocketContext = createContext(null)
 
@@ -28,8 +29,24 @@ export function SocketProvider({ children }) {
     const s = createSocket(token)
     // Auth-classified handshake failures (expired/invalid token) must not
     // retry forever - mirror the REST 401 path: clear stale auth, go to login.
-    s.on('connect_error', (err) => {
+    // 'Token expired' first attempts ONE silent refresh (9.1): on success the
+    // socket reconnects with the fresh token; only a failed refresh falls
+    // through to the wipe/redirect.
+    s.on('connect_error', async (err) => {
       const reason = err?.message || ''
+      if (reason === 'Token expired' && !s._refreshAttempted) {
+        s._refreshAttempted = true
+        try {
+          const newToken = await performSilentRefresh()
+          if (newToken) {
+            s.auth = { token: newToken }
+            s.close().connect()
+            return
+          }
+        } catch {
+          // refresh failed - fall through to the standard logout path
+        }
+      }
       if (
         reason === 'Authentication required' ||
         reason === 'Invalid token' ||

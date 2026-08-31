@@ -139,7 +139,7 @@ async function registerAndLogin(username) {
   const uname = `${username}_${Date.now()}${Math.floor(Math.random() * 1000)}`;
   await rest('POST', '/api/auth/register', { body: { username: uname, password: 'testpass123', displayName: username } });
   const login = await rest('POST', '/api/auth/login', { body: { username: uname, password: 'testpass123' } });
-  return { id: login.data.user.id, token: login.data.token, username: uname };
+  return { id: login.data.user.id, token: login.data.token, refreshToken: login.data.refreshToken, username: uname };
 }
 
 (async () => {
@@ -167,14 +167,20 @@ async function registerAndLogin(username) {
   const sockM = new PollingClient(); await sockM.connect(member.token);
   assert('authenticated socket connects with REST-issued JWT', true);
 
-  const logoutRes = await fetch(BASE + '/api/auth/logout', { method: 'POST', headers: { Authorization: `Bearer ${owner.token}`, 'Content-Type': 'application/json' }, body: '{}' });
+  const logoutRes = await fetch(BASE + '/api/auth/logout', { method: 'POST', headers: { Authorization: `Bearer ${owner.token}`, 'Content-Type': 'application/json' }, body: JSON.stringify({ refreshToken: owner.refreshToken }) });
   const cookies = logoutRes.headers.getSetCookie ? logoutRes.headers.getSetCookie() : [];
   assert('logout clears the auth cookie', cookies.some(c => c.startsWith('token=') && /expires=Thu, 01 Jan 1970/i.test(c)));
-  // Known stateless-JWT posture: the bearer token itself stays valid until expiry.
+  // Session revocation (9.1): logout with the refresh token revokes the family,
+  // so the still-unexpired access token is now rejected server-side. This flips
+  // the pre-9.1 "stateless bearer stays valid" posture - the change this phase
+  // was documented to make (5E.3 known-limitation #1).
   const stillWorks = await rest('GET', '/api/users/me', { token: owner.token });
-  assert('stateless JWT remains valid after cookie logout (documented posture)', stillWorks.status === 200);
+  assert('access token revoked after logout-with-refresh (9.1 posture)', stillWorks.status === 401);
   const relogin = await rest('POST', '/api/auth/login', { body: { username: owner.username, password: 'testpass123' } });
   assert('fresh login after logout works', relogin.status === 200);
+  // Re-login minted a NEW session; use its token for the rest of the suite.
+  owner.token = relogin.data.token;
+  owner.refreshToken = relogin.data.refreshToken;
 
   // ================= C. TASK AUTHORIZATION MATRIX =================
   console.log('\n--- Task authorization matrix ---');

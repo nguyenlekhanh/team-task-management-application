@@ -1,0 +1,154 @@
+# Phase 9.1 - Refresh Tokens & Token Revocation
+
+## STATUS
+COMPLETED
+
+## PHASE / SUB-PHASE
+Phase 9: Testing and Deployment — Sub-phase 9.1: Refresh Tokens & Token Revocation
+(first documented Phase 9 candidate; 5E.3 known-limitation #1, deferred consistently
+across 5E.1/5E.2/5E.3/5C.3/5D.5/7.4/8.4 records)
+
+## OBJECTIVE
+Close the documented stateless-JWT gap: bearer tokens previously remained valid up to
+15 minutes after logout (cookie cleared, token not revoked — pinned by a 5E.1 test as
+"documented posture"). Introduced refresh tokens + a server-side revocation check so
+sessions outlive the 15-minute access token, logout actually revokes, and all existing
+auth semantics (blind-404, role checks, socket auth, login limiter) are preserved.
+
+## WHAT WAS IMPLEMENTED
+
+### Backend — new `src/services/tokenStore.js` (in-memory session store)
+- Same accepted single-node pattern as presence/limiters (docs/DEPLOYMENT.md).
+  Restart = all sessions invalid (users re-login) — documented trade-off, strictly
+  safer than the old posture where logout did nothing server-side.
+- Families: one per login session (`familyId` = `sid` claim in access tokens).
+- Refresh tokens: random 256-bit ids, sha256-hashed at rest, 7-day family TTL
+  (`REFRESH_TOKEN_TTL_MS` env knob), single-use rotation.
+- **Theft detection**: replaying a consumed refresh token revokes the entire family
+  immediately (`[AUTH]` log line); the family's still-live access tokens die too
+  (short-lived tombstones outlast the ≤15-min access-token lifetime, then prune).
+- Memory discipline mirrors loginLimiter/joinLimiter: opportunistic pruning of expired
+  families/tombstones + 10k hard cap with oldest-shedding.
+
+### Backend — auth changes
+- `utils/tokenAuth.js` (single source of truth for REST + socket): access tokens now
+  carry `sid`; a revoked/dead family ⇒ 401 'Invalid token'. **Pre-9.1 tokens (no sid)
+  remain accepted** — rolling-restart compatibility; they simply can't be revoked
+  (documented old posture for their remaining ≤15 min).
+- `authController`: login/register create a session and return/set `token` + `refreshToken`
+  (both httpOnly cookies — `token` 15m, `refreshToken` 7d, SameSite=Lax, Secure in prod —
+  plus body values for the SPA's explicit calls). NEW `refresh()`: consumes the presented
+  refresh token (body or cookie), rotates it, issues a fresh 15-min access token.
+  Uniform 401 'Invalid refresh token' for every failure (no enumeration surface).
+  `logout()` now ALSO revokes the session family when a refresh token is presented —
+  backward compatible (cookie-only logout still works as before).
+- `routes/auth.js`: + POST /api/auth/refresh (public, valid refresh token required).
+- Access tokens gained a `jti` claim (uniqueness; rotation within the same second
+  previously minted byte-identical tokens).
+
+### Frontend
+- `services/api.js`: response interceptor — protected-request 401 'Token expired' now
+  attempts ONE silent refresh + retry (single-flight: concurrent 401s share one
+  refresh call; `_retried` guard prevents loops). Refresh failure falls through to the
+  existing wipe/redirect. `performSilentRefresh` exported for SocketContext.
+  **The refresh token is NEVER persisted** — httpOnly cookie transport; the login/
+  register body value lives only in an in-memory ref for explicit logout-with-revoke.
+- `contexts/AuthContext.jsx`: login/register keep `refreshTokenRef` in memory (useRef —
+  not localStorage); logout sends it so the server revokes the family.
+- `contexts/SocketContext.jsx`: 'Token expired' connect_error now attempts one silent
+  refresh, reconnects with the fresh token; only refresh failure falls through to the
+  wipe/redirect (mirrors the REST path).
+
+## SECURITY CONSIDERATIONS (implemented + verified)
+- Refresh tokens httpOnly+SameSite=Lax (Secure in prod); never in localStorage (grep
+  verified); never logged (grep verified); stored hashed server-side.
+- Single-use rotation + family revocation on replay (theft detection) — unit- and
+  HTTP-verified.
+- Uniform refresh rejections (garbage/missing/replay all 401 'Invalid refresh token') —
+  no token-state enumeration.
+- Access-token exposure window unchanged (15 min); revocation check is O(1) per request
+  via the shared verifier (REST + socket both inherit it).
+- loginLimiter, blind-404, HS256 pinning, role checks: untouched and re-verified green.
+
+## FILES CHANGED
+- Created: `backend/src/services/tokenStore.js`, `backend/tests/refresh-auth.test.js`, `9.1.txt`
+- Modified: `backend/src/utils/tokenAuth.js`, `backend/src/controllers/authController.js`,
+  `backend/src/routes/auth.js`, `backend/package.json` (test:refresh-auth; test:all),
+  `backend/tests/system-integration.test.js` (documented posture assertion flipped),
+  `.env.example` (+REFRESH_TOKEN_TTL_MS), `frontend/src/services/api.js`,
+  `frontend/src/contexts/AuthContext.jsx`, `frontend/src/contexts/SocketContext.jsx`
+
+## API CHANGES
+- NEW: POST /api/auth/refresh — { refreshToken? (body) or httpOnly cookie } →
+  { token, refreshToken, user } (+sets both cookies); uniform 401 on any failure.
+- login/register/logout responses gain/rotate `refreshToken`; logout accepts optional
+  { refreshToken } for server-side revocation. Backward compatible with all prior
+  clients (cookie-only logout, sid-less tokens).
+
+## DATABASE CHANGES
+None.
+
+## TESTS
+- NEW suite `refresh-auth.test.js` (+ `test:refresh-auth`, added to `test:all`) —
+  28 assertions: session issuance (login/register), rotation (single-use, new tokens
+  per exchange), replay/theft detection (family revoked; live access token dies),
+  logout revocation (access 401 + refresh dead — the closed 5E.3 gap), uniform 401s,
+  cookie-only transport refresh, backward compat (logout w/o refresh token; pre-9.1
+  sid-less token accepted), login-limiter path unchanged, cleanup.
+- UPDATED: system-integration's 5E.1-pinned posture assertion now asserts the SECURE
+  behavior ("access token revoked after logout-with-refresh (9.1 posture)") — the exact
+  change this phase was documented to make; suite re-uses a fresh token afterwards.
+- Two real defects found by the new suite during development and fixed: replay
+  detection initially absent (store rewritten with consumed-token tombstones) and
+  same-second access tokens were byte-identical (jti claim added).
+
+## TEST RESULTS (full 14-suite battery)
+sockets 22 · chat 35 · notif-realtime 20 · presence 26 (knobbed) · system 46 (incl.
+updated posture assertion) · notifications 68 · errors 20 · security 45/45 (isolated
+knobbed run — documented env behavior) · performance 22 · mytasks 13 · dashboard 10 ·
+productivity 21 · member-workload 31 · **refresh-auth 28 (NEW)** =
+**420 assertions, 0 failures**
+
+## BUILD RESULT
+✅ Frontend production build green (2245 modules).
+
+## STATIC SECURITY VERIFICATION
+grep-verified: no refreshToken in any log statement; no refreshToken in localStorage
+anywhere in frontend/src; refresh transport is httpOnly cookie + in-memory ref only;
+uniform error message present.
+
+## ENVIRONMENT / CONFIGURATION
+- New knob: `REFRESH_TOKEN_TTL_MS` (default 604800000 = 7 days) — documented in
+  .env.example. No other configuration changes.
+- Deployment note: in-memory store ⇒ single-node only (already the documented
+  architecture); restart logs everyone out.
+
+## KNOWN LIMITATIONS
+- Single-node session store: no cross-process revocation (explicit DEPLOYMENT.md
+  non-goal — Redis/multi-instance remains out of scope).
+- Pre-9.1 tokens minted before an upgrade stay valid ≤15 min and cannot be revoked
+  (rolling-restart compatibility; they expire naturally).
+- Socket connections validated at (re)connect keep their mid-flight auth until
+  disconnect (unchanged 5D.1 posture); REST revocation is immediate.
+- The in-memory logout-with-revoke depends on the tab that holds the refresh-token ref
+  or the httpOnly cookie; other tabs' stale access tokens die within ≤15 min or on
+  their next 401→refresh (which then fails → wipe/redirect).
+
+## DELIBERATELY LEFT UNTOUCHED
+- Access-token lifetime (15m), HS256 pinning, dual cookie+Bearer transport, login
+  limiter, blind-404 semantics, all 13 prior suites' contracts, all Phase 8 UI work.
+- Password change does not yet revoke sessions (revokeUser() exists in the store for a
+  future flow — wiring it into changePassword is a candidate follow-up, not in this
+  sub-phase's documented scope).
+
+## DEFERRED WORK (next Phase 9 sub-phases, in documented order)
+- 9.2: broader REST rate limiting (non-auth endpoints)
+- 9.3: HTTPS/HSTS/CSP proxy/deployment posture
+- Optional: email/push channels, HTTP caching/ETags (5E.4 candidates)
+
+## FINAL ACCEPTANCE STATUS
+All acceptance criteria met: refresh rotation works; replay revokes the family; logout
+revokes server-side (5E.1 posture test flipped to the secure behavior and green);
+28/28 new assertions; full 14-suite battery green at 420 assertions; build green; no new
+dependencies; single-node architecture preserved; env knob documented. Phase 9.1
+COMPLETE. Phase 9 overall: IN PROGRESS (9.2, 9.3 remain).

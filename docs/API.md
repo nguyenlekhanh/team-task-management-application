@@ -3,7 +3,7 @@
 Base URL: `/api` — all request/response bodies are JSON.
 Errors use one envelope everywhere: `{ "error": "<safe message>" }` with appropriate HTTP status (400 validation, 401 auth, 403 permission, 404 not-found/blind, 409 conflict, 413 payload too large, 429 rate-limited, 500 generic).
 
-Authentication: `Authorization: Bearer <JWT>` (15-minute expiry) or the httpOnly `token` cookie set at login.
+Authentication: `Authorization: Bearer <JWT>` (15-minute expiry) or the httpOnly `token` cookie set at login. Access tokens carry a `sid` session-family claim; a revoked family (logout with refresh token, or refresh-token replay) rejects its access tokens immediately (9.1). Refresh tokens are single-use, httpOnly-cookie transported, and rotate on every `POST /auth/refresh`.
 
 ---
 
@@ -15,9 +15,10 @@ Authentication: `Authorization: Bearer <JWT>` (15-minute expiry) or the httpOnly
 ## Auth (`/auth`)
 | Method | Path | Auth | Body | Notes |
 |---|---|---|---|---|
-| POST | /register | public | username, password (≥6), displayName, avatarUrl? | 409 if username taken; returns `{ token, user }`; sets httpOnly cookie |
-| POST | /login | public | username, password | Generic `Invalid credentials` on failure; brute-force lockout (429) after repeated failures per IP; returns `{ token, user }` + cookie |
-| POST | /logout | public | – | Clears the token cookie (stateless JWT itself remains valid until expiry) |
+| POST | /register | public | username, password (≥6), displayName, avatarUrl? | 409 if username taken; returns `{ token, refreshToken, user }`; sets httpOnly token + refreshToken cookies |
+| POST | /login | public | username, password | Generic `Invalid credentials` on failure; brute-force lockout (429) after repeated failures per IP; returns `{ token, refreshToken, user }` + cookies |
+| POST | /refresh | public (valid refresh token) | refreshToken? (body or httpOnly cookie) | Single-use rotation: consumes the presented refresh token, returns `{ token, refreshToken, user }` + cookies; replay of a consumed token revokes the whole session family (theft detection); uniform 401 `Invalid refresh token` on any failure |
+| POST | /logout | public | refreshToken? (body or cookie) | Clears both cookies AND revokes the session family when a refresh token is presented — the access token dies immediately (9.1). Without one, cookie-only clearing as before |
 | GET | /me | any valid token | – | Current user snapshot |
 
 ## Users (`/users`)

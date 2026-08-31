@@ -3,7 +3,7 @@
 ## Getting started
 1. **Register** — pick a username, a password (6+ characters), and a display name.
 2. **Login** — wrong credentials show an error; repeated failures temporarily lock login from your network.
-3. Sessions last 15 minutes; after that you are returned to the login page.
+3. Sessions stay active seamlessly while you use the app (they renew automatically); logging out ends the session immediately on all your tabs.
 
 ## Profile
 Open **Profile** from the navigation to edit your display name, avatar URL, "show as online" preference, or change your password (current password required).

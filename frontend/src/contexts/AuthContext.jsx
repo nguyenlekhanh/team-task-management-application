@@ -1,4 +1,4 @@
-import { createContext, useContext, useState, useEffect } from 'react'
+import { createContext, useContext, useState, useEffect, useRef } from 'react'
 import { authApi } from '../services/api'
 
 const AuthContext = createContext(null)
@@ -41,13 +41,20 @@ export function AuthProvider({ children }) {
     }
   }
 
+  // Refresh token handling (9.1): the refresh token is transported ONLY via
+  // the httpOnly cookie - the value returned in login/register/refresh
+  // responses is kept in memory solely for an explicit logout-with-revoke and
+  // is never persisted to localStorage.
+  const refreshTokenRef = useRef(null)
+
   const register = async (data) => {
     setError(null)
     try {
       const response = await authApi.register(data)
-      const { token, user: userData } = response.data
+      const { token, refreshToken, user: userData } = response.data
       localStorage.setItem('token', token)
       localStorage.setItem('user', JSON.stringify(userData))
+      refreshTokenRef.current = refreshToken || null
       setUser(userData)
       return response.data
     } catch (err) {
@@ -61,9 +68,10 @@ export function AuthProvider({ children }) {
     setError(null)
     try {
       const response = await authApi.login(data)
-      const { token, user: userData } = response.data
+      const { token, refreshToken, user: userData } = response.data
       localStorage.setItem('token', token)
       localStorage.setItem('user', JSON.stringify(userData))
+      refreshTokenRef.current = refreshToken || null
       setUser(userData)
       return response.data
     } catch (err) {
@@ -75,10 +83,13 @@ export function AuthProvider({ children }) {
 
   const logout = async () => {
     try {
-      await authApi.logout()
+      // Send the in-memory refresh token so the server can revoke the
+      // session family (httpOnly cookie rides along too as a fallback).
+      await authApi.logout(refreshTokenRef.current ? { refreshToken: refreshTokenRef.current } : {})
     } catch {
       // ignore logout errors
     } finally {
+      refreshTokenRef.current = null
       localStorage.removeItem('token')
       localStorage.removeItem('user')
       setUser(null)
