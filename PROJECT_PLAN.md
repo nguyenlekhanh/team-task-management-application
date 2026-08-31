@@ -382,9 +382,13 @@ project-root/
 
 ## Current Phase
 
-**Phase 8.3: Forms, Buttons, Modal Touch-Target & Spacing Polish** - **COMPLETED** (audit found + fixed a REAL functional bug — TaskDetail "Delete Task" no-oped (dead showDeleteConfirm state; real confirm()-guarded handler had zero callers); now wired + client-side navigate + 44px/ring; 3 modal action rows stack below sm with 44px buttons; modal close + checklist icon buttons ≥36px with aria-labels + rings; GroupDetail destructive controls ≥36px; Login/Register controls ≥44px; adequate components deliberately untouched; frontend-only; build + full battery green)
+**Phase 8.4: Page-Content Headers, Empty States & Phase 8 Wrap-Up** - **COMPLETED** (audit: all 10 content headers verified consistent and left untouched; 7 real fixes: error/not-member back buttons to the 44px+ring standard on 4 pages, Groups rich empty state with working Create Group CTA (gold-standard pattern), MyTasks empty-state CTAs to 44px+ring, MyTasks decorative SVG aria-hidden, GroupDetail defensive "No members yet." row, TaskDetail/GroupDetail long-title break-words wrapping; frontend-only; build + full battery green). **PHASE 8 COMPLETE** — 8.1 Responsive Navigation, 8.2 Responsive Tables & Cards, 8.3 Forms/Buttons/Modal Polish (incl. Delete Task bug fix), 8.4 Headers/Empty-States Wrap-Up.
+
+**Next: Phase 9** (security/deployment candidates per roadmap: refresh tokens/token revocation, broader REST rate limiting, HTTPS/HSTS/CSP at proxy — not started)
 
 **Phase 8.2: Responsive Tables & Cards** - **COMPLETED** (Groups table gained its missing overflow-x-auto wrapper — Role/Actions columns were clipped by overflow-hidden on phones; pagination footers (TaskList/MyTasks) and page headers (Groups/TaskList) stack below sm; Profile tab strip scrolls; Groups Create button gained standard focus ring + 44px target; table semantics and all ARIA preserved; frontend-only; build + full battery green)
+
+**Phase 8.3: Forms, Buttons, Modal Touch-Target & Spacing Polish** - **COMPLETED** (audit found + fixed a REAL functional bug — TaskDetail "Delete Task" no-oped; now wired to the confirm()-guarded handler + client-side navigate; modal action rows stack <sm with 44px buttons; modal close + checklist icon buttons ≥36px with aria-labels + rings; Login/Register controls ≥44px; frontend-only; build + battery green)
 
 **Phase 8.1: Responsive Navigation** - **COMPLETED** (new shared Navbar component with mobile hamburger menu replaces 9 hand-duplicated inline navs; desktop appearance preserved; mobile gains reachable navigation with Escape/outside-click close, aria-expanded/controls, 44px touch targets; back-link pages stack cleanly; long titles truncate; frontend-only; build + full battery green)
 

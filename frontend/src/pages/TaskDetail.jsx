@@ -176,7 +176,7 @@ export function TaskDetail() {
           <p className="text-gray-600 mb-8">{error}</p>
           <button
             onClick={() => window.history.back()}
-            className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700"
+            className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 min-h-[44px] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500"
           >
             Go Back
           </button>
@@ -221,7 +221,7 @@ export function TaskDetail() {
               <Link to={`/groups/${task.groupId}/tasks`} className="text-blue-600 hover:text-blue-900 text-sm mb-2 inline-block">
                 ← Back to Tasks
               </Link>
-              <h2 className="text-2xl font-bold text-gray-900">{task.title}</h2>
+              <h2 className="text-2xl font-bold text-gray-900 break-words">{task.title}</h2>
               <p className="text-gray-600 mt-1">{task.description || 'No description'}</p>
             </div>
             <div className="flex items-center space-x-2">

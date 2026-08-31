@@ -143,7 +143,7 @@ export function GroupDetail() {
           <p className="text-gray-600 mb-8">{error}</p>
           <button
             onClick={() => navigate('/groups')}
-            className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700"
+            className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 min-h-[44px] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500"
           >
             Back to Groups
           </button>
@@ -180,7 +180,7 @@ export function GroupDetail() {
               >
                 ← Back to Groups
               </Link>
-              <h2 className="text-2xl font-bold text-gray-900">{group?.name}</h2>
+              <h2 className="text-2xl font-bold text-gray-900 break-words">{group?.name}</h2>
               <p className="text-gray-600 mt-1">{group?.description || 'No description'}</p>
             </div>
             <div className="flex items-center space-x-2">
@@ -332,6 +332,13 @@ export function GroupDetail() {
                     </tr>
                   </thead>
                   <tbody className="bg-white divide-y divide-gray-200">
+                    {members.length === 0 && (
+                      <tr>
+                        <td colSpan={4} className="px-6 py-12 text-center text-gray-500">
+                          No members yet.
+                        </td>
+                      </tr>
+                    )}
                     {members.map(member => (
                       <tr key={member.id} className="hover:bg-gray-50">
                         <td className="px-6 py-4">

@@ -1683,3 +1683,28 @@ Begin **Phase 8.3** (forms/buttons/modal touch-target & spacing polish — not s
 
 ### Next Phase
 Begin **Phase 8.4** (page-content headers/empty-states polish + Phase 8 wrap-up sweep — not started)
+
+## Phase Status: PHASE 8.4 - COMPLETED (Page-Content Headers, Empty States & Phase 8 Wrap-Up)
+
+### Audit Findings
+- **Content headers VERIFIED ADEQUATE, LEFT UNTOUCHED**: all 10 headers share the same text-2xl + subtitle pattern; heading hierarchy correct everywhere (Navbar h1 → h2 content → h3 cards) — documented no-change decision
+- Real issues found: TaskDetail/GroupDetail full-page error buttons (36px, no ring) drifted from TaskList's identical 44px Retry standard; TaskCreatePage/TaskEditPage in-card back buttons lacked min-h/rings; TaskDetail/GroupDetail long titles (≤200 chars allowed) wrapped messily beside badges on mobile; **Groups table empty state was a bare text line** (no icon/CTA — inconsistent with the TaskList/MyTasks gold standard, and "create your first group!" had no button); MyTasks empty-state CTAs lacked the 44px/ring standard TaskList's equivalents have; MyTasks decorative SVG missing aria-hidden; GroupDetail members table had NO empty state (headers + empty tbody in the defensive zero-member case)
+- Verified adequate, left untouched: Dashboard in-card empty texts, Checklist/ChatPanel/CommentSection/NotificationDropdown empty states, error header wording, all 8.1–8.3 work (re-verified, no regressions)
+
+### What Was Done (7 smallest-coherent fixes)
+- Error/not-member back buttons → min-h-[44px] + focus-visible ring (TaskDetail, GroupDetail, TaskCreatePage, TaskEditPage); existing handlers preserved
+- TaskDetail + GroupDetail content-header titles → break-words (clean long-title wrapping; no truncation)
+- Groups empty state → gold-standard pattern: decorative SVG (aria-hidden) + h3 + message + Create Group CTA wired to existing setShowCreateModal (zero new logic)
+- MyTasks empty-state CTAs → min-h-[44px] + rings (match TaskList); decorative SVG → aria-hidden
+- GroupDetail members table → defensive "No members yet." empty row (colSpan=4, Groups/TaskList/MyTasks convention)
+
+### Verification
+- ✅ `npm run build` green (2245 modules); grep: 44px classes on all 6 touched files, rich Groups empty state present, members empty row present, aria-hidden added
+- ✅ Full 13-suite battery green: 392 assertions, 0 failures (security 45/45 isolated knobbed run — documented env behavior)
+- Static verification only for visual behaviors (no browser automation — documented)
+
+### Project Status
+**PHASE 8 COMPLETE** — 8.1 Responsive Navigation, 8.2 Responsive Tables & Cards, 8.3 Forms/Buttons/Modal Polish (incl. the Delete Task functional-bug fix), 8.4 Headers/Empty-States Wrap-Up. The original Phase 8 roadmap scope (Responsive design + Mobile-friendly layout; Enhanced dashboard was completed in Phase 7) is fully delivered.
+
+### Next Phase
+Begin **Phase 9** (not started; security/deployment candidates per roadmap notes: refresh tokens/token revocation, broader REST rate limiting, HTTPS/HSTS/CSP at proxy — scope to be determined from PROJECT_PLAN.md/PROJECT_RESULT.md when started)

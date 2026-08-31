@@ -71,7 +71,7 @@ export function TaskCreatePage() {
           <div className="bg-white shadow rounded-lg p-8 text-center">
             <h2 className="text-lg font-medium text-gray-900 mb-2">You are not a member of this group</h2>
             <p className="text-sm text-gray-600 mb-6">Only group members can create tasks.</p>
-            <Link to={`/groups/${groupId}/tasks`} className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 text-sm">
+            <Link to={`/groups/${groupId}/tasks`} className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 text-sm min-h-[44px] inline-flex items-center focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500">
               Back to Tasks
             </Link>
           </div>

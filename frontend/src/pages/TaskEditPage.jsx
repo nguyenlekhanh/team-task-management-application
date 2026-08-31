@@ -84,7 +84,7 @@ export function TaskEditPage() {
         {loadError ? (
           <div className="bg-white shadow rounded-lg p-8 text-center">
             <h2 className="text-lg font-medium text-gray-900 mb-2">{loadError}</h2>
-            <Link to={`/groups/${groupId}/tasks`} className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 text-sm inline-block mt-4">
+            <Link to={`/groups/${groupId}/tasks`} className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 text-sm inline-block mt-4 min-h-[44px] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500">
               Back to Tasks
             </Link>
           </div>

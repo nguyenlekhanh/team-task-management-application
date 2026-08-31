@@ -554,15 +554,15 @@
 
 **Phase 8.3: Forms, Buttons, Modal Touch-Target & Spacing Polish** - **COMPLETED** (audit found + fixed a REAL functional bug: TaskDetail "Delete Task" no-oped — dead confirm state, real handler never called; now wired with confirm() + client-side navigate; modal action rows stack <sm with 44px buttons; modal close/checklist icon buttons ≥36px with aria-labels + rings; Login/Register controls ≥44px; adequate components deliberately untouched; frontend-only; build + battery green)
 
+**Phase 8.4: Page-Content Headers, Empty States & Phase 8 Wrap-Up** - **COMPLETED** (content headers audited and verified consistent — left untouched; 7 fixes: error/not-member back buttons to 44px+ring standard on 4 pages, Groups rich empty state with working Create Group CTA, MyTasks empty-state CTAs to 44px+ring + decorative SVG aria-hidden, GroupDetail defensive members empty row, long-title break-words on TaskDetail/GroupDetail; frontend-only; build + battery green). **PHASE 8 COMPLETE** (8.1–8.4)
+
 **Phase 6.7: Task List Actions & Coverage** - **COMPLETED** (Task List inline Status/Priority/Assignee + Delete, per-row saving, server-authoritative, pagination edge handling, overdue derived — no new endpoints)
 **Phase 6.6: Task UX Polish** - **COMPLETED** (shared taskDisplay helpers, aria enhancements for TaskForm/Checklist/pagination, consistent overdue/date formatting, responsive polish; frontend-only changes; build green)
 
 ## Recommended Next Steps
 
-1. **Begin Phase 8.4** (page-content headers/empty-states polish + Phase 8 wrap-up sweep — not started)
-   - Full regression sweep, cross-browser checks
-   - API documentation, deployment guide, developer/user guides
-   - Final PROJECT_* consolidation
+1. **Begin Phase 9** (not started; security/deployment candidates per roadmap notes: refresh tokens/token revocation, broader REST rate limiting, HTTPS/HSTS/CSP at proxy)
+   - Scope to be determined from PROJECT_PLAN.md / PROJECT_RESULT.md / docs/DEPLOYMENT.md when started
 
 (End of file)
 ## Final Feature Matrix (Phase 5E.5)
