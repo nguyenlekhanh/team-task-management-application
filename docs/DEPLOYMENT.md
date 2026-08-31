@@ -26,6 +26,14 @@ npm ci
 | SOCKET_JOIN_LIMIT / SOCKET_JOIN_WINDOW_MS | no | join throttle (default 20 / 10 s) |
 | AUTH_MAX_FAILED / AUTH_FAILURE_WINDOW_MS | no | login lockout (default 30 failures / 15 min per IP) |
 | REFRESH_TOKEN_TTL_MS | no | session/refresh family lifetime (default 7 days); restart clears all sessions |
+| REST_RATE_LIMIT / REST_RATE_WINDOW_MS | no | general per-IP REST limit on protected routes (default 600/min); health + auth exempt; restart clears counters |
+
+**Reverse proxy note (9.2):** the rate limiters key on `req.ip` and the app deliberately
+does NOT set `trust proxy`. If you deploy behind a load balancer/reverse proxy, set
+`app.set('trust proxy', <your hop count>)` (or the `TRUSTED_PROXY` equivalent you
+choose) so `req.ip` reflects the real client — otherwise all proxied traffic shares
+one window and a spoofer could inject `X-Forwarded-For` values. Do not enable trust
+for untrusted hops.
 
 Frontend build-time: `VITE_API_URL` (e.g. `https://api.example.com/api`) — `VITE_SOCKET_URL` optional override.
 
@@ -47,6 +55,7 @@ Serve `frontend/dist/` from a static host or the same Node process (add static m
 ## Security posture & limitations
 - JWT: HS256, 15-min expiry, HttpOnly+SameSite=Lax cookie AND localStorage bearer transport. Sessions (9.1): single-use refresh tokens (7-day families, `REFRESH_TOKEN_TTL_MS`) with rotation and replay-based theft detection; logout with the refresh token revokes the session server-side so its access tokens die immediately. Session store is in-memory single-process — restart logs all users out; pre-upgrade tokens stay valid ≤15 min without revocation
 - Login brute-force lockout is per-IP, in-memory (resets on restart)
+- General REST rate limit (9.2): 600 requests/min/IP on protected routes (env-adjustable), in-memory, safe 429 + Retry-After; health and auth are exempt
 - Presence + join limiter are in-memory and reset on restart
 - Set `JWT_SECRET`, `CLIENT_ORIGIN`, `NODE_ENV=production` before exposing publicly; put HTTPS/TLS termination in front (not handled in-app)
 - Scheduled job: DEADLINE_APPROACHING check runs daily at 09:00 UTC in-process; missed runs while stopped are not back-filled

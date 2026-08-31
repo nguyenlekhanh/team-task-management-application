@@ -1,0 +1,164 @@
+# Phase 9.2 - Broader REST Rate Limiting
+
+## STATUS
+COMPLETED
+
+## PHASE / SUB-PHASE
+Phase 9: Testing and Deployment — Sub-phase 9.2: Broader REST Rate Limiting
+(second documented Phase 9 candidate; 5E.2 known-limitation #2 / 5E.3
+known-limitation #5: "no request-rate limiting on non-auth REST endpoints
+(socket joins and logins are limited)")
+
+## ORIGINAL DOCUMENTED PROBLEM
+The only REST rate limiting was the per-IP FAILED-LOGIN counter (5E.3 loginLimiter,
+applied inside authController.login) and the socket room-join limiter (5D.5). Every
+other REST route — tasks, checklists, messages, comments, groups, members,
+notifications, preferences — could be hammered without limit by any client.
+
+## AUDIT FINDINGS (from source, before changes)
+- loginLimiter: fixed-window Map<ip, {count, expiresAt}>, failure-counting only,
+  AUTH_MAX_FAILED/AUTH_FAILURE_WINDOW_MS knobs (30/15min), prune + 5k hard cap,
+  test-only reset; applied ONLY inside login.
+- joinLimiter (socket): fixed window keyed `${userId}:${event}`, SOCKET_JOIN_LIMIT/
+  SOCKET_JOIN_WINDOW_MS (20/10s), prune + 10k hard cap — socket traffic only.
+- No trust-proxy setting anywhere; req.ip = socket remote address (not spoofable
+  via forwarding headers). docs/DEPLOYMENT.md documents direct single-node exposure
+  (TLS termination is an ops concern), single-process in-memory limiters as accepted
+  architecture, Redis explicitly a non-goal.
+- Mount order in routes/index.js: health, /auth, then protected routers (users,
+  groups, notifications, tasks, messages).
+- Battery volume audit: 14 suites ≈260 requests total from 127.0.0.1 over ~2 minutes
+  — a default limit of 600/60s keeps the whole battery comfortably unthrottled.
+
+## WHAT WAS IMPLEMENTED
+New `middleware/restLimiter.js` — a general per-IP request counter, architecturally
+IDENTICAL to the house limiter pattern (in-memory fixed window Map, env knobs,
+opportunistic prune, 10k hard cap with oldest-shedding, test-only reset). It is the
+established pattern applied to request counting, not a new architecture.
+
+- **Mount**: routes/index.js, AFTER the public routes (health, /auth) and BEFORE the
+  protected routers — so (a) public endpoints are exempt BY CONSTRUCTION, (b) the
+  limit check runs BEFORE `authenticate` and any DB work (cheap rejection), and
+  (c) every method and route on the protected surface is covered with no
+  alternate-route/method bypass by construction.
+- **Defaults — deliberately generous** (abuse shield, not precision): `REST_RATE_LIMIT=600`
+  requests per `REST_RATE_WINDOW_MS=60000` (1 min) per IP. Active legitimate use
+  (incl. 30s notification polling per tab) is tens of req/min; an office NAT stays
+  well below 600/min; sustained hammering (~10+/sec) is blocked.
+- **429 response**: `{ "error": "Too many requests. Please try again later." }`
+  (same safe-envelope family as the login limiter's 429) + standard `Retry-After`
+  header (whole seconds until window expiry, min 1). No internals leaked (leak-pattern
+  asserted in tests).
+- **Client identification**: `req.ip`, same as loginLimiter, same no-trust-proxy
+  posture. X-Forwarded-* is NOT trusted blindly — that would let clients spoof their
+  IP and bypass the limit. Reverse-proxy deployments must set `trust proxy`
+  deliberately (now documented in DEPLOYMENT.md as an ops step).
+
+## COVERAGE / EXEMPTIONS
+- **Covered (every method)**: /api/users*, /api/groups* (incl. members),
+  /api/notifications*, all task routes (+checklists), all message/comment routes.
+- **Deliberately exempt**: /api/health (deployment monitoring probe, per
+  DEPLOYMENT.md); /api/auth/* (login keeps its own failure-only limiter whose
+  semantics — failures counted, valid credentials blocked during window — are
+  preserved per this phase's requirements; register/refresh hammering is bounded by
+  body caps + uniform 401s, noted as a future refinement candidate); Socket.IO
+  traffic (never passes through the /api router; joins have the 5D.5 per-user
+  limiter).
+
+## ENVIRONMENT / CONFIGURATION
+New knobs (documented in .env.example, docs/DEVELOPMENT.md, docs/DEPLOYMENT.md):
+`REST_RATE_LIMIT` (default 600), `REST_RATE_WINDOW_MS` (default 60000, clamped
+≥1000ms). Naming follows SOCKET_JOIN_LIMIT/SOCKET_JOIN_WINDOW_MS convention.
+
+## FILES CHANGED
+- Created: `backend/src/middleware/restLimiter.js`, `backend/tests/rest-rate-limit.test.js`,
+  `9.2.txt`
+- Modified: `backend/src/routes/index.js` (mount), `backend/package.json`
+  (test:rest-limit; test:all), `.env.example` (+2 knobs), docs (below)
+
+## API CHANGES
+None to shapes/contracts. New observable behavior only: 429 (safe envelope +
+Retry-After) after 600 req/min/IP on protected routes. docs/API.md error row updated
+(429 already listed as a possible status; note expanded).
+
+## DATABASE CHANGES
+None.
+
+## TESTS ADDED
+`backend/tests/rest-rate-limit.test.js` (+ `npm run test:rest-limit`, in `test:all`),
+security-suite env-gated pattern:
+1. **Unit-level (always runs, deterministic in-process)**: knob honoring; pass-through
+   up to threshold; 429 beyond; safe envelope + Retry-After (min 1s); no leak
+   patterns; per-IP isolation; window-expiry unblock; reset.
+2. **HTTP under default config (always runs)**: 24-request authenticated parallel
+   burst all 200 (no false throttling); health/auth exempt; limiter transparent to
+   auth (unauthenticated protected request still 401, not swallowed); GET/PUT/DELETE
+   covered and working.
+3. **HTTP throttle (env-gated knobbed run, like AUTH_MAX_FAILED lockout)**: requests
+   below the knobbed threshold succeed; beyond → 429 + safe body + Retry-After +
+   no leaks; health still reachable DURING the block (exemption real); login surface
+   unaffected by the REST throttle (401 invalid credentials, not 429 — proves the
+   two limiters are independent).
+- Two test-harness bugs found during development and fixed: section-2 default-config
+  assertions needed knob-gating (assertions must match server config), and the unit
+  section's env cleanup deleted the externally-set knob (now save/restored).
+- Login-limiter behavior verified unchanged via its own suites (security lockout
+  45/45 knobbed; performance loginLimiter bounds).
+
+## TEST RESULTS (full 15-suite battery)
+rest-limit 19/19 (default server) + 18/18 (knobbed REST_RATE_LIMIT=10 run — sections
+swap per documented gating) · sockets 22 · chat 35 · notif-realtime 20 · presence 26
+(knobbed) · system 46 · notifications 68 · errors 20 · security 45/45 (isolated
+knobbed run — documented env behavior) · performance 22 · mytasks 13 · dashboard 10 ·
+productivity 21 · member-workload 31 · refresh-auth 28 =
+**439 assertions, 0 failures** (baseline 420 → +19; no regressions)
+The full battery ran under DEFAULT rest-limiter config — proving no false throttling
+of normal/aggregate traffic.
+
+## BUILD RESULT
+✅ Frontend production build green (no frontend changes — verified per convention).
+
+## SECURITY CONSIDERATIONS
+- Rate limiting runs BEFORE authentication/database — throttled requests cost ~nothing.
+- Client identity (req.ip) is not spoofable in the current deployment posture; no
+  forwarding headers are trusted. trust proxy deliberately NOT set in code — a
+  reverse-proxy deployment step, now documented (avoids the spoofing regression of
+  blindly honoring X-Forwarded-For).
+- 429 bodies are safe envelopes; leak-pattern scan asserted. Retry-After is standard.
+- Nothing weakened: loginLimiter semantics/knobs untouched; joinLimiter untouched;
+  blind-404, 9.1 sessions/revocation, HS256 pinning, CORS, security headers, role
+  checks all re-verified green.
+- Memory-bounded like the other limiters (prune + 10k cap).
+
+## DELIBERATELY LEFT UNTOUCHED
+- loginLimiter (semantics, AUTH_* knobs, in-controller placement) — preserved per scope
+- joinLimiter and all socket auth/rooms
+- Frontend (no changes needed: 429 on protected routes triggers no interceptor paths;
+  30s polling + normal usage stays far below 600/min)
+- Per-user/tiered/per-endpoint differentiated limits (no documented requirement)
+- Redis/distributed storage (explicit DEPLOYMENT.md non-goal)
+- register/refresh limiting (future refinement candidate, noted)
+
+## KNOWN LIMITATIONS
+- Single-instance in-memory window (restart clears counters) — accepted architecture.
+- Per-IP: shared-NAT users share one window (600/min is sized for this); per-identity
+  limiting would require authenticated-user keys (no documented requirement).
+- No distributed denial-of-service protection — a reverse proxy / LB is the right
+  layer (documented in DEPLOYMENT.md).
+- Recovery-after-block at HTTP level relies on window expiry (60s default);
+  verified at unit level + knobbed threshold, per the documented env-gated pattern.
+
+## DOCUMENTATION UPDATED
+docs/DEVELOPMENT.md (env table + test command + 15-suite aggregate), docs/DEPLOYMENT.md
+(knob row + security-posture line + reverse-proxy trust-proxy note),
+docs/API.md (429 note on protected routes), README.md (suite count 15 / 439 assertions;
+security notes line), .env.example (+REST_RATE_LIMIT/REST_RATE_WINDOW_MS),
+PROJECT_PLAN.md / PROJECT_PROGRESS.md / PROJECT_RESULT.md, this file.
+
+## FINAL ACCEPTANCE STATUS
+All acceptance criteria met: protected REST surface limited per-IP (600/60s default,
+env-adjustable) with safe 429 + Retry-After; health/auth exempt; socket traffic
+unaffected; no method/route bypass by construction; loginLimiter preserved and green;
+full 15-suite battery green at 439 assertions under default config; build green; no
+new dependencies; single-node architecture preserved. Phase 9.2 COMPLETE.
+Phase 9 overall: IN PROGRESS (9.3 HTTPS/HSTS/CSP deployment posture remains).

@@ -2,6 +2,7 @@
 
 Base URL: `/api` — all request/response bodies are JSON.
 Errors use one envelope everywhere: `{ "error": "<safe message>" }` with appropriate HTTP status (400 validation, 401 auth, 403 permission, 404 not-found/blind, 409 conflict, 413 payload too large, 429 rate-limited, 500 generic).
+Rate limiting: logins have a per-IP failed-attempt lockout (429); protected routes are subject to a general per-IP request limit (default 600/min, `REST_RATE_LIMIT`/`REST_RATE_WINDOW_MS`) returning 429 with a `Retry-After` header (9.2). `/health` and `/auth/*` are exempt.
 
 Authentication: `Authorization: Bearer <JWT>` (15-minute expiry) or the httpOnly `token` cookie set at login. Access tokens carry a `sid` session-family claim; a revoked family (logout with refresh token, or refresh-token replay) rejects its access tokens immediately (9.1). Refresh tokens are single-use, httpOnly-cookie transported, and rotate on every `POST /auth/refresh`.
 

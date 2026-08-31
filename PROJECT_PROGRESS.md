@@ -1733,3 +1733,24 @@ Official name: "Testing and Deployment" (original roadmap). Original items alrea
 
 ### Next Phase
 Begin **Phase 9.2** (broader REST rate limiting — not started). Phase 9 overall: IN PROGRESS.
+
+## Phase Status: PHASE 9.2 - COMPLETED (Broader REST Rate Limiting)
+
+### Audit Findings (from source)
+- Only two limiters existed: loginLimiter (5E.3, per-IP FAILED-logins, applied inside authController.login only) and joinLimiter (5D.5, socket room-joins). No request-rate limiting on ANY other REST route — 5E.3 known-limitation #5
+- No trust-proxy anywhere; req.ip = socket remote address (not spoofable); docs/DEPLOYMENT.md: direct single-node exposure, in-memory limiters, Redis a non-goal
+- Battery volume: 14 suites ≈260 requests from 127.0.0.1 over ~2 min → a 600/60s default keeps the battery unthrottled (verified)
+
+### What Was Done
+- New `middleware/restLimiter.js`: the established in-memory fixed-window pattern (Map, env knobs, prune, 10k hard cap, test reset) applied to per-IP request counting; mounted in routes/index.js after public routes and before the protected routers → health/auth exempt by construction; every method/route on users/groups/notifications/tasks/messages covered with no bypass by construction; check runs before authenticate and any DB work
+- Defaults deliberately generous: REST_RATE_LIMIT=600 / REST_RATE_WINDOW_MS=60000 per IP (abuse shield; active tabs ≈ tens/min incl. polling; office NAT unaffected; sustained hammering blocked); 429 = safe envelope `Too many requests. Please try again later.` + standard Retry-After (whole seconds, min 1)
+- Client identity: req.ip (loginLimiter precedent); no forwarding headers trusted; trust-proxy documented as a reverse-proxy deployment step in DEPLOYMENT.md (avoids IP-spoofing regression)
+- loginLimiter semantics/knobs and joinLimiter untouched; frontend untouched (429s on protected routes trigger no interceptor paths)
+
+### Verification
+- ✅ New rest-limit suite: 19/19 under default server config (unit logic, no-false-throttling burst, exemptions, method coverage, envelope) and 18/18 under knobbed REST_RATE_LIMIT=10 (threshold-pass, 429+Retry-After+no-leaks, health reachable during block, login 401-during-block proving the limiters are independent); sections gated by documented env-knob pattern (2 test-harness bugs fixed during development: section gating + env save/restore)
+- ✅ Full 15-suite battery green under DEFAULT config (proves no false throttling): 439 assertions, 0 failures (security 45/45 isolated knobbed run)
+- ✅ Frontend production build green (no frontend changes)
+
+### Next Phase
+Begin **Phase 9.3** (HTTPS/HSTS/CSP proxy/deployment posture — not started). Phase 9 overall: IN PROGRESS.
