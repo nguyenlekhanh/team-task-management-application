@@ -560,13 +560,16 @@
 
 **Phase 9.2: Broader REST Rate Limiting** - **COMPLETED** (closes 5E.3 known-limitation #5: no request-rate limiting on non-auth REST endpoints. New restLimiter middleware — established in-memory fixed-window pattern — mounted after public routes (health/auth exempt by construction) and before the protected routers (all methods, users/groups/notifications/tasks/messages; check precedes authenticate+DB); 600 req/min/IP default via REST_RATE_LIMIT/REST_RATE_WINDOW_MS; safe 429 + Retry-After; req.ip identification with no trust-proxy (documented as deployment step); loginLimiter/joinLimiter preserved; new rest-limit suite (19/19 default + 18/18 knobbed); full 15-suite battery green at 439 assertions)
 
+**Phase 9.3: HTTPS/HSTS/CSP Proxy & Deployment Posture** - **COMPLETED** (closes 5E.3 known-limitation #6 per the documented TLS-at-proxy architecture: no in-app TLS, zero certificate material in-repo. App: opt-in TRUST_PROXY (default off, no IP-spoofing regression), production-only HSTS (max-age=31536000, no preload/includeSubDomains) + strict JSON-API CSP beside the 5E.3 headers; dev emits neither. Deployment: reference nginx config (TLS 1.2/1.3, 301 redirect, matching HSTS, WebSocket upgrade, minimum-viable frontend CSP audited against the bundle), security-tradeoff ledger, deploy checklist. New 38-assertion posture suite; full 16-suite battery green at 477 assertions. All three documented Phase 9 candidates COMPLETE — remaining items are optional candidates only: email/push, HTTP caching/ETags, not started)
+
 **Phase 6.7: Task List Actions & Coverage** - **COMPLETED** (Task List inline Status/Priority/Assignee + Delete, per-row saving, server-authoritative, pagination edge handling, overdue derived — no new endpoints)
 **Phase 6.6: Task UX Polish** - **COMPLETED** (shared taskDisplay helpers, aria enhancements for TaskForm/Checklist/pagination, consistent overdue/date formatting, responsive polish; frontend-only changes; build green)
 
 ## Recommended Next Steps
 
-1. **Begin Phase 9.3** (HTTPS/HSTS/CSP proxy/deployment posture — not started; the last documented Phase 9 candidate)
-   - Optional afterwards: email/push channels, HTTP caching/ETags (5E.4 candidates)
+1. **All documented Phase 9 candidates are COMPLETE** (9.1 refresh tokens/revocation, 9.2 broader REST rate limiting, 9.3 HTTPS/HSTS/CSP proxy posture)
+2. **Optional remaining candidates** (per roadmap notes — pursue only if desired): email/push delivery channels; HTTP caching/ETags
+   - Run the deployment verification checklist from docs/DEPLOYMENT.md when deploying
 
 (End of file)
 ## Final Feature Matrix (Phase 5E.5)

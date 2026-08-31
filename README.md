@@ -2,7 +2,7 @@
 
 A collaboration platform combining **team groups, task management, checklists, group chat, task comments, notifications, and realtime updates** — built with React + Vite on the frontend and Node/Express + Sequelize (SQLite) + Socket.IO on the backend.
 
-**Status: feature-complete for implemented scope.** 439 automated assertions across 15 test suites, all passing.
+**Status: feature-complete for implemented scope.** 477 automated assertions across 16 test suites, all passing.
 
 ## Features
 - **Authentication** — register/login (JWT, bcrypt-hashed passwords), profile editing, password change, brute-force login lockout
@@ -13,7 +13,8 @@ A collaboration platform combining **team groups, task management, checklists, g
 - **Notifications** — TASK_ASSIGNED, TASK_COMPLETED, NEW_MESSAGE, DEADLINE_APPROACHING, MENTION; unread badge; mark read/all-read/delete; per-type user preferences
 - **Realtime** — Socket.IO: instant messages/comments, pushed notifications, connection-derived presence with multi-tab support, automatic reconnect + REST resync
 - **Sessions** — 15-minute access tokens + single-use refresh tokens with rotation and theft detection; logout revokes the session server-side (9.1)
-- **Security** — CORS allowlist, HS256-pinned JWTs, HttpOnly+SameSite cookies, security headers, rate limiting (logins + socket joins + general per-IP REST limit on protected routes), validated/sanitized inputs, blind-404 authorization, safe error envelopes
+- **Security** — CORS allowlist, HS256-pinned JWTs, HttpOnly+SameSite cookies, security headers + production-only HSTS + strict API CSP, rate limiting (logins + socket joins + general per-IP REST limit on protected routes), validated/sanitized inputs, blind-404 authorization, safe error envelopes
+- **Deployment posture** — TLS terminates at a reverse proxy (never in-app; no certificates in this repo); opt-in `TRUST_PROXY` for real client IPs behind a trusted proxy; documented nginx config (TLS, HTTP→HTTPS redirect, HSTS, WebSocket upgrade, frontend CSP) in docs/DEPLOYMENT.md
 
 ## Architecture
 ```
@@ -27,7 +28,7 @@ REST is authoritative for all reads/writes; Socket.IO is a best-effort delivery 
 backend/
   src/{controllers,routes,middleware,models,services,socket,utils,jobs,jobs,config}
   migrations/          Sequelize migrations (Users…Notifications)
-  tests/               15 integration/security/perf suites (plain node scripts)
+  tests/               16 integration/security/perf suites (plain node scripts)
 frontend/
   src/{pages,components,contexts,hooks,services}
 docs/                  API.md · DEVELOPMENT.md · DEPLOYMENT.md · USER_GUIDE.md
@@ -50,10 +51,10 @@ Full configuration reference: [docs/DEVELOPMENT.md](docs/DEVELOPMENT.md)
 
 ## Test commands (backend/, server must be running)
 ```bash
-npm run test:all        # aggregate: all 15 suites
+npm run test:all        # aggregate: all 16 suites
 npm run test:sockets | test:chat | test:notification-realtime | test:presence
 npm run test:system | test:notifications | test:errors | test:security | test:performance
-npm run test:mytasks | test:dashboard | test:productivity | test:member-workload | test:refresh-auth | test:rest-limit
+npm run test:mytasks | test:dashboard | test:productivity | test:member-workload | test:refresh-auth | test:rest-limit | test:posture
 ```
 Presence suite needs `PRESENCE_GRACE_MS=800 SOCKET_JOIN_LIMIT=8` env values; security lockout section needs `AUTH_MAX_FAILED<=8`; rest-limit throttle section needs `REST_RATE_LIMIT<=50` on server and test env. Frontend: `npm run build`.
 

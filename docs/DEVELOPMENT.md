@@ -28,6 +28,7 @@ Copy `.env.example` to `backend/.env` (and set frontend vars in `frontend/.env`)
 | AUTH_MAX_FAILED / AUTH_FAILURE_WINDOW_MS | backend | 30 / 900000 | Login brute-force lockout (failed attempts per IP) |
 | REFRESH_TOKEN_TTL_MS | backend | 604800000 (7 days) | Session/refresh-token family lifetime; restart clears all sessions |
 | REST_RATE_LIMIT / REST_RATE_WINDOW_MS | backend | 600 / 60000 | General per-IP REST request limit on protected routes (9.2); health + auth exempt |
+| TRUST_PROXY | backend | unset | Reverse-proxy posture (9.3): unset = direct exposure; `1` (hops), `loopback`, or CIDR makes req.ip real behind a trusted proxy. See docs/DEPLOYMENT.md TLS section |
 | VITE_API_URL | frontend | /api | e.g. `http://localhost:3000/api` in dev |
 | VITE_SOCKET_URL | frontend | derived from VITE_API_URL origin | Explicit socket endpoint override |
 
@@ -71,7 +72,7 @@ PRESENCE_GRACE_MS=800 SOCKET_JOIN_LIMIT=8 SOCKET_JOIN_WINDOW_MS=3000 npm start
 ```
 Then (from `backend/`):
 ```bash
-npm run test:all                  # aggregate: all 15 suites in order
+npm run test:all                  # aggregate: all 16 suites in order
 npm run test:sockets              # foundation
 npm run test:chat                 # realtime chat/comments
 npm run test:notification-realtime
@@ -87,7 +88,8 @@ npm run test:productivity         # per-group stats include=stats (7.2)
 npm run test:member-workload      # per-member stats include=stats (7.3)
 npm run test:refresh-auth         # refresh rotation + revocation (9.1)
 npm run test:rest-limit           # REST rate limiting (9.2; throttle section needs REST_RATE_LIMIT<=50 on server+test env)
-```
+npm run test:posture             # HTTPS/HSTS/CSP deployment posture (9.3)
+``
 Frontend: `npm run build` must succeed; there is no browser automation framework.
 
 ## Realtime development notes

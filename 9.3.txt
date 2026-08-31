@@ -1,0 +1,160 @@
+# Phase 9.3 - HTTPS / HSTS / CSP Proxy & Deployment Posture
+
+## STATUS
+COMPLETED
+
+## PHASE / SUB-PHASE
+Phase 9: Testing and Deployment — Sub-phase 9.3: HTTPS/HSTS/CSP proxy/deployment posture
+(third documented Phase 9 candidate; 5E.3 known-limitation #6: "HTTPS/HSTS, CSP, and
+reverse-proxy TLS termination belong to deployment (Phase 9 / out of code scope)";
+PROJECT_PLAN.md:430 "HTTPS/HSTS/CSP at proxy")
+
+## OBJECTIVE
+Deliver the documented posture: TLS terminates at a reverse proxy (never in-app — zero
+certificate/key material in the repo); the application gains the correct proxy/security
+posture for that architecture (opt-in trust proxy, production-only HSTS, strict API CSP);
+and the deployment side gains an exact, statically-verified proxy configuration plus an
+honest security-tradeoff ledger of code-enforced vs proxy-enforced controls.
+
+## AUDIT FINDINGS (from source/docs, before changes)
+- HTTPS: never in-app (plain `http.createServer`; zero cert references). DEPLOYMENT.md:
+  "put HTTPS/TLS termination in front (not handled in-app)". Cookies already
+  `secure: NODE_ENV === 'production'` (9.1) — correct for TLS-at-proxy.
+- HSTS: absent everywhere (documented as a Phase 9/proxy concern).
+- CSP: absent everywhere. Existing app headers (5E.3): nosniff, X-Frame-Options DENY,
+  Referrer-Policy no-referrer.
+- trust proxy: deliberately unset (9.2) with a DEPLOYMENT.md warning about blind
+  X-Forwarded-* trust; rate limiters key on req.ip.
+- Frontend CSP needs (audited): no inline `<script>` (module entry only);
+  `dangerouslySetInnerHTML` = 0; 3 inline `style={}` props (progress bars, one margin)
+  → style-src 'unsafe-inline' required at the static frontend; user-supplied
+  `avatarUrl` rendered as `<img>` (GroupDetail) → img-src must allow https:/data:;
+  API + WebSocket origins needed in connect-src; no unsafe-eval anywhere.
+- Dev/test: NODE_ENV=development locally; 15 suites over plain HTTP to 127.0.0.1;
+  Vite dev server machinery incompatible with a forced prod CSP.
+
+## WHAT WAS IMPLEMENTED
+
+### Application side (`backend/src/app.js`)
+- **TRUST_PROXY opt-in** (default unset = today's direct-exposure behavior, no spoofing
+  surface): `TRUST_PROXY=1` (hop count) | `loopback` | CIDR → `app.set('trust proxy', …)`
+  so req.ip reflects the real client behind OUR proxy and X-Forwarded-* is honored ONLY
+  from the trusted hops (Express semantics — not blind header trust). Turns the 9.2
+  documentation note into a supported explicit configuration.
+- **Production-only security headers** (beside the untouched 5E.3 trio, gated on
+  `NODE_ENV === 'production'`):
+  - `Strict-Transport-Security: max-age=31536000` — conservative: **no preload, no
+    includeSubDomains** (nothing in the project justifies them; both can brick
+    sibling subdomains). Proxy config uses the SAME max-age so headers never contradict.
+  - `Content-Security-Policy: default-src 'none'; frame-ancestors 'none'` — exact for a
+    JSON API (loads nothing, embeds nothing, frames nothing). No unsafe-inline/eval.
+- **Development emits NEITHER** (HSTS over plain HTTP is wrong and could pin browsers
+  to a non-TLS local origin; CSP would fight Vite's HMR) — env-gated, unit-verified.
+- Secure-cookie behavior unchanged (already `NODE_ENV`-gated from 9.1) — now verified
+  against the production posture by test.
+
+### Deployment side (`docs/DEPLOYMENT.md`)
+- Complete reference **nginx configuration**: HTTP:80 → 301 HTTPS redirect; TLS server
+  block (TLSv1.2/1.3 only, http2); HSTS on the static side (matching max-age); the
+  **minimum-viable frontend CSP** derived from the frontend audit
+  (`default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline';
+  img-src 'self' https: data:; connect-src 'self' <API> wss://<API>; font-src 'self';
+  object-src 'none'; base-uri 'self'; frame-ancestors 'none'`); WebSocket
+  `Upgrade`/`Connection` + `proxy_pass` for the app; X-Forwarded-* propagation.
+- **Honest security-tradeoff ledger** (code-enforced vs proxy-enforced vs
+  deploy-time-verified) and a 6-step **deployment verification checklist** (redirect,
+  headers over HTTPS, CSP console cleanliness, wss:// connectivity, Secure cookies in
+  browser, per-client rate-limit IPs with TRUST_PROXY).
+- TRUST_PROXY row in the env table; 9.2 reverse-proxy note updated to reference it.
+
+### Tests (`backend/tests/deployment-posture.test.js`, + `test:posture`, in `test:all`)
+38 assertions in four sections:
+1. Dev server (always runs): 5E.3 headers present; HSTS + CSP deliberately ABSENT —
+   proves production-only behavior does not break dev/tests.
+2. Production header logic (in-process, deterministic, ephemeral ports, fresh module
+   graph): HSTS max-age=31536000 with no preload/includeSubDomains; strict API CSP
+   (`default-src 'none'`, `frame-ancestors 'none'`, no unsafe-*); 5E.3 trio intact;
+   app still plain HTTP behind the proxy; a dev instance of the same code emits neither.
+3. Production cookie posture (same in-process prod instance): register Set-Cookie for
+   token AND refreshToken each HttpOnly + Secure + SameSite=Lax.
+4. Proxy-config static verification (grep-based, honest): doc contains listen 443 ssl,
+   TLSv1.2/1.3 only (no 1.0/1.1), 301 redirect, matching HSTS (both places 31536000),
+   WebSocket Upgrade/Connection directives, frontend CSP (no unsafe-eval, connect-src
+   covers https + wss), proxy_pass, no private-key material (paths only), TRUST_PROXY
+   guidance, and the deployment checklist.
+
+## FILES CHANGED
+- Modified: `backend/src/app.js` (TRUST_PROXY + production headers), `backend/package.json`
+  (test:posture; test:all), `.env.example` (TRUST_PROXY documented), `docs/DEPLOYMENT.md`
+  (proxy section + tradeoff ledger + checklist + env row), `docs/DEVELOPMENT.md`
+  (env row + test command + 16-suite aggregate), `README.md` (security/deployment lines,
+  16 suites / 477 assertions), `PROJECT_PLAN.md`, `PROJECT_PROGRESS.md`,
+  `PROJECT_RESULT.md`
+- Created: `backend/tests/deployment-posture.test.js`, `9.3.txt`
+
+## API CHANGES
+None to shapes/contracts. New production-only headers on responses (HSTS, API CSP);
+dev responses byte-identical to before.
+
+## DATABASE CHANGES
+None.
+
+## TEST RESULTS (full 16-suite battery)
+sockets 22 · chat 35 · notif-realtime 20 · presence 26 (knobbed) · system 46 ·
+notifications 68 · errors 20 · security 45/45 (isolated knobbed run — documented env
+behavior) · performance 22 · mytasks 13 · dashboard 10 · productivity 21 ·
+member-workload 31 · refresh-auth 28 · rest-limit 19 (default config) ·
+**posture 38 (NEW)** = **477 assertions, 0 failures** (baseline 439 → +38; no regressions)
+
+## BUILD RESULT
+✅ Frontend production build green (no frontend changes).
+
+## SECURITY IMPACT / TRADEOFFS (honest ledger summary)
+- **Enforced by code**: production HSTS (conservative), strict API CSP, 5E.3 headers,
+  Secure/HttpOnly/SameSite cookies, TRUST_PROXY opt-in (default off — no IP-spoofing
+  regression), all prior protections (limiters ×3, blind-404, JWT + refresh rotation/
+  revocation/replay detection, socket auth, error envelopes) re-verified green.
+- **Enforced by the reverse proxy only**: TLS/certificates, HTTP→HTTPS redirect, HSTS +
+  CSP for the static frontend, WebSocket upgrade passthrough. No certificates, private
+  keys, or self-signed material exist in this repository (statically verified).
+- **Verified at deployment time (checklist in DEPLOYMENT.md, NOT claimed as tested
+  here)**: live redirect behavior, real TLS handshakes, CSP console cleanliness in a
+  browser, wss:// connectivity, cookie flags in a real browser, per-client rate-limit
+  IPs behind the proxy. No browser/proxy/production TLS testing was performed in this
+  repository — stated plainly.
+- **Intentionally NOT enabled in development**: HSTS (wrong over plain HTTP), API CSP
+  header (Vite HMR), Secure cookie flags. All three are env-gated and test-verified.
+- **Accepted tradeoffs (documented, not weakened elsewhere)**: frontend CSP needs
+  `style-src 'unsafe-inline'` (3 audited React inline style props; a nonce/static-
+  extraction build refactor is future work) and broad `img-src https: data:`
+  (user-supplied avatarUrl rendered as <img>). The API CSP carries NO unsafe-* tokens.
+
+## DELIBERATELY LEFT UNTOUCHED
+- In-app TLS (never introduced — documented architecture)
+- HSTS preload/includeSubDomains (conservative by design)
+- loginLimiter/joinLimiter/restLimiter semantics; blind-404; roles; token/session flow
+- Frontend code (inline styles stay; CSP accommodates them at the proxy, honestly)
+- 5E.3 header trio (kept verbatim, now verified by posture suite)
+
+## KNOWN LIMITATIONS
+- Proxy config is reference nginx — not exercised in-repo; the deployment checklist
+  must be run at deploy time.
+- One-file-per-frontend CSP means the 3 inline styles force 'unsafe-inline' for style
+  only; removing it requires a frontend build change (out of scope).
+- TRUST_PROXY is deliberately NOT set by default; operators behind a proxy must set it
+  or rate limits key on the proxy's IP (documented).
+- The app-level API CSP is defense-in-depth only — the browser never renders API
+  responses; the frontend's real CSP lives at the proxy.
+
+## FINAL ACCEPTANCE STATUS
+All acceptance criteria met: dev/test behavior unchanged (battery green without
+modification); production instances emit conservative HSTS + strict API CSP with 5E.3
+headers intact; TRUST_PROXY opt-in defaults off (no spoofing regression, verified);
+DEPLOYMENT.md contains a complete, statically-verified proxy configuration + tradeoff
+ledger + deploy checklist; zero certificate/key material in the repo (statically
+verified); no new dependencies; 38/38 new assertions; full 16-suite battery green at
+477 assertions; build green. Phase 9.3 COMPLETE.
+**Phase 9 overall: IN PROGRESS — all three DOCUMENTED security/deployment candidates
+(9.1 refresh tokens/revocation, 9.2 REST rate limiting, 9.3 HTTPS/HSTS/CSP posture)
+are now COMPLETE. Remaining Phase 9 items are the OPTIONAL candidates only
+(email/push channels, HTTP caching/ETags — 5E.4/roadmap notes); none started.**

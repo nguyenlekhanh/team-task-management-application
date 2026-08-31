@@ -1754,3 +1754,33 @@ Begin **Phase 9.2** (broader REST rate limiting — not started). Phase 9 overal
 
 ### Next Phase
 Begin **Phase 9.3** (HTTPS/HSTS/CSP proxy/deployment posture — not started). Phase 9 overall: IN PROGRESS.
+
+## Phase Status: PHASE 9.3 - COMPLETED (HTTPS/HSTS/CSP Proxy & Deployment Posture)
+
+### Audit Findings (from source/docs)
+- HTTPS never in-app (plain http.createServer; zero cert references); documented architecture = TLS termination at reverse proxy; cookies already NODE_ENV-gated Secure (9.1)
+- HSTS and CSP absent everywhere (both documented as Phase 9/proxy concerns); existing app headers = 5E.3 trio (nosniff, XFO DENY, Referrer-Policy)
+- trust proxy deliberately unset (9.2) — req.ip not spoofable; rate limiters key on it
+- Frontend CSP needs audited: no inline scripts; 0 dangerouslySetInnerHTML; 3 inline style props (progress bars) → style-src 'unsafe-inline' required at the frontend; user-supplied avatarUrl as <img> → img-src https:/data:; no unsafe-eval anywhere; API + wss origins needed in connect-src
+
+### What Was Done (application side, app.js)
+- TRUST_PROXY opt-in knob (default unset = no spoofing surface): `1`|`loopback`|CIDR → app.set('trust proxy', …) so X-Forwarded-* is honored ONLY from trusted hops; turns the 9.2 documentation note into supported configuration
+- Production-only headers (NODE_ENV=production), beside the untouched 5E.3 trio: HSTS max-age=31536000 (conservative — NO preload, NO includeSubDomains) and strict JSON-API CSP `default-src 'none'; frame-ancestors 'none'` (no unsafe-* tokens)
+- Development emits NEITHER (HSTS wrong over plain HTTP; CSP fights Vite HMR) — env-gated
+
+### What Was Done (deployment side, docs/DEPLOYMENT.md)
+- Complete reference nginx config: HTTP→HTTPS 301, TLS 1.2/1.3-only server block, matching HSTS, minimum-viable frontend CSP (audited: style-src 'unsafe-inline' justified by 3 inline styles; img-src https:/data: justified by user-supplied avatars; connect-src covers API + wss), WebSocket Upgrade/Connection for /socket.io/, proxy_pass + X-Forwarded-* propagation
+- Honest security-tradeoff ledger (code-enforced / proxy-enforced / deploy-time-verified) and 6-step deployment verification checklist; TRUST_PROXY env row; 9.2 proxy note updated
+
+### Security Impact (nothing weakened — all re-verified green)
+- All three limiters, blind-404, roles, JWT + refresh rotation/revocation/replay detection, httpOnly cookies, socket auth, error envelopes, 5E.3 headers: untouched and battery-verified
+- Zero certificates/private keys/self-signed material committed (statically verified by the suite)
+- Honest ledger: TLS, redirect, frontend HSTS/CSP, WebSocket upgrade are proxy-enforced (documented, statically verified, deploy checklist provided) — NOT claimed as tested in-repo; no browser/proxy/production TLS testing performed
+
+### Verification
+- ✅ New posture suite 38/38: dev posture (5E.3 headers; HSTS/CSP absent), in-process production instance (HSTS + CSP exact values; no preload/includeSubDomains; no unsafe-*; app plain HTTP behind proxy), production cookie flags (token + refreshToken each HttpOnly+Secure+SameSite=Lax), static proxy-config verification (13 doc directives incl. matching max-ages and no key material)
+- ✅ Full 16-suite battery green: 477 assertions, 0 failures (baseline 439; security 45/45 isolated knobbed run)
+- ✅ Frontend production build green (no frontend changes)
+
+### Next Phase
+All three DOCUMENTED Phase 9 candidates are COMPLETE (9.1 refresh tokens/revocation, 9.2 REST rate limiting, 9.3 HTTPS/HSTS/CSP posture). Remaining Phase 9 items are the OPTIONAL roadmap candidates only (email/push channels; HTTP caching/ETags) — not started; scope to be determined if pursued.
